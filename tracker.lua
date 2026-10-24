@@ -186,6 +186,24 @@ function Tracker.new()
     self.bankIconObjId = 995
     self.storageSyncedLive = false
     self.bankSyncedLive = false
+
+    -- If storage was falsely populated with an exact duplicate copy of Bank, purge it
+    local isBankDuplicate = (storEntries > 0 and bankEntries > 0)
+    if isBankDuplicate then
+        for matName, storCount in pairs(self.storageMaterials) do
+            if (self.bankMaterials[matName] or 0) ~= storCount then
+                isBankDuplicate = false
+                break
+            end
+        end
+    end
+    if isBankDuplicate then
+        self.storageMaterials = {}
+        storEntries = 0
+        safeDbSet("arch_storage_materials", "")
+        safeDbSet("arch_storage_synced", 0)
+    end
+
     self.storageHasCache = (storEntries > 0)
     self.bankHasCache = (bankEntries > 0)
     self.lastAction = nil
@@ -563,35 +581,6 @@ function Tracker:scanAllInventories(triggerInvType)
                 safeDbSet("arch_bank_synced", 1)
                 safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
                 safeDbSet("arch_bank_artefacts", serializeCountMap(self.bankArtefacts))
-            end
-        end
-    end
-
-    -- 3. Check candidate Material Storage Inv names from config.Inv
-    local candidateKeys = {
-        "ARCHAEOLOGY_MATERIAL_STORAGE",
-        "MATERIAL_STORAGE",
-        "ARCH_MATERIAL_STORAGE",
-        "ARCHAEOLOGY_MATERIALS",
-        "ARCHAEOLOGY_STORAGE",
-        "MAT_STORAGE"
-    }
-
-    for _, key in ipairs(candidateKeys) do
-        local okRef, ref = pcall(function() return config.Inv[key] end)
-        if okRef and ref then
-            local storInv = findInventory(ref)
-            if storInv then
-                local storMats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(storInv)
-                local triggeredByStor = (triggerInvType ~= nil and triggerInvType == ref)
-                local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(storMats, archKinds)
-                if not isInspect and (triggeredByStor or archKinds > 0) and (totalSlots == 0 or totalSlots >= 15) then
-                    self.storageMaterials = storMats
-                    self.storageSyncedLive = true
-                    safeDbSet("arch_storage_synced", 1)
-                    safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
-                    break
-                end
             end
         end
     end
