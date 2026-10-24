@@ -742,8 +742,8 @@ function Window:buildContentComponents(container)
     colArtName.colour = COL_GOLD
     colArtName.content = "Artefact"
     colArtName.maxLines = 1
-    colArtName:SetPos(62, 2, 0, 0)
-    colArtName:SetSize(-446, 20, 1.0, 0)
+    colArtName:SetPos(84, 2, 0, 0)
+    colArtName:SetSize(-468, 20, 1.0, 0)
 
     local colArtLvl = ui.Text.new(artLayer)
     colArtLvl.font = id.Font.MUSEO_SANS_15PT_REGULAR
@@ -830,13 +830,19 @@ function Window:buildContentComponents(container)
         toggleTxt:SetSize(44, ROW_HEIGHT - 6, 0, 0)
         toggleTxt.hidden = (i > 1)
 
+        local icon = ui.Sprite.new(artLayer)
+        icon.clickthrough = true
+        icon:SetPos(60, rowY + 2, 0, 0)
+        icon:SetSize(20, 20)
+        icon.hidden = true
+
         local nameTxt = ui.Text.new(artLayer)
         nameTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         nameTxt.colour = COL_WHITE
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
-        nameTxt:SetPos(62, rowY + 2, 0, 0)
-        nameTxt:SetSize(-446, ROW_HEIGHT - 2, 1.0, 0)
+        nameTxt:SetPos(84, rowY + 2, 0, 0)
+        nameTxt:SetSize(-468, ROW_HEIGHT - 2, 1.0, 0)
         nameTxt.hidden = (i > 1)
 
         local lvlTxt = ui.Text.new(artLayer)
@@ -959,6 +965,7 @@ function Window:buildContentComponents(container)
             bg = bg,
             toggleBg = toggleBg,
             toggleTxt = toggleTxt,
+            icon = icon,
             nameTxt = nameTxt,
             lvlTxt = lvlTxt,
             ownedTxt = ownedTxt,
@@ -994,8 +1001,8 @@ function Window:buildContentComponents(container)
     colHeaderMat.colour = COL_GOLD
     colHeaderMat.content = "Material"
     colHeaderMat.maxLines = 1
-    colHeaderMat:SetPos(14, 2, 0, 0)
-    colHeaderMat:SetSize(155, 20, 0, 0)
+    colHeaderMat:SetPos(38, 2, 0, 0)
+    colHeaderMat:SetSize(131, 20, 0, 0)
     self.colHeaderMat = colHeaderMat
 
     local colHeaderLvl = ui.Text.new(tableLayer)
@@ -1049,13 +1056,19 @@ function Window:buildContentComponents(container)
             self:onHoverMaterialRow(rowIdx)
         end)
 
+        local icon = ui.Sprite.new(tableLayer)
+        icon.clickthrough = true
+        icon:SetPos(14, rowY + 2, 0, 0)
+        icon:SetSize(20, 20)
+        icon.hidden = true
+
         local nameTxt = ui.Text.new(tableLayer)
         nameTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         nameTxt.colour = COL_WHITE
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
-        nameTxt:SetPos(14, rowY + 2, 0, 0)
-        nameTxt:SetSize(155, ROW_HEIGHT - 2, 0, 0)
+        nameTxt:SetPos(38, rowY + 2, 0, 0)
+        nameTxt:SetSize(131, ROW_HEIGHT - 2, 0, 0)
         nameTxt.hidden = (i > 1)
 
         local lvlTxt = ui.Text.new(tableLayer)
@@ -1096,6 +1109,7 @@ function Window:buildContentComponents(container)
 
         self.materialRows[i] = {
             bg = bg,
+            icon = icon,
             nameTxt = nameTxt,
             lvlTxt = lvlTxt,
             locTxt = locTxt,
@@ -1786,6 +1800,20 @@ function Window:refresh()
         local item = artList[slotIdx]
 
         if item then
+            local objId = item.artefact and item.artefact.id
+            if objId and objId > 0 and rowUI.icon then
+                local ok = pcall(function()
+                    rowUI.icon:SetAssociatedObject(math.tointeger(objId) or objId)
+                    rowUI.icon.associatedObjectQuantity = 1
+                    if ui.ObjectQuantityDisplayMode then
+                        rowUI.icon.associatedObjectQuantityMode = ui.ObjectQuantityDisplayMode.NEVER
+                    end
+                end)
+                rowUI.icon.hidden = not ok
+            elseif rowUI.icon then
+                rowUI.icon.hidden = true
+            end
+
             rowUI.bg.hidden = false
             rowUI.toggleBg.hidden = false
             rowUI.toggleTxt.hidden = false
@@ -1861,6 +1889,7 @@ function Window:refresh()
                 end
             end
         else
+            if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
             rowUI.toggleBg.hidden = true
             rowUI.toggleTxt.hidden = true
@@ -1888,6 +1917,20 @@ function Window:refresh()
 
         if item then
             local mat = item.material
+            local objId = mat and mat.id
+            if objId and objId > 0 and rowUI.icon then
+                local ok = pcall(function()
+                    rowUI.icon:SetAssociatedObject(math.tointeger(objId) or objId)
+                    rowUI.icon.associatedObjectQuantity = 1
+                    if ui.ObjectQuantityDisplayMode then
+                        rowUI.icon.associatedObjectQuantityMode = ui.ObjectQuantityDisplayMode.NEVER
+                    end
+                end)
+                rowUI.icon.hidden = not ok
+            elseif rowUI.icon then
+                rowUI.icon.hidden = true
+            end
+
             if mat and not mat._cachedLoc then
                 if mat.caches and #mat.caches > 0 then
                     mat._cachedLoc = table.concat(mat.caches, ", ")
@@ -1924,6 +1967,7 @@ function Window:refresh()
                 rowUI.statusTxt.colour = COL_GREEN
             end
         else
+            if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
             rowUI.nameTxt.hidden = true
             rowUI.lvlTxt.hidden = true

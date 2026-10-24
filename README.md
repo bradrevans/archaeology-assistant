@@ -13,13 +13,15 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 - **Two Dedicated Views (Tabs)**:
   - **Artefacts Tab**:
     - Scans damaged artefacts across your **Backpack** and **Bank**.
+    - Displays in-game item icons alongside artefact names.
     - Individual **Track** toggles (`On` / `Off`) and **`+` / `-`** quantity overrides per artefact.
     - Displays artefact level, owned quantities (`Bag`, `Bank`, or combined), and live repair status (`Ready`, `X / Y Ready`, `Short (N mats)`, or `Off (Can Repair)`).
     - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
     - **Pin / Lock** button (`Pin` / `Unpin`) to lock your chosen artefact targets so you can bank them and farm materials without losing your plan.
   - **Materials Tab**:
     - Calculates exact restoration materials required based on tracked artefacts.
-    - Displays `Material` name, required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
+    - Displays in-game item icons alongside material names.
+    - Displays required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
     - **Show Filter** toggle (`Show: All` vs. `Short Only`) to focus exclusively on missing items.
 - **Native `PrettyUI` Movable, Resizable & Scrollable Window**:
   - Uses `prettyui.Window` (`6398181`) with smooth scrolling, edge/corner resizing, and automatic geometry and visibility persistence in `PersistentDB`.

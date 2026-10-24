@@ -5,6 +5,7 @@ local Artefacts = {}
 
 Artefacts.LIST = {
     {
+        id = 49741,
         name = "Centurion's dress sword",
         damagedName = "Centurion's dress sword (damaged)",
         level = 1,
@@ -13,6 +14,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial iron", count = 5 }, { name = "Purpleheart wood", count = 5 } }
     },
     {
+        id = 49921,
         name = "Venator dagger",
         damagedName = "Venator dagger (damaged)",
         level = 5,
@@ -21,6 +23,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 16 }, { name = "Zarosian insignia", count = 12 } }
     },
     {
+        id = 49923,
         name = "Venator light crossbow",
         damagedName = "Venator light crossbow (damaged)",
         level = 5,
@@ -29,6 +32,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 12 }, { name = "Zarosian insignia", count = 16 } }
     },
     {
+        id = 50088,
         name = "Centurion's seal",
         damagedName = "Centurion's seal (damaged)",
         level = 12,
@@ -37,6 +41,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 6 }, { name = "Zarosian insignia", count = 2 } }
     },
     {
+        id = 49911,
         name = "Primis Elementis standard",
         damagedName = "Primis Elementis standard (damaged)",
         level = 12,
@@ -45,6 +50,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 16 }, { name = "Third Age iron", count = 12 } }
     },
     {
+        id = 49881,
         name = "Legionary gladius",
         damagedName = "Legionary gladius (damaged)",
         level = 12,
@@ -53,6 +59,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 10 }, { name = "Zarosian insignia", count = 6 }, { name = "Imperial steel", count = 12 } }
     },
     {
+        id = 49883,
         name = "Legionary square shield",
         damagedName = "Legionary square shield (damaged)",
         level = 12,
@@ -61,6 +68,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 8 }, { name = "Zarosian insignia", count = 8 }, { name = "Imperial steel", count = 12 } }
     },
     {
+        id = 49927,
         name = "Zaros effigy",
         damagedName = "Zaros effigy (damaged)",
         level = 17,
@@ -69,6 +77,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 8 }, { name = "White oak", count = 10 }, { name = "Zarosian insignia", count = 12 } }
     },
     {
+        id = 49933,
         name = "Zarosian training dummy",
         damagedName = "Zarosian training dummy (damaged)",
         level = 17,
@@ -77,6 +86,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 16 }, { name = "White oak", count = 14 } }
     },
     {
+        id = 49823,
         name = "Hookah pipe",
         damagedName = "Hookah pipe (damaged)",
         level = 20,
@@ -85,6 +95,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 10 }, { name = "Goldrune", count = 12 }, { name = "Orthenglass", count = 8 } }
     },
     {
+        id = 49827,
         name = "Opulent wine goblet",
         damagedName = "Opulent wine goblet (damaged)",
         level = 20,
@@ -93,6 +104,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 14 }, { name = "Goldrune", count = 16 } }
     },
     {
+        id = 49809,
         name = "Crest of Dagon",
         damagedName = "Crest of Dagon (damaged)",
         level = 24,
@@ -101,6 +113,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 14 }, { name = "Orthenglass", count = 18 } }
     },
     {
+        id = 49831,
         name = "'Disorder' painting",
         damagedName = "'Disorder' painting (damaged)",
         level = 24,
@@ -109,6 +122,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 6 }, { name = "White oak", count = 6 }, { name = "Vellum", count = 6 }, { name = "Cadmium red", count = 14 } }
     },
     {
+        id = 49877,
         name = "Legatus Maximus figurine",
         damagedName = "Legatus Maximus figurine (damaged)",
         level = 25,
@@ -117,6 +131,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 8 }, { name = "Zarosian insignia", count = 14 }, { name = "Ancient vis", count = 10 } }
     },
     {
+        id = 49889,
         name = "'Solem in Umbra' painting",
         damagedName = "'Solem in Umbra' painting (damaged)",
         level = 25,
@@ -125,6 +140,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 8 }, { name = "White oak", count = 10 }, { name = "Tyrian purple", count = 14 } }
     },
     {
+        id = 49811,
         name = "Imp mask",
         damagedName = "Imp mask (damaged)",
         level = 29,
@@ -133,6 +149,7 @@ Artefacts.LIST = {
         materials = { { name = "Leather scraps", count = 10 }, { name = "Chaotic brimstone", count = 10 }, { name = "Demonhide", count = 12 } }
     },
     {
+        id = 49813,
         name = "Lesser demon mask",
         damagedName = "Lesser demon mask (damaged)",
         level = 29,
@@ -141,6 +158,7 @@ Artefacts.LIST = {
         materials = { { name = "Leather scraps", count = 6 }, { name = "Chaotic brimstone", count = 8 }, { name = "Demonhide", count = 12 }, { name = "Cadmium red", count = 6 } }
     },
     {
+        id = 49815,
         name = "Greater demon mask",
         damagedName = "Greater demon mask (damaged)",
         level = 29,
@@ -149,6 +167,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 6 }, { name = "Leather scraps", count = 6 }, { name = "Chaotic brimstone", count = 8 }, { name = "Demonhide", count = 12 } }
     },
     {
+        id = 56889,
         name = "Teleportation crystal",
         damagedName = "Teleportation crystal (damaged)",
         level = 30,
@@ -157,6 +176,7 @@ Artefacts.LIST = {
         materials = { { name = "Orthenglass", count = 20 } }
     },
     {
+        id = 49829,
         name = "Order of Dis robes",
         damagedName = "Order of Dis robes (damaged)",
         level = 36,
@@ -165,6 +185,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 16 }, { name = "Cadmium red", count = 10 }, { name = "Eye of Dagon", count = 14 } }
     },
     {
+        id = 49837,
         name = "Ritual dagger",
         damagedName = "Ritual dagger (damaged)",
         level = 36,
@@ -173,6 +194,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 16 }, { name = "Hellfire metal", count = 24 }, { name = "Ruby", count = 1 } }
     },
     {
+        id = 49777,
         name = "'Frying pan'",
         damagedName = "'Frying pan' (damaged)",
         level = 42,
@@ -181,6 +203,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 20 }, { name = "White marble", count = 24 } }
     },
     {
+        id = 49779,
         name = "Hallowed lantern",
         damagedName = "Hallowed lantern (damaged)",
         level = 42,
@@ -189,6 +212,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 20 }, { name = "Keramos", count = 24 }, { name = "White candle", count = 1 } }
     },
     {
+        id = 49805,
         name = "Branding iron",
         damagedName = "Branding iron (damaged)",
         level = 45,
@@ -197,6 +221,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 14 }, { name = "Eye of Dagon", count = 12 }, { name = "Hellfire metal", count = 20 } }
     },
     {
+        id = 49825,
         name = "Manacles",
         damagedName = "Manacles (damaged)",
         level = 45,
@@ -205,6 +230,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 14 }, { name = "Chaotic brimstone", count = 18 }, { name = "Eye of Dagon", count = 14 } }
     },
     {
+        id = 49871,
         name = "Ancient timepiece",
         damagedName = "Ancient timepiece (damaged)",
         level = 47,
@@ -213,6 +239,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 12 }, { name = "Imperial steel", count = 16 }, { name = "Ancient vis", count = 18 } }
     },
     {
+        id = 49879,
         name = "Legatus pendant",
         damagedName = "Legatus pendant (damaged)",
         level = 47,
@@ -221,6 +248,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 16 }, { name = "Goldrune", count = 18 }, { name = "Ancient vis", count = 12 }, { name = "Dragonstone", count = 1 } }
     },
     {
+        id = 49745,
         name = "Ceremonial unicorn ornament",
         damagedName = "Ceremonial unicorn ornament (damaged)",
         level = 48,
@@ -229,6 +257,7 @@ Artefacts.LIST = {
         materials = { { name = "Keramos", count = 26 }, { name = "Cobalt blue", count = 20 } }
     },
     {
+        id = 49747,
         name = "Ceremonial unicorn saddle",
         damagedName = "Ceremonial unicorn saddle (damaged)",
         level = 48,
@@ -237,6 +266,7 @@ Artefacts.LIST = {
         materials = { { name = "Leather scraps", count = 24 }, { name = "Cobalt blue", count = 22 } }
     },
     {
+        id = 50434,
         name = "Dragonkin device",
         damagedName = "Dragonkin device (damaged)",
         level = 50,
@@ -245,6 +275,7 @@ Artefacts.LIST = {
         materials = { { name = "Orthenglass", count = 50 } }
     },
     {
+        id = 50436,
         name = "Dragonkin tablet",
         damagedName = "Dragonkin tablet (damaged)",
         level = 50,
@@ -253,6 +284,7 @@ Artefacts.LIST = {
         materials = { { name = "Orthenglass", count = 50 } }
     },
     {
+        id = 49956,
         name = "Tetracompass (unpowered)",
         damagedName = "Tetracompass (unpowered) (damaged)",
         level = 50,
@@ -261,6 +293,7 @@ Artefacts.LIST = {
         materials = { { name = "Tetracompass piece (left)", count = 1 }, { name = "Tetracompass piece (right)", count = 1 }, { name = "Tetracompass piece (dial)", count = 1 }, { name = "Tetracompass piece (needle)", count = 1 }, { name = "Malachite green", count = 30 }, { name = "Cadmium red", count = 30 }, { name = "Cobalt blue", count = 30 }, { name = "Armadylean yellow", count = 30 }, { name = "Tyrian purple", count = 30 } }
     },
     {
+        id = 49765,
         name = "Everlight harp",
         damagedName = "Everlight harp (damaged)",
         level = 51,
@@ -269,6 +302,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 30 }, { name = "White oak", count = 22 } }
     },
     {
+        id = 49767,
         name = "Everlight trumpet",
         damagedName = "Everlight trumpet (damaged)",
         level = 51,
@@ -277,6 +311,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 28 }, { name = "Goldrune", count = 24 } }
     },
     {
+        id = 49769,
         name = "Everlight violin",
         damagedName = "Everlight violin (damaged)",
         level = 51,
@@ -285,6 +320,7 @@ Artefacts.LIST = {
         materials = { { name = "Star of Saradomin", count = 16 }, { name = "White oak", count = 20 }, { name = "Samite silk", count = 16 } }
     },
     {
+        id = 61715,
         name = "Lunar calendar",
         damagedName = "Lunar calendar (damaged)",
         level = 52,
@@ -293,6 +329,7 @@ Artefacts.LIST = {
         materials = { { name = "Banded limestone", count = 28 }, { name = "Triskelion", count = 24 } }
     },
     {
+        id = 61717,
         name = "Wolf statuette",
         damagedName = "Wolf statuette (damaged)",
         level = 52,
@@ -301,6 +338,7 @@ Artefacts.LIST = {
         materials = { { name = "Banded limestone", count = 26 }, { name = "Ivory", count = 26 } }
     },
     {
+        id = 61719,
         name = "Ivory sickle",
         damagedName = "Ivory sickle (damaged)",
         level = 52,
@@ -309,6 +347,7 @@ Artefacts.LIST = {
         materials = { { name = "Ivory", count = 28 }, { name = "Triskelion", count = 24 } }
     },
     {
+        id = 49773,
         name = "Folded-arm figurine (female)",
         damagedName = "Folded-arm figurine (female)(damaged)",
         level = 56,
@@ -317,6 +356,7 @@ Artefacts.LIST = {
         materials = { { name = "White marble", count = 30 }, { name = "Goldrune", count = 24 } }
     },
     {
+        id = 49775,
         name = "Folded-arm figurine (male)",
         damagedName = "Folded-arm figurine (male)(damaged)",
         level = 56,
@@ -325,6 +365,7 @@ Artefacts.LIST = {
         materials = { { name = "White marble", count = 30 }, { name = "Goldrune", count = 24 } }
     },
     {
+        id = 49917,
         name = "'Incite Fear' spell scroll",
         damagedName = "'Incite Fear' spell scroll (damaged)",
         level = 58,
@@ -333,6 +374,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 20 }, { name = "Ancient vis", count = 18 }, { name = "Blood of Orcus", count = 18 } }
     },
     {
+        id = 49901,
         name = "Pontifex signet ring",
         damagedName = "Pontifex signet ring (damaged)",
         level = 58,
@@ -341,6 +383,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 16 }, { name = "Goldrune", count = 18 }, { name = "Ancient vis", count = 22 }, { name = "Dragonstone", count = 1 } }
     },
     {
+        id = 61721,
         name = "Nakkirian seal",
         damagedName = "Nakkirian seal (damaged)",
         level = 59,
@@ -349,6 +392,7 @@ Artefacts.LIST = {
         materials = { { name = "Ivory", count = 34 }, { name = "White oak", count = 28 }, { name = "Soft clay", count = 1 } }
     },
     {
+        id = 61723,
         name = "Royal Game of Ba",
         damagedName = "Royal Game of Ba (damaged)",
         level = 59,
@@ -357,6 +401,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 32 }, { name = "Triskelion", count = 30 } }
     },
     {
+        id = 51880,
         name = "Apex cap",
         damagedName = "Apex cap (damaged)",
         level = 60,
@@ -365,6 +410,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 28 }, { name = "Leather scraps", count = 12 }, { name = "Ancient vis", count = 20 } }
     },
     {
+        id = 51882,
         name = "Curse tablet",
         damagedName = "Curse tablet (damaged)",
         level = 60,
@@ -373,6 +419,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 16 }, { name = "Zarosian insignia", count = 12 }, { name = "Soapstone", count = 20 }, { name = "Blood of Orcus", count = 12 } }
     },
     {
+        id = 51892,
         name = "Funerary urn of shadow",
         damagedName = "Funerary urn of shadow (damaged)",
         level = 60,
@@ -381,6 +428,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 26 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
     },
     {
+        id = 49753,
         name = "Dominion discus",
         damagedName = "Dominion discus (damaged)",
         level = 61,
@@ -389,6 +437,7 @@ Artefacts.LIST = {
         materials = { { name = "Keramos", count = 34 }, { name = "Star of Saradomin", count = 28 } }
     },
     {
+        id = 49755,
         name = "Dominion javelin",
         damagedName = "Dominion javelin (damaged)",
         level = 61,
@@ -397,6 +446,7 @@ Artefacts.LIST = {
         materials = { { name = "Keramos", count = 32 }, { name = "Third Age iron", count = 30 } }
     },
     {
+        id = 49761,
         name = "Dominion pelte shield",
         damagedName = "Dominion pelte shield (damaged)",
         level = 61,
@@ -405,6 +455,7 @@ Artefacts.LIST = {
         materials = { { name = "Star of Saradomin", count = 34 }, { name = "Samite silk", count = 28 } }
     },
     {
+        id = 51902,
         name = "Infula robes",
         damagedName = "Infula robes (damaged)",
         level = 62,
@@ -413,6 +464,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 26 }, { name = "Leather scraps", count = 12 }, { name = "Goldrune", count = 12 }, { name = "Tyrian purple", count = 12 } }
     },
     {
+        id = 51894,
         name = "Funerary urn of smoke",
         damagedName = "Funerary urn of smoke (damaged)",
         level = 62,
@@ -421,6 +473,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 28 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
     },
     {
+        id = 51900,
         name = "Hand of the Ancients",
         damagedName = "Hand of the Ancients (damaged)",
         level = 62,
@@ -429,6 +482,7 @@ Artefacts.LIST = {
         materials = { { name = "Blood of Orcus", count = 12 }, { name = "White oak", count = 18 }, { name = "Ancient vis", count = 14 }, { name = "Goldrune", count = 18 } }
     },
     {
+        id = 51884,
         name = "Decorative amphora",
         damagedName = "Decorative amphora (damaged)",
         level = 63,
@@ -437,6 +491,7 @@ Artefacts.LIST = {
         materials = { { name = "Tyrian purple", count = 16 }, { name = "Ancient vis", count = 18 }, { name = "Soapstone", count = 28 } }
     },
     {
+        id = 51890,
         name = "Funerary urn of ice",
         damagedName = "Funerary urn of ice (damaged)",
         level = 63,
@@ -445,6 +500,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 28 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
     },
     {
+        id = 51910,
         name = "Loarnab rod",
         damagedName = "Loarnab rod (damaged)",
         level = 63,
@@ -453,6 +509,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 28 }, { name = "Blood of Orcus", count = 16 }, { name = "Imperial steel", count = 18 } }
     },
     {
+        id = 51906,
         name = "Inquisitor's ceremonial armour",
         damagedName = "Inquisitor's ceremonial armour (damaged)",
         level = 64,
@@ -461,6 +518,7 @@ Artefacts.LIST = {
         materials = { { name = "Leather scraps", count = 14 }, { name = "Samite silk", count = 30 }, { name = "Tyrian purple", count = 18 } }
     },
     {
+        id = 51908,
         name = "Inquisitor's ceremonial mask",
         damagedName = "Inquisitor's ceremonial mask (damaged)",
         level = 64,
@@ -469,6 +527,7 @@ Artefacts.LIST = {
         materials = { { name = "Ancient vis", count = 14 }, { name = "Leather scraps", count = 12 }, { name = "Blood of Orcus", count = 14 }, { name = "Samite silk", count = 22 } }
     },
     {
+        id = 51904,
         name = "Inquisitor's seal",
         damagedName = "Inquisitor's seal (damaged)",
         level = 64,
@@ -477,6 +536,7 @@ Artefacts.LIST = {
         materials = { { name = "Tyrian purple", count = 14 }, { name = "Zarosian insignia", count = 20 }, { name = "Ancient vis", count = 14 }, { name = "Goldrune", count = 14 } }
     },
     {
+        id = 49833,
         name = "'The Lake of Fire' painting",
         damagedName = "'The Lake of Fire' painting (damaged)",
         level = 65,
@@ -485,6 +545,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 10 }, { name = "White oak", count = 10 }, { name = "Vellum", count = 10 }, { name = "Cadmium red", count = 34 } }
     },
     {
+        id = 49839,
         name = "'Lust' metal sculpture",
         damagedName = "'Lust' metal sculpture (damaged)",
         level = 65,
@@ -493,6 +554,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 16 }, { name = "Eye of Dagon", count = 24 }, { name = "Goldrune", count = 24 }, { name = "Ruby", count = 1 } }
     },
     {
+        id = 61725,
         name = "Backstrap loom",
         damagedName = "Backstrap loom (damaged)",
         level = 66,
@@ -501,6 +563,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 30 }, { name = "Burnt umber", count = 18 }, { name = "Cashmere", count = 16 } }
     },
     {
+        id = 61727,
         name = "Animal doll",
         damagedName = "Animal doll (damaged)",
         level = 66,
@@ -509,6 +572,7 @@ Artefacts.LIST = {
         materials = { { name = "Cashmere", count = 24 }, { name = "White oak", count = 24 }, { name = "Ivory", count = 16 } }
     },
     {
+        id = 61729,
         name = "Initiate's kaunake",
         damagedName = "Initiate's kaunake (damaged)",
         level = 66,
@@ -517,6 +581,7 @@ Artefacts.LIST = {
         materials = { { name = "Cashmere", count = 30 }, { name = "Burnt umber", count = 20 }, { name = "Leather scraps", count = 14 } }
     },
     {
+        id = 51896,
         name = "Gladiator helmet",
         damagedName = "Gladiator helmet (damaged)",
         level = 66,
@@ -525,6 +590,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 30 }, { name = "Blood of Orcus", count = 16 }, { name = "Leather scraps", count = 18 } }
     },
     {
+        id = 51898,
         name = "Gladiator sword",
         damagedName = "Gladiator sword (damaged)",
         level = 66,
@@ -533,6 +599,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 30 }, { name = "Goldrune", count = 18 }, { name = "Zarosian insignia", count = 16 } }
     },
     {
+        id = 51888,
         name = "Funerary urn of blood",
         damagedName = "Funerary urn of blood (damaged)",
         level = 66,
@@ -541,6 +608,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 30 }, { name = "Tyrian purple", count = 14 }, { name = "Blood of Orcus", count = 20 } }
     },
     {
+        id = 51886,
         name = "Funerary urn of miasma",
         damagedName = "Funerary urn of miasma (damaged)",
         level = 67,
@@ -549,6 +617,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 30 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
     },
     {
+        id = 51912,
         name = "Model chariot",
         damagedName = "Model chariot (damaged)",
         level = 67,
@@ -557,6 +626,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 12 }, { name = "Imperial steel", count = 18 }, { name = "Goldrune", count = 20 }, { name = "Zarosian insignia", count = 14 } }
     },
     {
+        id = 51914,
         name = "'The Serpent's Fall' carving",
         damagedName = "'The Serpent's Fall' carving (damaged)",
         level = 67,
@@ -565,6 +635,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 16 }, { name = "Tyrian purple", count = 24 }, { name = "Blood of Orcus", count = 12 }, { name = "White oak", count = 12 } }
     },
     {
+        id = 49807,
         name = "Chaos star",
         damagedName = "Chaos star (damaged)",
         level = 68,
@@ -573,6 +644,7 @@ Artefacts.LIST = {
         materials = { { name = "Chaotic brimstone", count = 28 }, { name = "Hellfire metal", count = 36 } }
     },
     {
+        id = 49845,
         name = "Spiked dog collar",
         damagedName = "Spiked dog collar (damaged)",
         level = 68,
@@ -581,6 +653,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 24 }, { name = "Leather scraps", count = 24 }, { name = "Chaotic brimstone", count = 16 } }
     },
     {
+        id = 49757,
         name = "Bronze Dominion medal",
         damagedName = "Bronze Dominion medal (damaged)",
         level = 69,
@@ -589,6 +662,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 36 }, { name = "Star of Saradomin", count = 26 }, { name = "Bronze bar", count = 1 } }
     },
     {
+        id = 49759,
         name = "Silver Dominion medal",
         damagedName = "Silver Dominion medal (damaged)",
         level = 69,
@@ -597,6 +671,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 36 }, { name = "Star of Saradomin", count = 26 }, { name = "Silver bar", count = 1 } }
     },
     {
+        id = 49763,
         name = "Dominion torch",
         damagedName = "Dominion torch (damaged)",
         level = 69,
@@ -605,6 +680,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 12 }, { name = "Orthenglass", count = 12 }, { name = "Everlight silvthril", count = 20 }, { name = "Star of Saradomin", count = 18 } }
     },
     {
+        id = 49656,
         name = "Ikovian gerege",
         damagedName = "Ikovian gerege (damaged)",
         level = 70,
@@ -613,6 +689,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 36 }, { name = "Wings of War", count = 30 } }
     },
     {
+        id = 49680,
         name = "Toy glider",
         damagedName = "Toy glider (damaged)",
         level = 70,
@@ -621,6 +698,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 36 }, { name = "White oak", count = 30 } }
     },
     {
+        id = 49682,
         name = "Toy war golem",
         damagedName = "Toy war golem (damaged)",
         level = 70,
@@ -629,6 +707,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 36 }, { name = "White oak", count = 30 }, { name = "Clockwork", count = 1 } }
     },
     {
+        id = 50438,
         name = "Ceremonial dragonkin device",
         damagedName = "Ceremonial dragonkin device (damaged)",
         level = 70,
@@ -637,6 +716,7 @@ Artefacts.LIST = {
         materials = { { name = "Orthenglass", count = 66 } }
     },
     {
+        id = 49749,
         name = "Decorative vase",
         damagedName = "Decorative vase (damaged)",
         level = 72,
@@ -645,6 +725,7 @@ Artefacts.LIST = {
         materials = { { name = "White marble", count = 36 }, { name = "Cobalt blue", count = 30 } }
     },
     {
+        id = 49783,
         name = "Kantharos cup",
         damagedName = "Kantharos cup (damaged)",
         level = 72,
@@ -653,6 +734,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 30 }, { name = "Orthenglass", count = 36 }, { name = "Sapphire", count = 1 } }
     },
     {
+        id = 49781,
         name = "Patera bowl",
         damagedName = "Patera bowl (damaged)",
         level = 72,
@@ -661,6 +743,7 @@ Artefacts.LIST = {
         materials = { { name = "Keramos", count = 36 }, { name = "Goldrune", count = 30 }, { name = "Sapphire", count = 1 } }
     },
     {
+        id = 56971,
         name = "Castle gatestone",
         damagedName = "Castle gatestone (damaged)",
         level = 73,
@@ -669,6 +752,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 36 }, { name = "Orthenglass", count = 32 } }
     },
     {
+        id = 56973,
         name = "Engraved ring of kinship",
         damagedName = "Engraved ring of kinship (damaged)",
         level = 73,
@@ -677,6 +761,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 28 }, { name = "Dragon metal", count = 40 } }
     },
     {
+        id = 49875,
         name = "Ceremonial mace",
         damagedName = "Ceremonial mace (damaged)",
         level = 74,
@@ -685,6 +770,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 20 }, { name = "Third Age iron", count = 20 }, { name = "Goldrune", count = 28 } }
     },
     {
+        id = 49897,
         name = "Pontifex Maximus figurine",
         damagedName = "Pontifex Maximus figurine (damaged)",
         level = 74,
@@ -693,6 +779,7 @@ Artefacts.LIST = {
         materials = { { name = "Zarosian insignia", count = 24 }, { name = "Ancient vis", count = 16 }, { name = "Goldrune", count = 28 }, { name = "Dragonstone", count = 1 } }
     },
     {
+        id = 49887,
         name = "'Consensus ad Idem' painting",
         damagedName = "'Consensus ad Idem' painting (damaged)",
         level = 74,
@@ -701,6 +788,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 10 }, { name = "Samite silk", count = 10 }, { name = "Tyrian purple", count = 50 } }
     },
     {
+        id = 61733,
         name = "Offering bowl",
         damagedName = "Offering bowl (damaged)",
         level = 75,
@@ -709,6 +797,7 @@ Artefacts.LIST = {
         materials = { { name = "Banded limestone", count = 22 }, { name = "Triskelion", count = 20 }, { name = "Burnt umber", count = 20 } }
     },
     {
+        id = 61731,
         name = "Incense burner",
         damagedName = "Incense burner (damaged)",
         level = 75,
@@ -717,6 +806,7 @@ Artefacts.LIST = {
         materials = { { name = "Banded limestone", count = 24 }, { name = "White oak", count = 18 }, { name = "Cashmere", count = 20 } }
     },
     {
+        id = 50119,
         name = "Wingsuit v1",
         damagedName = "Wingsuit v1 (damaged)",
         level = 76,
@@ -725,6 +815,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 40 }, { name = "Leather scraps", count = 20 }, { name = "Stormguard steel", count = 9 }, { name = "Armadylean yellow", count = 1 } }
     },
     {
+        id = 49630,
         name = "Avian song-egg player",
         damagedName = "Avian song-egg player (damaged)",
         level = 76,
@@ -733,6 +824,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 36 }, { name = "Armadylean yellow", count = 32 }, { name = "Diamond", count = 1 } }
     },
     {
+        id = 49646,
         name = "Keshik drum",
         damagedName = "Keshik drum (damaged)",
         level = 76,
@@ -741,6 +833,7 @@ Artefacts.LIST = {
         materials = { { name = "Wings of War", count = 16 }, { name = "Animal furs", count = 16 }, { name = "White oak", count = 20 }, { name = "Leather scraps", count = 16 } }
     },
     {
+        id = 49648,
         name = "Morin khuur",
         damagedName = "Morin khuur (damaged)",
         level = 76,
@@ -749,6 +842,7 @@ Artefacts.LIST = {
         materials = { { name = "Armadylean yellow", count = 36 }, { name = "White oak", count = 32 } }
     },
     {
+        id = 49690,
         name = "Ekeleshuun blinder mask",
         damagedName = "Ekeleshuun blinder mask (damaged)",
         level = 76,
@@ -757,6 +851,7 @@ Artefacts.LIST = {
         materials = { { name = "Vulcanised rubber", count = 24 }, { name = "Malachite green", count = 20 }, { name = "Vellum", count = 24 } }
     },
     {
+        id = 49714,
         name = "Narogoshuun 'Hob-da-Gob' ball",
         damagedName = "Narogoshuun 'Hob-da-Gob' ball (damaged)",
         level = 76,
@@ -765,6 +860,7 @@ Artefacts.LIST = {
         materials = { { name = "Vulcanised rubber", count = 36 }, { name = "Mark of the Kyzaj", count = 32 } }
     },
     {
+        id = 49722,
         name = "Rekeshuun war tether",
         damagedName = "Rekeshuun war tether (damaged)",
         level = 76,
@@ -773,6 +869,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 20 }, { name = "Vulcanised rubber", count = 22 }, { name = "Leather scraps", count = 26 } }
     },
     {
+        id = 56975,
         name = "Exploratory totem",
         damagedName = "Exploratory totem (damaged)",
         level = 77,
@@ -781,6 +878,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 34 }, { name = "Compass rose", count = 36 } }
     },
     {
+        id = 56977,
         name = "Excavator portal mine",
         damagedName = "Excavator portal mine (damaged)",
         level = 77,
@@ -789,6 +887,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 36 }, { name = "Orthenglass", count = 34 } }
     },
     {
+        id = 56979,
         name = "Storage totem",
         damagedName = "Storage totem (damaged)",
         level = 78,
@@ -797,6 +896,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 36 }, { name = "Compass rose", count = 34 } }
     },
     {
+        id = 56981,
         name = "Plant seed satchel",
         damagedName = "Plant seed satchel (damaged)",
         level = 78,
@@ -805,6 +905,7 @@ Artefacts.LIST = {
         materials = { { name = "Felt", count = 28 }, { name = "Carbon black", count = 28 }, { name = "Compass rose", count = 14 } }
     },
     {
+        id = 56983,
         name = "Snuff box",
         damagedName = "Snuff box (damaged)",
         level = 78,
@@ -813,6 +914,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 20 }, { name = "Carbon black", count = 30 }, { name = "Felt", count = 20 } }
     },
     {
+        id = 49632,
         name = "Aviansie dreamcoat",
         damagedName = "Aviansie dreamcoat (damaged)",
         level = 81,
@@ -821,6 +923,7 @@ Artefacts.LIST = {
         materials = { { name = "Armadylean yellow", count = 20 }, { name = "Samite silk", count = 30 }, { name = "Animal furs", count = 22 } }
     },
     {
+        id = 49636,
         name = "Ceremonial plume",
         damagedName = "Ceremonial plume (damaged)",
         level = 81,
@@ -829,6 +932,7 @@ Artefacts.LIST = {
         materials = { { name = "Armadylean yellow", count = 38 }, { name = "Goldrune", count = 34 }, { name = "Phoenix feather", count = 1 } }
     },
     {
+        id = 49654,
         name = "Peacocking parasol",
         damagedName = "Peacocking parasol (damaged)",
         level = 81,
@@ -837,6 +941,7 @@ Artefacts.LIST = {
         materials = { { name = "Armadylean yellow", count = 22 }, { name = "Samite silk", count = 30 }, { name = "White oak", count = 20 } }
     },
     {
+        id = 49716,
         name = "Ogre Kyzaj axe",
         damagedName = "Ogre Kyzaj axe (damaged)",
         level = 81,
@@ -845,6 +950,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 28 }, { name = "Mark of the Kyzaj", count = 20 }, { name = "Fossilised bone", count = 24 } }
     },
     {
+        id = 49718,
         name = "Ork cleaver sword",
         damagedName = "Ork cleaver sword (damaged)",
         level = 81,
@@ -853,6 +959,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 36 }, { name = "Fossilised bone", count = 36 } }
     },
     {
+        id = 49851,
         name = "Larupia trophy",
         damagedName = "Larupia trophy (damaged)",
         level = 81,
@@ -861,6 +968,7 @@ Artefacts.LIST = {
         materials = { { name = "Cadmium red", count = 18 }, { name = "Animal furs", count = 28 }, { name = "Orthenglass", count = 26 } }
     },
     {
+        id = 49853,
         name = "Lion trophy",
         damagedName = "Lion trophy (damaged)",
         level = 81,
@@ -869,6 +977,7 @@ Artefacts.LIST = {
         materials = { { name = "Cadmium red", count = 18 }, { name = "Animal furs", count = 28 }, { name = "White oak", count = 26 } }
     },
     {
+        id = 49855,
         name = "She-wolf trophy",
         damagedName = "She-wolf trophy (damaged)",
         level = 81,
@@ -877,6 +986,7 @@ Artefacts.LIST = {
         materials = { { name = "Chaotic brimstone", count = 26 }, { name = "Cadmium red", count = 18 }, { name = "Animal furs", count = 28 } }
     },
     {
+        id = 49893,
         name = "Pontifex censer",
         damagedName = "Pontifex censer (damaged)",
         level = 81,
@@ -885,6 +995,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 20 }, { name = "Ancient vis", count = 20 }, { name = "Goldrune", count = 32 }, { name = "Dragonstone", count = 1 } }
     },
     {
+        id = 49895,
         name = "Pontifex crozier",
         damagedName = "Pontifex crozier (damaged)",
         level = 81,
@@ -893,6 +1004,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 20 }, { name = "Zarosian insignia", count = 20 }, { name = "Goldrune", count = 32 } }
     },
     {
+        id = 49899,
         name = "Pontifex mitre",
         damagedName = "Pontifex mitre (damaged)",
         level = 81,
@@ -901,6 +1013,7 @@ Artefacts.LIST = {
         materials = { { name = "Samite silk", count = 32 }, { name = "Ancient vis", count = 20 }, { name = "Zarosian insignia", count = 20 } }
     },
     {
+        id = 61735,
         name = "Bloodwine",
         damagedName = "Bloodwine (damaged)",
         level = 82,
@@ -909,6 +1022,7 @@ Artefacts.LIST = {
         materials = { { name = "Leather scraps", count = 32 }, { name = "Triskelion", count = 20 }, { name = "Cashmere", count = 20 }, { name = "Grapes", count = 1 } }
     },
     {
+        id = 61737,
         name = "Reagent jar",
         damagedName = "Reagent jar (damaged)",
         level = 82,
@@ -917,6 +1031,7 @@ Artefacts.LIST = {
         materials = { { name = "Leather scraps", count = 20 }, { name = "Banded limestone", count = 22 }, { name = "Burnt umber", count = 30 } }
     },
     {
+        id = 61739,
         name = "Ninbaradari mural",
         damagedName = "Ninbaradari mural (damaged)",
         level = 82,
@@ -925,6 +1040,7 @@ Artefacts.LIST = {
         materials = { { name = "Burnt umber", count = 30 }, { name = "Banded limestone", count = 22 }, { name = "Triskelion", count = 20 } }
     },
     {
+        id = 49732,
         name = "Thorobshuun battle standard",
         damagedName = "Thorobshuun battle standard (damaged)",
         level = 83,
@@ -933,6 +1049,7 @@ Artefacts.LIST = {
         materials = { { name = "Mark of the Kyzaj", count = 16 }, { name = "Malachite green", count = 22 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 20 } }
     },
     {
+        id = 49736,
         name = "Yurkolgokh stink grenade",
         damagedName = "Yurkolgokh stink grenade (damaged)",
         level = 83,
@@ -941,6 +1058,7 @@ Artefacts.LIST = {
         materials = { { name = "Yu'biusk clay", count = 38 }, { name = "Vulcanised rubber", count = 36 }, { name = "Weapon poison (3)", count = 1 } }
     },
     {
+        id = 49751,
         name = "Dominarian device",
         damagedName = "Dominarian device (damaged)",
         level = 84,
@@ -949,6 +1067,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 30 }, { name = "Keramos", count = 22 }, { name = "Third Age iron", count = 22 }, { name = "Clockwork", count = 1 } }
     },
     {
+        id = 49771,
         name = "Fishing trident",
         damagedName = "Fishing trident (damaged)",
         level = 84,
@@ -957,6 +1076,7 @@ Artefacts.LIST = {
         materials = { { name = "Star of Saradomin", count = 22 }, { name = "Third Age iron", count = 30 }, { name = "Goldrune", count = 22 } }
     },
     {
+        id = 49650,
         name = "Hawkeye lens multi-vision scope",
         damagedName = "Hawkeye lens multi-vision scope (damaged)",
         level = 85,
@@ -965,6 +1085,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 40 }, { name = "Orthenglass", count = 34 } }
     },
     {
+        id = 49670,
         name = "Talon-3 razor wing",
         damagedName = "Talon-3 razor wing (damaged)",
         level = 85,
@@ -973,6 +1094,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 40 }, { name = "Wings of War", count = 34 }, { name = "Rope", count = 1 } }
     },
     {
+        id = 49915,
         name = "'Exsanguinate' spell scroll",
         damagedName = "'Exsanguinate' spell scroll (damaged)",
         level = 86,
@@ -981,6 +1103,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 40 }, { name = "Blood of Orcus", count = 36 } }
     },
     {
+        id = 49885,
         name = "Necromantic focus",
         damagedName = "Necromantic focus (damaged)",
         level = 86,
@@ -989,6 +1112,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 20 }, { name = "Blood of Orcus", count = 26 }, { name = "Ancient vis", count = 30 } }
     },
     {
+        id = 56985,
         name = "Spent summoning charm",
         damagedName = "Spent summoning charm (damaged)",
         level = 87,
@@ -997,6 +1121,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 46 }, { name = "Felt", count = 30 } }
     },
     {
+        id = 56987,
         name = "'Friendship bracelet'",
         damagedName = "'Friendship bracelet' (damaged)",
         level = 87,
@@ -1005,6 +1130,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 30 }, { name = "Felt", count = 46 } }
     },
     {
+        id = 56989,
         name = "Homely totem",
         damagedName = "Homely totem (damaged)",
         level = 87,
@@ -1013,6 +1139,7 @@ Artefacts.LIST = {
         materials = { { name = "Soapstone", count = 36 }, { name = "Felt", count = 40 } }
     },
     {
+        id = 61741,
         name = "Bloodletting dagger",
         damagedName = "Bloodletting dagger (damaged)",
         level = 88,
@@ -1021,6 +1148,7 @@ Artefacts.LIST = {
         materials = { { name = "Ivory", count = 28 }, { name = "Cashmere", count = 24 }, { name = "Soapstone", count = 26 } }
     },
     {
+        id = 61743,
         name = "Fang of Kayazu",
         damagedName = "Fang of Kayazu (damaged)",
         level = 88,
@@ -1029,6 +1157,7 @@ Artefacts.LIST = {
         materials = { { name = "Ivory", count = 38 }, { name = "Burnt umber", count = 20 }, { name = "Soapstone", count = 20 } }
     },
     {
+        id = 49694,
         name = "High priest crozier",
         damagedName = "High priest crozier (damaged)",
         level = 89,
@@ -1037,6 +1166,7 @@ Artefacts.LIST = {
         materials = { { name = "Mark of the Kyzaj", count = 26 }, { name = "Malachite green", count = 24 }, { name = "Goldrune", count = 28 } }
     },
     {
+        id = 49696,
         name = "High priest mitre",
         damagedName = "High priest mitre (damaged)",
         level = 89,
@@ -1045,6 +1175,7 @@ Artefacts.LIST = {
         materials = { { name = "Mark of the Kyzaj", count = 26 }, { name = "Malachite green", count = 24 }, { name = "Samite silk", count = 28 } }
     },
     {
+        id = 49698,
         name = "High priest orb",
         damagedName = "High priest orb (damaged)",
         level = 89,
@@ -1053,6 +1184,7 @@ Artefacts.LIST = {
         materials = { { name = "Mark of the Kyzaj", count = 26 }, { name = "Malachite green", count = 24 }, { name = "Goldrune", count = 28 } }
     },
     {
+        id = 49843,
         name = "'Torment' metal sculpture",
         damagedName = "'Torment' metal sculpture (damaged)",
         level = 89,
@@ -1061,6 +1193,7 @@ Artefacts.LIST = {
         materials = { { name = "Eye of Dagon", count = 20 }, { name = "Third Age iron", count = 20 }, { name = "Hellfire metal", count = 38 } }
     },
     {
+        id = 49835,
         name = "'Pandemonium' tapestry",
         damagedName = "'Pandemonium' tapestry (damaged)",
         level = 89,
@@ -1069,6 +1202,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 12 }, { name = "Samite silk", count = 12 }, { name = "Vellum", count = 12 }, { name = "Cadmium red", count = 42 } }
     },
     {
+        id = 50440,
         name = "Ceremonial dragonkin tablet",
         damagedName = "Ceremonial dragonkin tablet (damaged)",
         level = 90,
@@ -1077,6 +1211,7 @@ Artefacts.LIST = {
         materials = { { name = "Orthenglass", count = 79 } }
     },
     {
+        id = 50733,
         name = "Pasaha",
         damagedName = "Pasaha (damaged)",
         level = 90,
@@ -1085,6 +1220,7 @@ Artefacts.LIST = {
         materials = { { name = "Felt", count = 40 }, { name = "Goldrune", count = 38 } }
     },
     {
+        id = 50739,
         name = "Ritual bell",
         damagedName = "Ritual bell (damaged)",
         level = 90,
@@ -1093,6 +1229,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 40 }, { name = "Compass rose", count = 38 } }
     },
     {
+        id = 49666,
         name = "Prototype gravimeter",
         damagedName = "Prototype gravimeter (damaged)",
         level = 91,
@@ -1101,6 +1238,7 @@ Artefacts.LIST = {
         materials = { { name = "Quintessence", count = 34 }, { name = "Leather scraps", count = 20 }, { name = "Third Age iron", count = 26 } }
     },
     {
+        id = 49676,
         name = "Songbird recorder",
         damagedName = "Songbird recorder (damaged)",
         level = 91,
@@ -1109,6 +1247,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 44 }, { name = "Orthenglass", count = 36 }, { name = "Diamond", count = 1 } }
     },
     {
+        id = 49743,
         name = "Amphora",
         damagedName = "Amphora (damaged)",
         level = 92,
@@ -1117,6 +1256,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 34 }, { name = "Keramos", count = 46 } }
     },
     {
+        id = 49799,
         name = "Rod of Asclepius",
         damagedName = "Rod of Asclepius (damaged)",
         level = 92,
@@ -1125,6 +1265,7 @@ Artefacts.LIST = {
         materials = { { name = "White marble", count = 30 }, { name = "Star of Saradomin", count = 24 }, { name = "Goldrune", count = 26 } }
     },
     {
+        id = 49929,
         name = "Zarosian ewer",
         damagedName = "Zarosian ewer (damaged)",
         level = 93,
@@ -1133,6 +1274,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 52 }, { name = "Zarosian insignia", count = 30 } }
     },
     {
+        id = 49931,
         name = "Zarosian stein",
         damagedName = "Zarosian stein (damaged)",
         level = 93,
@@ -1141,6 +1283,7 @@ Artefacts.LIST = {
         materials = { { name = "Third Age iron", count = 16 }, { name = "Imperial steel", count = 36 }, { name = "Zarosian insignia", count = 30 } }
     },
     {
+        id = 49684,
         name = "Beastkeeper helm",
         damagedName = "Beastkeeper helm (damaged)",
         level = 94,
@@ -1149,6 +1292,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 16 }, { name = "Vulcanised rubber", count = 24 }, { name = "Animal furs", count = 20 }, { name = "Fossilised bone", count = 24 } }
     },
     {
+        id = 49706,
         name = "Idithuun horn ring",
         damagedName = "Idithuun horn ring (damaged)",
         level = 94,
@@ -1157,6 +1301,7 @@ Artefacts.LIST = {
         materials = { { name = "Yu'biusk clay", count = 40 }, { name = "Vulcanised rubber", count = 44 } }
     },
     {
+        id = 49730,
         name = "'Nosorog!' sculpture",
         damagedName = "'Nosorog!' sculpture (damaged)",
         level = 94,
@@ -1165,6 +1310,7 @@ Artefacts.LIST = {
         materials = { { name = "Yu'biusk clay", count = 30 }, { name = "Malachite green", count = 24 }, { name = "Warforged bronze", count = 30 } }
     },
     {
+        id = 49672,
         name = "Dayguard shield",
         damagedName = "Dayguard shield (damaged)",
         level = 95,
@@ -1173,6 +1319,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 36 }, { name = "Wings of War", count = 28 }, { name = "White oak", count = 20 } }
     },
     {
+        id = 49658,
         name = "Stormguard gerege",
         damagedName = "Stormguard gerege (damaged)",
         level = 95,
@@ -1181,6 +1328,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 36 }, { name = "Wings of War", count = 28 }, { name = "Goldrune", count = 20 } }
     },
     {
+        id = 50721,
         name = "Kilaya",
         damagedName = "Kilaya (damaged)",
         level = 96,
@@ -1189,6 +1337,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 46 }, { name = "Compass rose", count = 40 } }
     },
     {
+        id = 50743,
         name = "Vazara",
         damagedName = "Vazara (damaged)",
         level = 96,
@@ -1197,6 +1346,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 30 }, { name = "Compass rose", count = 28 }, { name = "Goldrune", count = 28 } }
     },
     {
+        id = 49720,
         name = "Ourg megahitter",
         damagedName = "Ourg megahitter (damaged)",
         level = 97,
@@ -1205,6 +1355,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 20 }, { name = "Leather scraps", count = 20 }, { name = "Orthenglass", count = 26 }, { name = "Malachite green", count = 22 } }
     },
     {
+        id = 49734,
         name = "Ourg tower/goblin cower shield",
         damagedName = "Ourg tower/goblin cower shield (damaged)",
         level = 97,
@@ -1213,6 +1364,7 @@ Artefacts.LIST = {
         materials = { { name = "Mark of the Kyzaj", count = 20 }, { name = "Third Age iron", count = 26 }, { name = "Leather scraps", count = 22 }, { name = "White oak", count = 20 } }
     },
     {
+        id = 49692,
         name = "Garagorshuun anchor",
         damagedName = "Garagorshuun anchor (damaged)",
         level = 97,
@@ -1221,6 +1373,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 32 }, { name = "Mark of the Kyzaj", count = 26 }, { name = "Third Age iron", count = 30 } }
     },
     {
+        id = 49642,
         name = "Golem heart",
         damagedName = "Golem heart (damaged)",
         level = 98,
@@ -1229,6 +1382,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 34 }, { name = "Quintessence", count = 24 }, { name = "Orthenglass", count = 16 }, { name = "Soapstone", count = 16 } }
     },
     {
+        id = 49644,
         name = "Golem instruction",
         damagedName = "Golem instruction (damaged)",
         level = 98,
@@ -1237,6 +1391,7 @@ Artefacts.LIST = {
         materials = { { name = "Quintessence", count = 46 }, { name = "Vellum", count = 44 }, { name = "Black mushroom ink", count = 1 } }
     },
     {
+        id = 49817,
         name = "Hellfire haladie",
         damagedName = "Hellfire haladie (damaged)",
         level = 98,
@@ -1245,6 +1400,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 44 }, { name = "Third Age iron", count = 26 }, { name = "Leather scraps", count = 20 } }
     },
     {
+        id = 49819,
         name = "Hellfire katar",
         damagedName = "Hellfire katar (damaged)",
         level = 98,
@@ -1253,6 +1409,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 50 }, { name = "Leather scraps", count = 40 } }
     },
     {
+        id = 49821,
         name = "Hellfire zaghnal",
         damagedName = "Hellfire zaghnal (damaged)",
         level = 98,
@@ -1261,6 +1418,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 38 }, { name = "White oak", count = 26 }, { name = "Orthenglass", count = 26 } }
     },
     {
+        id = 50708,
         name = "Death mask",
         damagedName = "Death mask (damaged)",
         level = 99,
@@ -1269,6 +1427,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 56 }, { name = "Soapstone", count = 34 } }
     },
     {
+        id = 50714,
         name = "Dragonkin calendar",
         damagedName = "Dragonkin calendar (damaged)",
         level = 99,
@@ -1277,6 +1436,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 34 }, { name = "Carbon black", count = 28 }, { name = "Compass rose", count = 28 } }
     },
     {
+        id = 50716,
         name = "Dragonkin staff",
         damagedName = "Dragonkin staff (damaged)",
         level = 99,
@@ -1285,6 +1445,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 56 }, { name = "Compass rose", count = 34 } }
     },
     {
+        id = 49686,
         name = "Dorgeshuun spear",
         damagedName = "Dorgeshuun spear (damaged)",
         level = 100,
@@ -1293,6 +1454,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 50 }, { name = "White oak", count = 42 } }
     },
     {
+        id = 49728,
         name = "'Forged in War' sculpture",
         damagedName = "'Forged in War' sculpture (damaged)",
         level = 100,
@@ -1301,6 +1463,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 50 }, { name = "Yu'biusk clay", count = 42 }, { name = "Emerald", count = 1 } }
     },
     {
+        id = 49785,
         name = "Kopis dagger",
         damagedName = "Kopis dagger (damaged)",
         level = 100,
@@ -1309,6 +1472,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 50 }, { name = "Leather scraps", count = 42 } }
     },
     {
+        id = 49791,
         name = "Xiphos short sword",
         damagedName = "Xiphos short sword (damaged)",
         level = 100,
@@ -1317,6 +1481,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 46 }, { name = "Leather scraps", count = 46 } }
     },
     {
+        id = 49919,
         name = "'Smoke Cloud' spell scroll",
         damagedName = "'Smoke Cloud' spell scroll (damaged)",
         level = 100,
@@ -1325,6 +1490,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 40 }, { name = "Ancient vis", count = 20 }, { name = "Blood of Orcus", count = 32 } }
     },
     {
+        id = 49925,
         name = "Vigorem vial",
         damagedName = "Vigorem vial (damaged)",
         level = 100,
@@ -1333,6 +1499,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 54 }, { name = "Ancient vis", count = 38 }, { name = "Molten glass", count = 1 } }
     },
     {
+        id = 50712,
         name = "Dragon scalpel",
         damagedName = "Dragon scalpel (damaged)",
         level = 101,
@@ -1341,6 +1508,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 52 }, { name = "Felt", count = 42 } }
     },
     {
+        id = 50737,
         name = "Protective goggles",
         damagedName = "Protective goggles (damaged)",
         level = 101,
@@ -1349,6 +1517,7 @@ Artefacts.LIST = {
         materials = { { name = "Felt", count = 42 }, { name = "Orthenglass", count = 52 } }
     },
     {
+        id = 50710,
         name = "Dragon burner",
         damagedName = "Dragon burner (damaged)",
         level = 102,
@@ -1357,6 +1526,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 52 }, { name = "Orgone", count = 42 } }
     },
     {
+        id = 50731,
         name = "Orthenglass flask",
         damagedName = "Orthenglass flask (damaged)",
         level = 102,
@@ -1365,6 +1535,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 34 }, { name = "Orthenglass", count = 60 } }
     },
     {
+        id = 49634,
         name = "Blackfire lance",
         damagedName = "Blackfire lance (damaged)",
         level = 103,
@@ -1373,6 +1544,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Quintessence", count = 46 } }
     },
     {
+        id = 49674,
         name = "Nightguard shield",
         damagedName = "Nightguard shield (damaged)",
         level = 103,
@@ -1381,6 +1553,7 @@ Artefacts.LIST = {
         materials = { { name = "Stormguard steel", count = 30 }, { name = "Wings of War", count = 36 }, { name = "White oak", count = 30 } }
     },
     {
+        id = 56991,
         name = "Projection attuner",
         damagedName = "Projection attuner (damaged)",
         level = 103,
@@ -1389,6 +1562,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 28 }, { name = "Orthenglass", count = 28 }, { name = "Dragon metal", count = 40 } }
     },
     {
+        id = 56993,
         name = "Golden projection 'needle'",
         damagedName = "Golden projection 'needle' (damaged)",
         level = 103,
@@ -1397,6 +1571,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 36 }, { name = "Dragon metal", count = 60 } }
     },
     {
+        id = 49704,
         name = "Huzamogaarb chaos crown",
         damagedName = "Huzamogaarb chaos crown (damaged)",
         level = 104,
@@ -1405,6 +1580,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 44 }, { name = "Third Age iron", count = 34 }, { name = "Eye of Dagon", count = 20 } }
     },
     {
+        id = 49724,
         name = "Saragorgak star crown",
         damagedName = "Saragorgak star crown (damaged)",
         level = 104,
@@ -1413,6 +1589,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 44 }, { name = "Third Age iron", count = 34 }, { name = "Star of Saradomin", count = 20 } }
     },
     {
+        id = 49841,
         name = "'Possession' metal sculpture",
         damagedName = "'Possession' metal sculpture (damaged)",
         level = 104,
@@ -1421,6 +1598,7 @@ Artefacts.LIST = {
         materials = { { name = "Eye of Dagon", count = 24 }, { name = "Chaotic brimstone", count = 30 }, { name = "Third Age iron", count = 44 } }
     },
     {
+        id = 49847,
         name = "Trishula",
         damagedName = "Trishula (damaged)",
         level = 104,
@@ -1429,6 +1607,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 48 }, { name = "Eye of Dagon", count = 30 }, { name = "Third Age iron", count = 20 } }
     },
     {
+        id = 49863,
         name = "Tsutsaroth piercing",
         damagedName = "Tsutsaroth piercing (damaged)",
         level = 104,
@@ -1437,6 +1616,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 44 }, { name = "Chaotic brimstone", count = 30 }, { name = "Cadmium red", count = 24 } }
     },
     {
+        id = 49795,
         name = "'Hallowed Be the Everlight' painting",
         damagedName = "'Hallowed Be the Everlight' painting (damaged)",
         level = 105,
@@ -1445,6 +1625,7 @@ Artefacts.LIST = {
         materials = { { name = "Cobalt blue", count = 52 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 16 }, { name = "Vellum", count = 16 } }
     },
     {
+        id = 49797,
         name = "'The Lord of Light' painting",
         damagedName = "'The Lord of Light' painting (damaged)",
         level = 105,
@@ -1453,6 +1634,7 @@ Artefacts.LIST = {
         materials = { { name = "Cobalt blue", count = 52 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 16 }, { name = "Vellum", count = 16 } }
     },
     {
+        id = 49793,
         name = "'The Pride of Padosan' painting",
         damagedName = "'The Pride of Padosan' painting (damaged)",
         level = 105,
@@ -1461,6 +1643,7 @@ Artefacts.LIST = {
         materials = { { name = "Cobalt blue", count = 52 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 16 }, { name = "Vellum", count = 16 } }
     },
     {
+        id = 50729,
         name = "Meditation pipe",
         damagedName = "Meditation pipe (damaged)",
         level = 106,
@@ -1469,6 +1652,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 60 }, { name = "Dragon metal", count = 40 } }
     },
     {
+        id = 50735,
         name = "Personal totem",
         damagedName = "Personal totem (damaged)",
         level = 106,
@@ -1477,6 +1661,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 48 }, { name = "Carbon black", count = 26 }, { name = "Compass rose", count = 26 } }
     },
     {
+        id = 50741,
         name = "Singing bowl",
         damagedName = "Singing bowl (damaged)",
         level = 106,
@@ -1485,6 +1670,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 60 }, { name = "Dragon metal", count = 40 } }
     },
     {
+        id = 49869,
         name = "Ancient magic tablet",
         damagedName = "Ancient magic tablet (damaged)",
         level = 107,
@@ -1493,6 +1679,7 @@ Artefacts.LIST = {
         materials = { { name = "Ancient vis", count = 40 }, { name = "Blood of Orcus", count = 64 } }
     },
     {
+        id = 49913,
         name = "'Animate Dead' spell scroll",
         damagedName = "'Animate Dead' spell scroll (damaged)",
         level = 107,
@@ -1501,6 +1688,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 40 }, { name = "Ancient vis", count = 24 }, { name = "Blood of Orcus", count = 40 } }
     },
     {
+        id = 49903,
         name = "Portable phylactery",
         damagedName = "Portable phylactery (damaged)",
         level = 107,
@@ -1509,6 +1697,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 48 }, { name = "Blood of Orcus", count = 36 }, { name = "Ancient vis", count = 20 } }
     },
     {
+        id = 56995,
         name = "Comfort gatestone",
         damagedName = "Comfort gatestone (damaged)",
         level = 107,
@@ -1517,6 +1706,7 @@ Artefacts.LIST = {
         materials = { { name = "Orthenglass", count = 40 }, { name = "Orgone", count = 34 }, { name = "Compass rose", count = 30 } }
     },
     {
+        id = 56997,
         name = "Halak's cube",
         damagedName = "Halak's cube (damaged)",
         level = 107,
@@ -1525,6 +1715,7 @@ Artefacts.LIST = {
         materials = { { name = "Compass rose", count = 36 }, { name = "Carbon black", count = 40 }, { name = "Orgone", count = 28 } }
     },
     {
+        id = 50725,
         name = "Lingam stone",
         damagedName = "Lingam stone (damaged)",
         level = 108,
@@ -1533,6 +1724,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 44 }, { name = "Carbon black", count = 30 }, { name = "Compass rose", count = 32 } }
     },
     {
+        id = 50727,
         name = "Master control",
         damagedName = "Master control (damaged)",
         level = 108,
@@ -1541,6 +1733,7 @@ Artefacts.LIST = {
         materials = { { name = "Orgone", count = 30 }, { name = "Carbon black", count = 32 }, { name = "Compass rose", count = 44 } }
     },
     {
+        id = 49801,
         name = "'The Enlightened Soul' scroll",
         damagedName = "'The Enlightened Soul' scroll (damaged)",
         level = 109,
@@ -1549,6 +1742,7 @@ Artefacts.LIST = {
         materials = { { name = "Star of Saradomin", count = 50 }, { name = "Vellum", count = 60 } }
     },
     {
+        id = 49803,
         name = "'The Eudoxian Elements' tablet",
         damagedName = "'The Eudoxian Elements' tablet (damaged)",
         level = 109,
@@ -1557,6 +1751,7 @@ Artefacts.LIST = {
         materials = { { name = "White marble", count = 60 }, { name = "Goldrune", count = 50 } }
     },
     {
+        id = 49688,
         name = "Drogokishuun hook sword",
         damagedName = "Drogokishuun hook sword (damaged)",
         level = 110,
@@ -1565,6 +1760,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 44 }, { name = "Malachite green", count = 36 }, { name = "Fossilised bone", count = 32 } }
     },
     {
+        id = 49700,
         name = "Hobgoblin mansticker",
         damagedName = "Hobgoblin mansticker (damaged)",
         level = 110,
@@ -1573,6 +1769,7 @@ Artefacts.LIST = {
         materials = { { name = "Warforged bronze", count = 66 }, { name = "Fossilised bone", count = 46 } }
     },
     {
+        id = 49849,
         name = "Chaos Elemental trophy",
         damagedName = "Chaos Elemental trophy (damaged)",
         level = 110,
@@ -1581,6 +1778,7 @@ Artefacts.LIST = {
         materials = { { name = "Chaotic brimstone", count = 52 }, { name = "White oak", count = 30 }, { name = "Hellfire metal", count = 30 } }
     },
     {
+        id = 49857,
         name = "Virius trophy",
         damagedName = "Virius trophy (damaged)",
         level = 110,
@@ -1589,6 +1787,7 @@ Artefacts.LIST = {
         materials = { { name = "Demonhide", count = 44 }, { name = "White oak", count = 34 }, { name = "Orthenglass", count = 34 } }
     },
     {
+        id = 49640,
         name = "Flat cap",
         damagedName = "Flat cap (damaged)",
         level = 111,
@@ -1597,6 +1796,7 @@ Artefacts.LIST = {
         materials = { { name = "Armadylean yellow", count = 60 }, { name = "Samite silk", count = 54 } }
     },
     {
+        id = 49652,
         name = "Night owl flight goggles",
         damagedName = "Night owl flight goggles (damaged)",
         level = 111,
@@ -1605,6 +1805,7 @@ Artefacts.LIST = {
         materials = { { name = "Armadylean yellow", count = 44 }, { name = "Leather scraps", count = 40 }, { name = "Orthenglass", count = 30 } }
     },
     {
+        id = 49660,
         name = "Prototype godbow",
         damagedName = "Prototype godbow (damaged)",
         level = 112,
@@ -1613,6 +1814,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Quintessence", count = 34 }, { name = "Wings of War", count = 34 } }
     },
     {
+        id = 49662,
         name = "Prototype godstaff",
         damagedName = "Prototype godstaff (damaged)",
         level = 112,
@@ -1621,6 +1823,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Quintessence", count = 34 }, { name = "Wings of War", count = 34 } }
     },
     {
+        id = 49664,
         name = "Prototype godsword",
         damagedName = "Prototype godsword (damaged)",
         level = 112,
@@ -1629,6 +1832,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Wings of War", count = 34 }, { name = "Goldrune", count = 34 } }
     },
     {
+        id = 50745,
         name = "Xolo hard hat",
         damagedName = "Xolo hard hat (damaged)",
         level = 113,
@@ -1637,6 +1841,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 54 }, { name = "Dragon metal", count = 66 } }
     },
     {
+        id = 50747,
         name = "Xolo pickaxe",
         damagedName = "Xolo pickaxe (damaged)",
         level = 113,
@@ -1645,6 +1850,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 36 }, { name = "Dragon metal", count = 50 }, { name = "Orgone", count = 34 } }
     },
     {
+        id = 56999,
         name = "Portable portal generator",
         damagedName = "Portable portal generator (damaged)",
         level = 113,
@@ -1653,6 +1859,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 50 }, { name = "Orthenglass", count = 36 }, { name = "Goldrune", count = 34 } }
     },
     {
+        id = 57001,
         name = "Warped trinket",
         damagedName = "Warped trinket (damaged)",
         level = 113,
@@ -1661,6 +1868,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 30 }, { name = "Orthenglass", count = 30 }, { name = "Soapstone", count = 30 }, { name = "Goldrune", count = 30 } }
     },
     {
+        id = 49905,
         name = "Praetorian hood",
         damagedName = "Praetorian hood (damaged)",
         level = 114,
@@ -1669,6 +1877,7 @@ Artefacts.LIST = {
         materials = { { name = "Ancient vis", count = 36 }, { name = "Samite silk", count = 48 }, { name = "Zarosian insignia", count = 40 }, { name = "Death rune", count = 30 } }
     },
     {
+        id = 49907,
         name = "Praetorian robes",
         damagedName = "Praetorian robes (damaged)",
         level = 114,
@@ -1677,6 +1886,7 @@ Artefacts.LIST = {
         materials = { { name = "Ancient vis", count = 30 }, { name = "Samite silk", count = 54 }, { name = "Zarosian insignia", count = 40 }, { name = "Death rune", count = 50 } }
     },
     {
+        id = 49909,
         name = "Praetorian staff",
         damagedName = "Praetorian staff (damaged)",
         level = 114,
@@ -1685,6 +1895,7 @@ Artefacts.LIST = {
         materials = { { name = "Imperial steel", count = 36 }, { name = "Ancient vis", count = 58 }, { name = "Zarosian insignia", count = 30 }, { name = "Death rune", count = 100 } }
     },
     {
+        id = 49708,
         name = "Kal-i-kra chieftain crown",
         damagedName = "Kal-i-kra chieftain crown (damaged)",
         level = 115,
@@ -1693,6 +1904,7 @@ Artefacts.LIST = {
         materials = { { name = "Yu'biusk clay", count = 66 }, { name = "Animal furs", count = 60 } }
     },
     {
+        id = 49710,
         name = "Kal-i-kra mace",
         damagedName = "Kal-i-kra mace (damaged)",
         level = 115,
@@ -1701,6 +1913,7 @@ Artefacts.LIST = {
         materials = { { name = "Vulcanised rubber", count = 42 }, { name = "Third Age iron", count = 44 }, { name = "Fossilised bone", count = 40 } }
     },
     {
+        id = 49712,
         name = "Kal-i-kra warhorn",
         damagedName = "Kal-i-kra warhorn (damaged)",
         level = 115,
@@ -1709,6 +1922,7 @@ Artefacts.LIST = {
         materials = { { name = "Vulcanised rubber", count = 44 }, { name = "Fossilised bone", count = 42 }, { name = "Animal furs", count = 40 } }
     },
     {
+        id = 49740,
         name = "Spear of Annihilation",
         damagedName = "Spear of Annihilation (damaged)",
         level = 115,
@@ -1717,6 +1931,7 @@ Artefacts.LIST = {
         materials = { { name = "Spear of Annihilation with shaft + spokes", count = 1 }, { name = "Vulcanised rubber", count = 500 }, { name = "Malachite green", count = 500 }, { name = "Goldrune", count = 500 } }
     },
     {
+        id = 49859,
         name = "Tsutsaroth helm",
         damagedName = "Tsutsaroth helm (damaged)",
         level = 116,
@@ -1725,6 +1940,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 50 }, { name = "Eye of Dagon", count = 40 }, { name = "Goldrune", count = 40 } }
     },
     {
+        id = 49861,
         name = "Tsutsaroth pauldron",
         damagedName = "Tsutsaroth pauldron (damaged)",
         level = 116,
@@ -1733,6 +1949,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 40 }, { name = "Goldrune", count = 50 }, { name = "Eye of Dagon", count = 40 } }
     },
     {
+        id = 49865,
         name = "Tsutsaroth urumi",
         damagedName = "Tsutsaroth urumi (damaged)",
         level = 116,
@@ -1741,6 +1958,7 @@ Artefacts.LIST = {
         materials = { { name = "Hellfire metal", count = 50 }, { name = "Eye of Dagon", count = 40 }, { name = "Third Age iron", count = 40 } }
     },
     {
+        id = 49789,
         name = "Doru spear",
         damagedName = "Doru spear (damaged)",
         level = 117,
@@ -1749,6 +1967,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 70 }, { name = "White oak", count = 62 } }
     },
     {
+        id = 49787,
         name = "Kontos lance",
         damagedName = "Kontos lance (damaged)",
         level = 117,
@@ -1757,6 +1976,7 @@ Artefacts.LIST = {
         materials = { { name = "Everlight silvthril", count = 70 }, { name = "Samite silk", count = 62 } }
     },
     {
+        id = 49638,
         name = "Chuluu stone",
         damagedName = "Chuluu stone (damaged)",
         level = 118,
@@ -1765,6 +1985,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 40 }, { name = "Quintessence", count = 30 }, { name = "Soapstone", count = 40 }, { name = "Goldrune", count = 24 } }
     },
     {
+        id = 49668,
         name = "Quintessence counter",
         damagedName = "Quintessence counter (damaged)",
         level = 118,
@@ -1773,6 +1994,7 @@ Artefacts.LIST = {
         materials = { { name = "Quintessence", count = 54 }, { name = "Stormguard steel", count = 40 }, { name = "White oak", count = 40 } }
     },
     {
+        id = 49678,
         name = "Spherical astrolabe",
         damagedName = "Spherical astrolabe (damaged)",
         level = 118,
@@ -1781,6 +2003,7 @@ Artefacts.LIST = {
         materials = { { name = "Aetherium alloy", count = 46 }, { name = "Armadylean yellow", count = 40 }, { name = "Orthenglass", count = 48 } }
     },
     {
+        id = 49867,
         name = "Ancient globe",
         damagedName = "Ancient globe (damaged)",
         level = 118,
@@ -1789,6 +2012,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 20 }, { name = "Tyrian purple", count = 54 }, { name = "Ancient vis", count = 60 } }
     },
     {
+        id = 49873,
         name = "Battle plans",
         damagedName = "Battle plans (damaged)",
         level = 118,
@@ -1797,6 +2021,7 @@ Artefacts.LIST = {
         materials = { { name = "Vellum", count = 40 }, { name = "Tyrian purple", count = 60 }, { name = "Ancient vis", count = 34 } }
     },
     {
+        id = 49891,
         name = "'Prima Legio' painting",
         damagedName = "'Prima Legio' painting (damaged)",
         level = 118,
@@ -1805,6 +2030,7 @@ Artefacts.LIST = {
         materials = { { name = "White oak", count = 20 }, { name = "Samite silk", count = 20 }, { name = "Tyrian purple", count = 74 }, { name = "Zarosian insignia", count = 20 } }
     },
     {
+        id = 49726,
         name = "'Da Boss Man' sculpture",
         damagedName = "'Da Boss Man' sculpture (damaged)",
         level = 119,
@@ -1813,6 +2039,7 @@ Artefacts.LIST = {
         materials = { { name = "Yu'biusk clay", count = 50 }, { name = "Malachite green", count = 44 }, { name = "Soapstone", count = 44 } }
     },
     {
+        id = 49702,
         name = "Horogothgar cooking pot",
         damagedName = "Horogothgar cooking pot (damaged)",
         level = 119,
@@ -1821,6 +2048,7 @@ Artefacts.LIST = {
         materials = { { name = "Yu'biusk clay", count = 60 }, { name = "Malachite green", count = 38 }, { name = "Soapstone", count = 40 } }
     },
     {
+        id = 50749,
         name = "Xolo shield",
         damagedName = "Xolo shield (damaged)",
         level = 119,
@@ -1829,6 +2057,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 52 }, { name = "Orgone", count = 44 }, { name = "Felt", count = 42 } }
     },
     {
+        id = 50751,
         name = "Xolo spear",
         damagedName = "Xolo spear (damaged)",
         level = 119,
@@ -1837,6 +2066,7 @@ Artefacts.LIST = {
         materials = { { name = "Dragon metal", count = 74 }, { name = "Orgone", count = 64 } }
     },
     {
+        id = 50718,
         name = "Gold dish",
         damagedName = "Gold dish (damaged)",
         level = 120,
@@ -1845,6 +2075,7 @@ Artefacts.LIST = {
         materials = { { name = "Goldrune", count = 86 }, { name = "Dragon metal", count = 54 } }
     },
     {
+        id = 50723,
         name = "'Raksha' idol",
         damagedName = "'Raksha' idol (damaged)",
         level = 120,
@@ -1856,6 +2087,7 @@ Artefacts.LIST = {
 
 Artefacts.BY_DAMAGED_LOWER = {}
 Artefacts.BY_BASE_LOWER = {}
+Artefacts.BY_ID = {}
 
 local function normalizeName(name)
     if not name then return "" end
@@ -1871,6 +2103,9 @@ for idx, art in ipairs(Artefacts.LIST) do
     art.order = idx
     Artefacts.BY_DAMAGED_LOWER[normalizeName(art.damagedName)] = art
     Artefacts.BY_BASE_LOWER[normalizeName(art.name)] = art
+    if art.id then
+        Artefacts.BY_ID[art.id] = art
+    end
 end
 
 local function extractDamagedBaseName(rawName)
@@ -1888,6 +2123,11 @@ end
 
 function Artefacts.normalize(name)
     return normalizeName(name)
+end
+
+function Artefacts.findById(id)
+    if not id then return nil end
+    return Artefacts.BY_ID[id]
 end
 
 function Artefacts.findByName(rawName)

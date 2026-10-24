@@ -59,7 +59,7 @@ Write-Host "Validated plugin.json: $($manifest.name) v$($manifest.version) ($($m
 # 3. Validate data integrity & Lua files
 $matText = Get-Content (Join-Path $RepoRoot "data\materials.lua") -Raw
 $artText = Get-Content (Join-Path $RepoRoot "data\artefacts.lua") -Raw
-$definedMats = [regex]::Matches($matText, '\{\s*name\s*=\s*"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+$definedMats = [regex]::Matches($matText, 'name\s*=\s*"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
 $usedMats = [regex]::Matches($artText, '\{\s*name\s*=\s*"([^"]+)",\s*count\s*=\s*\d+\s*\}') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
 $missingMats = @($usedMats | Where-Object { $_ -notin $definedMats })
 if ($missingMats.Count -gt 0) {

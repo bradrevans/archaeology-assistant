@@ -18,11 +18,15 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$OutputDir = (Join-Path (Split-Path -Parent $PSScriptRoot) "data"),
+    [string]$OutputDir = "",
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
+    $OutputDir = Join-Path (Split-Path -Parent $scriptDir) "data"
+}
 Add-Type -AssemblyName System.Web
 
 $MaterialsUrl = "https://runescape.wiki/w/Materials_(Archaeology)?action=raw"
@@ -173,6 +177,101 @@ foreach ($tm in $trMatches) {
 $secondaryItems = @($secondarySet) | Sort-Object
 Write-Host "Parsed $($artefacts.Count) artefacts and $($secondaryItems.Count) secondary restoration items." -ForegroundColor Green
 
+# 3. Resolve In-Game Item IDs for Materials & Artefacts
+Write-Host "Resolving item IDs from RuneScape Wiki..." -ForegroundColor Cyan
+
+function Resolve-ItemIds {
+    param([string[]]$Titles)
+    $unique = New-Object System.Collections.Generic.List[string]
+    foreach ($t in $Titles) {
+        if (-not [string]::IsNullOrWhiteSpace($t) -and -not $unique.Contains($t)) {
+            $unique.Add($t)
+        }
+    }
+
+    $idMap = @{}
+    $batchSize = 40
+    for ($i = 0; $i -lt $unique.Count; $i += $batchSize) {
+        $batch = @($unique | Select-Object -Skip $i -First $batchSize)
+        $encoded = ($batch | ForEach-Object { [System.Uri]::EscapeDataString($_) }) -join "%7C"
+        $url = "https://runescape.wiki/api.php?action=query&prop=revisions&rvprop=content&rvslots=main&titles=$encoded&redirects=1&format=json"
+        try {
+            $res = Invoke-RestMethod -Uri $url -Headers $Headers -TimeoutSec 30
+            if ($res.query -and $res.query.pages) {
+                foreach ($page in $res.query.pages.PSObject.Properties.Value) {
+                    if ($page.revisions -and $page.revisions[0].slots -and $page.revisions[0].slots.main) {
+                        $text = $page.revisions[0].slots.main."*"
+                        if ($text -match 'id\d*\s*=\s*(\d+)') {
+                            $idMap[$page.title] = [int]$Matches[1]
+                        }
+                    }
+                }
+            }
+            if ($res.query -and $res.query.redirects) {
+                foreach ($r in $res.query.redirects) {
+                    if ($idMap.ContainsKey($r.to)) {
+                        $idMap[$r.from] = $idMap[$r.to]
+                    }
+                }
+            }
+            if ($res.query -and $res.query.normalized) {
+                foreach ($n in $res.query.normalized) {
+                    if ($idMap.ContainsKey($n.to)) {
+                        $idMap[$n.from] = $idMap[$n.to]
+                    }
+                }
+            }
+        } catch {
+            Write-Warning "Failed batch item ID lookup: $_"
+        }
+    }
+    return $idMap
+}
+
+$queryTitles = New-Object System.Collections.Generic.List[string]
+foreach ($m in $materials) { [void]$queryTitles.Add($m.Name) }
+foreach ($sec in $secondaryItems) { [void]$queryTitles.Add($sec) }
+foreach ($a in $artefacts) {
+    [void]$queryTitles.Add($a.DamagedName)
+    [void]$queryTitles.Add($a.Name)
+}
+# Known special-case aliases
+[void]$queryTitles.Add("Tetracompass (unpowered)")
+[void]$queryTitles.Add("Spear of Annihilation with shaft + spokes")
+
+$itemIdMap = Resolve-ItemIds -Titles $queryTitles.ToArray()
+
+# Fallback alias mappings
+if ($itemIdMap.ContainsKey("Tetracompass (unpowered)")) {
+    $itemIdMap["Tetracompass (unpowered) (damaged)"] = $itemIdMap["Tetracompass (unpowered)"]
+}
+if ($itemIdMap.ContainsKey("Spear of Annihilation with shaft + spokes")) {
+    $itemIdMap["Spear of Annihilation (damaged)"] = $itemIdMap["Spear of Annihilation with shaft + spokes"]
+}
+
+# Attach resolved IDs
+foreach ($m in $materials) {
+    $m | Add-Member -NotePropertyName "Id" -NotePropertyValue ($itemIdMap[$m.Name]) -Force
+}
+$secIdMap = @{}
+foreach ($sec in $secondaryItems) {
+    $secIdMap[$sec] = $itemIdMap[$sec]
+}
+foreach ($a in $artefacts) {
+    $foundId = if ($itemIdMap.ContainsKey($a.DamagedName)) {
+        $itemIdMap[$a.DamagedName]
+    } elseif ($itemIdMap.ContainsKey($a.Name)) {
+        $itemIdMap[$a.Name]
+    } else {
+        $null
+    }
+    $a | Add-Member -NotePropertyName "Id" -NotePropertyValue $foundId -Force
+}
+
+$matWithId = @($materials | Where-Object { $null -ne $_.Id }).Count
+$artWithId = @($artefacts | Where-Object { $null -ne $_.Id }).Count
+Write-Host "Resolved item IDs: $matWithId/$($materials.Count) materials, $artWithId/$($artefacts.Count) artefacts." -ForegroundColor Green
+
 if ($DryRun) {
     Write-Host "[DryRun] Validation succeeded. Skipping file generation." -ForegroundColor Yellow
     return
@@ -181,7 +280,7 @@ if ($DryRun) {
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
-# 3. Generate data/materials.lua
+# 4. Generate data/materials.lua
 $sbMat = New-Object System.Text.StringBuilder
 [void]$sbMat.AppendLine("-- Auto-generated by scripts/Update-WikiData.ps1 from official RuneScape Wiki data")
 [void]$sbMat.AppendLine("-- Do not edit the LIST table manually; re-run scripts/Update-WikiData.ps1 after game updates.")
@@ -192,10 +291,12 @@ $sbMat = New-Object System.Text.StringBuilder
 
 foreach ($m in $materials) {
     $cacheItems = @($m.Caches | ForEach-Object { "`"$(Escape-LuaString $_)`"" }) -join ", "
-    [void]$sbMat.AppendLine("    { name = `"$(Escape-LuaString $m.Name)`", level = $($m.Level), culture = `"$(Escape-LuaString $m.Culture)`", isArchMaterial = true, caches = { $cacheItems } },")
+    $idVal = if ($m.Id) { $m.Id } else { "nil" }
+    [void]$sbMat.AppendLine("    { id = $idVal, name = `"$(Escape-LuaString $m.Name)`", level = $($m.Level), culture = `"$(Escape-LuaString $m.Culture)`", isArchMaterial = true, caches = { $cacheItems } },")
 }
 foreach ($sec in $secondaryItems) {
-    [void]$sbMat.AppendLine("    { name = `"$(Escape-LuaString $sec)`", level = 1, culture = `"Secondary`", isArchMaterial = false, caches = {} },")
+    $idVal = if ($secIdMap[$sec]) { $secIdMap[$sec] } else { "nil" }
+    [void]$sbMat.AppendLine("    { id = $idVal, name = `"$(Escape-LuaString $sec)`", level = 1, culture = `"Secondary`", isArchMaterial = false, caches = {} },")
 }
 
 [void]$sbMat.AppendLine(@'
@@ -203,11 +304,15 @@ foreach ($sec in $secondaryItems) {
 
 Materials.BY_NAME = {}
 Materials.BY_LOWER = {}
+Materials.BY_ID = {}
 
 for idx, mat in ipairs(Materials.LIST) do
     mat.order = idx
     Materials.BY_NAME[mat.name] = mat
     Materials.BY_LOWER[string.lower(mat.name)] = mat
+    if mat.id then
+        Materials.BY_ID[mat.id] = mat
+    end
 end
 
 function Materials.normalize(name)
@@ -223,6 +328,11 @@ end
 function Materials.get(name)
     if not name then return nil end
     return Materials.BY_NAME[name] or Materials.BY_LOWER[Materials.normalize(name)]
+end
+
+function Materials.getById(id)
+    if not id then return nil end
+    return Materials.BY_ID[id]
 end
 
 function Materials.isMaterial(name)
@@ -241,7 +351,7 @@ $matPath = Join-Path $OutputDir "materials.lua"
 [System.IO.File]::WriteAllText($matPath, $sbMat.ToString(), $utf8NoBom)
 Write-Host "Wrote $matPath" -ForegroundColor Cyan
 
-# 4. Generate data/artefacts.lua
+# 5. Generate data/artefacts.lua
 $sbArt = New-Object System.Text.StringBuilder
 [void]$sbArt.AppendLine("-- Auto-generated by scripts/Update-WikiData.ps1 from official RuneScape Wiki data")
 [void]$sbArt.AppendLine("-- Do not edit the LIST table manually; re-run scripts/Update-WikiData.ps1 after game updates.")
@@ -253,7 +363,9 @@ $sbArt = New-Object System.Text.StringBuilder
 foreach ($a in $artefacts) {
     $matStr = @($a.Materials | ForEach-Object { "{ name = `"$(Escape-LuaString $_.Name)`", count = $($_.Count) }" }) -join ", "
     $xpStr = $a.Xp.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+    $idVal = if ($a.Id) { $a.Id } else { "nil" }
     [void]$sbArt.AppendLine("    {")
+    [void]$sbArt.AppendLine("        id = $idVal,")
     [void]$sbArt.AppendLine("        name = `"$(Escape-LuaString $a.Name)`",")
     [void]$sbArt.AppendLine("        damagedName = `"$(Escape-LuaString $a.DamagedName)`",")
     [void]$sbArt.AppendLine("        level = $($a.Level),")
@@ -268,6 +380,7 @@ foreach ($a in $artefacts) {
 
 Artefacts.BY_DAMAGED_LOWER = {}
 Artefacts.BY_BASE_LOWER = {}
+Artefacts.BY_ID = {}
 
 local function normalizeName(name)
     if not name then return "" end
@@ -283,6 +396,9 @@ for idx, art in ipairs(Artefacts.LIST) do
     art.order = idx
     Artefacts.BY_DAMAGED_LOWER[normalizeName(art.damagedName)] = art
     Artefacts.BY_BASE_LOWER[normalizeName(art.name)] = art
+    if art.id then
+        Artefacts.BY_ID[art.id] = art
+    end
 end
 
 local function extractDamagedBaseName(rawName)
@@ -300,6 +416,11 @@ end
 
 function Artefacts.normalize(name)
     return normalizeName(name)
+end
+
+function Artefacts.findById(id)
+    if not id then return nil end
+    return Artefacts.BY_ID[id]
 end
 
 function Artefacts.findByName(rawName)
