@@ -10,25 +10,36 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 
 ## Features (v0.2.0)
 - **Complete RS3 Artefact & Material Database**: Includes all 231 damaged artefacts (levels 1–120, including unpowered Tetracompass and Spear of Annihilation) and all 47 Archaeology materials + 22 secondary restoration items.
+- **Two Dedicated Views (Tabs)**:
+  - **Artefacts Tab**:
+    - Scans damaged artefacts across your **Backpack** and **Bank**.
+    - Individual **Track** toggles (`On` / `Off`) and **`+` / `-`** quantity overrides per artefact.
+    - Displays artefact level, owned quantities (`Bag`, `Bank`, or combined), and live repair status (`Ready`, `X / Y Ready`, `Short (N mats)`, or `Off (Can Repair)`).
+    - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
+    - **Pin / Lock** button (`Pin` / `Unpin`) to lock your chosen artefact targets so you can bank them and farm materials without losing your plan.
+  - **Materials Tab**:
+    - Calculates exact restoration materials required based on tracked artefacts.
+    - Displays `Material` name, required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
+    - **Show Filter** toggle (`Show: All` vs. `Short Only`) to focus exclusively on missing items.
 - **Native `PrettyUI` Movable, Resizable & Scrollable Window**:
-  - Uses `prettyui.Window` (`6398181`) so you can drag the titlebar to move the window anywhere on screen, drag any edge/corner to resize it, and scroll smoothly through all required materials without pagination button clutter.
-  - Automatically saves and restores window position, size, and visibility in `PersistentDB`.
-  - Integrates with the **RS3 Ribbon Bar** (`hasRibbonIcon: true`) so you can show/hide the window or reset its position anytime from the plugin hub.
-- **Live Bank & Material Storage Sync Prompts**:
-  - Displays a prominent colour-coded status banner alerting you if your selected material sources (`Material Storage` or `Bank`) have not been opened yet (`! Action Needed: Check Material Storage / Bank`), are using cached counts from a previous session (`Using Cached Counts`), or have been verified live in your current session (`Sources Synced Live`).
+  - Uses `prettyui.Window` (`6398181`) with smooth scrolling, edge/corner resizing, and automatic geometry and visibility persistence in `PersistentDB`.
+  - Integrates with the **RS3 Ribbon Bar** (`hasRibbonIcon: true`) so you can show/hide the window anytime from the plugin hub.
+  - Clean responsive reflow: expanding the window allocates 100% of extra width to the `Location` column.
+- **Sync Status Badges with In-Game Icons & Rich Tooltips**:
+  - Compact icon badges in the toolbar for **Material Storage** (Archaeology Journal / Material icon) and **Bank** (Coins pile icon).
+  - Status dot indicator and borders:
+    - 🟢 **Synced (Green)**: Verified live in the current game session.
+    - 🟠 **Cached (Amber)**: Loaded from previous session cache (resync recommended in case items changed on another device).
+    - 🔴 **Not Synced (Red)**: Container not yet opened / no data.
+    - ⚪ **Ignored (Grey)**: Container excluded by the current `Src` filter mode.
 - **Multi-Source Material Tracking (`Src` button)**:
-  - **Bag + Storage** *(default)*
-  - **All (Bag + Storage + Bank)**
-  - **Storage Only**
-  - **Backpack Only**
-  - **Bag + Bank**
-- **Include / Exclude Duplicate Artefacts (`Dupes` button)**:
-  - Toggle between **Dupes: All** (sums material requirements across all copies of damaged artefacts in your inventory) and **Dupes: 1x** (counts only 1 of each unique damaged artefact).
-- **All vs. Short-Only Filter (`Show` button)**:
-  - Defaults to showing **all required materials** with `Owned / Required` (`x/x`) and status (`-N short` or `Ready (+N)`), with a single-click toggle to show **Short Only**.
-- **Pin / Lock Target List (`Pin` / `Unpin` button)**:
-  - Pin your current damaged artefacts so you can deposit the artefacts in your bank, head out to dig sites/caches, and watch your `Owned / Required` (`x/x`) progress update live as you excavate (including Sign of the Porter transfers to Material Storage).
-- **Persistent State**: Automatically caches your Material Storage, Bank material counts, pinned artefacts, window geometry, and UI preferences across game sessions via `PersistentDB`.
+  - Cycle container counting: **Src: All** *(default: Bag + Storage + Bank)*, **Src: Bag+Stor**, **Src: Storage**, **Src: Bag Only**, and **Src: Bag+Bank**.
+- **Duplicate Artefacts Inclusion (`Dupes` button)**:
+  - Toggle default inclusion between **Dupes: All** and **Dupes: 1x** (or shows **Dupes: Custom** when individual `+`/`-` overrides are active).
+- **Porter & Cart Live Tracking**:
+  - Detects Sign of the Porter transfers to Material Storage from in-game chat messages, updating material counts and deficits in real time without requiring a reopen.
+- **Clean Empty States**:
+  - Hides empty tables and reflows window scroll height cleanly when no damaged artefacts are carried or all required materials are ready.
 
 ---
 
