@@ -172,12 +172,14 @@ function Tracker.new()
     self.bankInvId = tonumber(safeDbGet("arch_bank_inv_id", -1)) or -1
     safeDbSet("arch_storage_inv_id", -1)
 
-    -- Guard against cached storage corruption caused by inspecting a damaged artefact in a previous session
-    if storEntries > 0 and storEntries <= 5 and isArtefactRecipeContainer(self.storageMaterials, storEntries) then
-        self.storageMaterials = {}
-        storEntries = 0
-        safeDbSet("arch_storage_materials", "")
-        safeDbSet("arch_storage_synced", 0)
+    -- Guard against cached storage corruption caused by inspecting a damaged artefact or false bank deposits in a previous session
+    if storEntries > 0 and storEntries <= 5 then
+        if isArtefactRecipeContainer(self.storageMaterials, storEntries) or (safeDbGet("arch_storage_synced", 0) == 0 and bankEntries > 0) then
+            self.storageMaterials = {}
+            storEntries = 0
+            safeDbSet("arch_storage_materials", "")
+            safeDbSet("arch_storage_synced", 0)
+        end
     end
 
     self.storageIconObjId = 49429
@@ -186,8 +188,7 @@ function Tracker.new()
     self.bankSyncedLive = false
     self.storageHasCache = (storEntries > 0)
     self.bankHasCache = (bankEntries > 0)
-    self.lastActionWasDrop = false
-    self.lastActionWasDeposit = false
+    self.lastAction = nil
 
     -- Computed state for UI consumption
     self.lastResult = {
@@ -478,6 +479,7 @@ function Tracker:scanAllInventories(triggerInvType)
             end
 
             local storageChanged = false
+            local bankChanged = false
             for matName, prevCount in pairs(self.prevBackpackMaterials) do
                 local currentCount = bagMats[matName] or 0
                 local delta = currentCount - prevCount
@@ -491,13 +493,21 @@ function Tracker:scanAllInventories(triggerInvType)
                         consumedMats[matName] = consumed - consumedFromBag
                     end
 
-                    -- If the player explicitly dropped the item, do not credit to storage
-                    if self.lastActionWasDrop then
+                    -- If the player explicitly dropped the item, do not credit to storage or bank
+                    if self.lastAction == "drop" then
                         -- Dropping resources decreases the total naturally
-                    elseif depositedCount > 0 then
-                        -- Deposited (Material Cart, Bank Deposit Box, bank booth): retain player progress
-                        self.storageMaterials[matName] = (self.storageMaterials[matName] or 0) + depositedCount
-                        storageChanged = true
+                    elseif self.lastAction == "bank" then
+                        -- Deposited into Bank (bank chest, bank booth, deposit box): credit to bankMaterials!
+                        if depositedCount > 0 then
+                            self.bankMaterials[matName] = (self.bankMaterials[matName] or 0) + depositedCount
+                            bankChanged = true
+                        end
+                    else
+                        -- Deposited into Material Storage (Material Cart, storage box): credit to storageMaterials!
+                        if depositedCount > 0 then
+                            self.storageMaterials[matName] = (self.storageMaterials[matName] or 0) + depositedCount
+                            storageChanged = true
+                        end
                     end
                 end
             end
@@ -505,9 +515,11 @@ function Tracker:scanAllInventories(triggerInvType)
             if storageChanged then
                 safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
             end
+            if bankChanged then
+                safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
+            end
 
-            self.lastActionWasDrop = false
-            self.lastActionWasDeposit = false
+            self.lastAction = nil
         end
 
         self.backpackMaterials = bagMats
@@ -585,16 +597,18 @@ function Tracker:scanAllInventories(triggerInvType)
     end
 end
 
--- Tracks player actions (e.g. Drop vs Deposit) from in-game MiniMenu clicks
+-- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart) from in-game MiniMenu clicks
 function Tracker:onMiniMenuAction(verb, full)
     local vLower = string.lower(verb or "")
     local fLower = string.lower(full or "")
     if vLower == "drop" or string.find(fLower, "drop") then
-        self.lastActionWasDrop = true
-        self.lastActionWasDeposit = false
-    elseif string.find(fLower, "deposit") or string.find(fLower, "cart") or string.find(fLower, "bank") then
-        self.lastActionWasDeposit = true
-        self.lastActionWasDrop = false
+        self.lastAction = "drop"
+    elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box") then
+        self.lastAction = "bank"
+    elseif string.find(fLower, "cart") or string.find(fLower, "material storage") then
+        self.lastAction = "storage"
+    elseif string.find(fLower, "deposit") then
+        self.lastAction = "storage"
     end
 end
 
