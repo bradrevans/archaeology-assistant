@@ -2,6 +2,12 @@
 -- In-game movable, resizable, scrollable UI for the Archaeology Assistant plugin
 -- built on PrettyUI (dependency 6398181) with RS3 Ribbon Bar hub integration.
 
+local okOverlay, Overlay = xpcall(function()
+    return require("ui/overlay")
+end, function(err)
+    print("[ArchAssistant ERROR] Failed to require('ui/overlay'): " .. tostring(err))
+end)
+
 local Window = {}
 Window.__index = Window
 
@@ -112,6 +118,18 @@ function Window.new(tracker)
     self.hubParent = nil
     self.hubSummaryText = nil
     self.hubToggleBtn = nil
+    self.overlay = nil
+
+    if okOverlay and Overlay then
+        local okO, oInstance = xpcall(function()
+            return Overlay.new(tracker)
+        end, function(err)
+            print("[ArchAssistant ERROR] Failed to instantiate Overlay: " .. tostring(err))
+        end)
+        if okO and oInstance then
+            self.overlay = oInstance
+        end
+    end
 
     local savedVis = safeDbGet("arch_win_visible", 1)
     self.isVisible = (savedVis ~= 0 and savedVis ~= false)
@@ -575,6 +593,23 @@ function Window:buildContentComponents(container)
             self:refresh()
         end
     )
+
+    self.btnSpots = self:createToolbarButton(
+        container,
+        (self.overlay and self.overlay.enabled) and "Spots: On" or "Spots: Off",
+        "Toggle in-game world highlighting and overhead deficit indicators for excavation spots.",
+        true,
+        function()
+            if self.overlay then
+                local on = self.overlay:toggleEnabled()
+                self.btnSpots.setLabel(on and "Spots: On" or "Spots: Off")
+                self.btnSpots.setActive(on)
+            end
+        end
+    )
+    if self.overlay then
+        self.btnSpots.setActive(self.overlay.enabled)
+    end
 
     local function forwardScrollWheel(comp)
         if not comp or not ui or not ui.Hook or not ui.Hook.ONSCROLLWHEEL then return end
@@ -1570,27 +1605,34 @@ function Window:updateToolbarLayout(forceReflow)
 
         -- Row 2: Contextual 3-Button Control Toolbar + 2 Sync Status Badges at y = 36
         self.btnPin.setHidden(not isArtTab)
+        self.btnDupes.setHidden(not isArtTab)
         self.btnFilter.setHidden(isArtTab)
+        if self.btnSpots then
+            self.btnSpots.setHidden(isArtTab)
+        end
 
         local badgesTotalW = BADGE_W * 2 + gap
 
         local totalBtnsW = math.max(240, availW - badgesTotalW - (gap * 3))
-        local wSource = math.floor(totalBtnsW * 0.37)
-        local wDupes  = math.floor(totalBtnsW * 0.34)
-        local wThird  = totalBtnsW - (wSource + wDupes)
+        local w1 = math.floor(totalBtnsW * 0.35)
+        local w2 = math.floor(totalBtnsW * 0.33)
+        local w3 = totalBtnsW - (w1 + w2)
 
         local x1 = 8
-        local x2 = x1 + wSource + gap
-        local x3 = x2 + wDupes + gap
-        local xStor = x3 + wThird + gap
+        local x2 = x1 + w1 + gap
+        local x3 = x2 + w2 + gap
+        local xStor = x3 + w3 + gap
         local xBank = xStor + BADGE_W + gap
 
-        self.btnSource.setBounds(x1, 36, wSource, 26)
-        self.btnDupes.setBounds(x2, 36, wDupes, 26)
+        self.btnSource.setBounds(x1, 36, w1, 26)
         if isArtTab then
-            self.btnPin.setBounds(x3, 36, wThird, 26)
+            self.btnDupes.setBounds(x2, 36, w2, 26)
+            self.btnPin.setBounds(x3, 36, w3, 26)
         else
-            self.btnFilter.setBounds(x3, 36, wThird, 26)
+            self.btnFilter.setBounds(x2, 36, w2, 26)
+            if self.btnSpots then
+                self.btnSpots.setBounds(x3, 36, w3, 26)
+            end
         end
 
         if self.badgeStorage then
@@ -1792,6 +1834,10 @@ function Window:refresh()
     end
     self.btnFilter.setLabel(t.shortOnly and "Short Only" or "Show: All")
     self.btnFilter.setActive(t.shortOnly)
+    if self.btnSpots and self.overlay then
+        self.btnSpots.setLabel(self.overlay.enabled and "Spots: On" or "Spots: Off")
+        self.btnSpots.setActive(self.overlay.enabled)
+    end
     self.btnPin.setLabel(t.isPinned and "Unpin" or "Pin")
     self.btnPin.setActive(t.isPinned)
 
@@ -2041,6 +2087,9 @@ function Window:refresh()
     self.visibleRowCount = visibleRowCount
     self:updateToolbarLayout(true)
     self:refreshHub()
+    if self.overlay and self.overlay.triggerScan then
+        pcall(function() self.overlay:triggerScan() end)
+    end
 end
 
 function Window:shutdown()
@@ -2062,6 +2111,10 @@ function Window:shutdown()
     self.resizeRight = nil
     self.resizeBottom = nil
     self.resizeCorner = nil
+    if self.overlay and self.overlay.destroy then
+        pcall(function() self.overlay:destroy() end)
+        self.overlay = nil
+    end
     if self.win and self.win.Destroy then
         pcall(function() self:onWindowGeometryChanged() end)
         pcall(function() self.win:Destroy() end)

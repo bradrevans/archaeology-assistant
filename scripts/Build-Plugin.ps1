@@ -59,6 +59,7 @@ Write-Host "Validated plugin.json: $($manifest.name) v$($manifest.version) ($($m
 # 3. Validate data integrity & Lua files
 $matText = Get-Content (Join-Path $RepoRoot "data\materials.lua") -Raw
 $artText = Get-Content (Join-Path $RepoRoot "data\artefacts.lua") -Raw
+$hotText = Get-Content (Join-Path $RepoRoot "data\hotspots.lua") -Raw
 $definedMats = [regex]::Matches($matText, 'name\s*=\s*"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
 $usedMats = [regex]::Matches($artText, '\{\s*name\s*=\s*"([^"]+)",\s*count\s*=\s*\d+\s*\}') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
 $missingMats = @($usedMats | Where-Object { $_ -notin $definedMats })
@@ -67,13 +68,19 @@ if ($missingMats.Count -gt 0) {
 }
 Write-Host "Validated recipe integrity: $($definedMats.Count) materials defined, 0 missing references." -ForegroundColor Green
 
+if ($hotText -match '&#\d+;') {
+    throw "data/hotspots.lua contains unescaped HTML entities!"
+}
+
 $runtimeFiles = @(
     "plugin.json",
     "main.lua",
     "tracker.lua",
     "data\materials.lua",
     "data\artefacts.lua",
-    "ui\window.lua"
+    "data\hotspots.lua",
+    "ui\window.lua",
+    "ui\overlay.lua"
 )
 
 foreach ($relPath in $runtimeFiles) {
@@ -82,6 +89,13 @@ foreach ($relPath in $runtimeFiles) {
         throw "Missing required plugin file: $relPath"
     }
     if ($relPath.EndsWith(".lua")) {
+        # Check and strip UTF-8 BOM if present
+        $fileBytes = [System.IO.File]::ReadAllBytes($fullPath)
+        if ($fileBytes.Length -ge 3 -and $fileBytes[0] -eq 239 -and $fileBytes[1] -eq 187 -and $fileBytes[2] -eq 191) {
+            [System.IO.File]::WriteAllBytes($fullPath, $fileBytes[3..($fileBytes.Length - 1)])
+            Write-Host "Automatically stripped UTF-8 BOM from $relPath" -ForegroundColor Yellow
+        }
+
         $content = Get-Content $fullPath -Raw
         $openBrace  = ([regex]::Matches($content, "\{")).Count
         $closeBrace = ([regex]::Matches($content, "\}")).Count

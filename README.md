@@ -25,6 +25,13 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
     - Hovering any row displays a rich floating tooltip with an enlarged (32×32) in-game item sprite, exact container breakdown (`Bag`, `Storage`, `Bank`), total deficit, and all known excavation cache / dig site locations.
     - Displays required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
     - **Show Filter** toggle (`Show: All` vs. `Short Only`) to focus exclusively on missing items.
+    - **Excavation Spot Highlighter** toggle (`Spots: On` vs. `Spots: Off`) to highlight world spots in 3D space.
+- **In-Game Excavation Spot Highlighting & Overhead Deficit Indicators**:
+  - Scans nearby active world objects (`LocList`) for **Material Caches** (`Material cache (...)`) and all 103 **Excavation Hotspots** yielding materials you are currently short on.
+  - Projects an overhead floating deficit indicator badge with a downward pointer directly above the spot in 3D screen space (`ScreenConvert.CoordGridToScreen`).
+  - Overhead indicators display each obtainable needed material with its in-game item sprite, live deficit quantity, and percentage likelihood based on the spot's material pool (e.g. `100%` for material caches, `25%` for 4-material hotspots).
+  - **Dynamic Real-Time Dismissal ("until they're gone")**: As you collect materials (via inventory updates or Sign of the Porter cart transfers), required counts decrease in real time; once all needed materials from a spot are satisfied (`short <= 0`), the indicator and highlight vanish automatically.
+  - Fully click-through: does not block interaction with the world or the excavation spot.
 - **Native `PrettyUI` Movable, Resizable & Scrollable Window**:
   - Uses `prettyui.Window` (`6398181`) with smooth scrolling, edge/corner resizing, and automatic geometry and visibility persistence in `PersistentDB`.
   - Integrates with the **RS3 Ribbon Bar** (`hasRibbonIcon: true`) so you can show/hide the window anytime from the plugin hub.
@@ -56,13 +63,15 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 - [`main.lua`](file:///c:/Users/bradr/code/archaeology-assistant/main.lua) — Plugin entrypoint, event subscriptions, and `PluginShutdown()` persistence hook
 - [`tracker.lua`](file:///c:/Users/bradr/code/archaeology-assistant/tracker.lua) — Inventory scanner, material deficit calculator, sync prompt analyzer, and pin/filter state manager
 - [`ui/window.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/window.lua) — In-game `PrettyUI` movable/resizable/scrollable window, sync prompt banner, responsive material table, and Ribbon Bar hub
+- [`ui/overlay.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/overlay.lua) — In-game 3D world spot highlighter, ground target reticle, and overhead deficit indicator badges
 - [`data/materials.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/materials.lua) — Auto-generated Archaeology material metadata and cache locations
 - [`data/artefacts.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/artefacts.lua) — Auto-generated damaged artefact restoration recipes
+- [`data/hotspots.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/hotspots.lua) — Auto-generated database mapping all 103 RS3 Excavation Hotspots to their yielded materials
 
 ### Build & Data Generation Scripts (Excluded from Plugin Bundle)
 - [`launch-beta.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/launch-beta.cmd) / [`scripts/Launch-Beta.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Launch-Beta.ps1) — One-step command (or double-clickable batch file) that builds, deploys to `C:\ProgramData\Jagex\RuneScape-BETA\dev_plugins\archaeology-assistant`, syncs the `PrettyUI` (`6398181`) dependency, and launches the RS3 Plugin Developer Beta client via the Jagex Launcher.
 - [`deploy.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/deploy.cmd) — Quick command (or double-clickable batch file) to rebuild and deploy updated files while the Beta client is already running.
-- [`scripts/Update-WikiData.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Update-WikiData.ps1) — Replayable script that fetches live Archaeology materials and artefact tables from the official RuneScape Wiki, validates recipe integrity, and regenerates `data/materials.lua` and `data/artefacts.lua`.
+- [`scripts/Update-WikiData.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Update-WikiData.ps1) — Replayable script that fetches live Archaeology materials, artefact tables, and excavation hotspots from the official RuneScape Wiki, validates recipe integrity, and regenerates `data/materials.lua`, `data/artefacts.lua`, and `data/hotspots.lua`.
 - [`scripts/Build-Plugin.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Build-Plugin.ps1) — Validates `plugin.json` and Lua modules, stages a clean runtime-only plugin bundle in `dist/archaeology-assistant` (excluding `scripts/`, `.cmd` files, `README.md`, and git files), deploys to `C:\ProgramData\Jagex\RuneScape-BETA\dev_plugins\archaeology-assistant`, and ensures `PrettyUI` (`6398181`) is synced into `RuneScape-BETA\plugins`.
 
 ---
