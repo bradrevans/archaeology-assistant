@@ -111,6 +111,31 @@ local function countMapEntries(map)
     return n
 end
 
+-- Helper to determine if a container's contents match an artefact restoration recipe.
+-- Artefact inspection/restoration dialogs in RS3 hold the exact material requirements (<= 5 materials)
+-- for the inspected artefact, which must NEVER be mistaken for the player's Material Storage box.
+local function isArtefactRecipeContainer(matCounts, archKinds)
+    if not matCounts or not archKinds or archKinds <= 0 or archKinds > 5 then
+        return false
+    end
+    local arts = (Artefacts and Artefacts.LIST) or {}
+    for _, art in ipairs(arts) do
+        if art.materials and #art.materials == archKinds then
+            local allMatch = true
+            for _, req in ipairs(art.materials) do
+                if not matCounts[req.name] then
+                    allMatch = false
+                    break
+                end
+            end
+            if allMatch then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function Tracker.new()
     local self = setmetatable({}, Tracker)
 
@@ -143,14 +168,25 @@ function Tracker.new()
     local storEntries = countMapEntries(self.storageMaterials)
     local bankEntries = countMapEntries(self.bankMaterials) + countMapEntries(self.bankArtefacts)
 
+    self.storageInvId = tonumber(safeDbGet("arch_storage_inv_id", -1)) or -1
+    self.bankInvId = tonumber(safeDbGet("arch_bank_inv_id", -1)) or -1
+
+    -- Guard against cached storage corruption caused by inspecting a damaged artefact in a previous session
+    if storEntries > 0 and storEntries <= 5 and isArtefactRecipeContainer(self.storageMaterials, storEntries) then
+        self.storageMaterials = {}
+        storEntries = 0
+        safeDbSet("arch_storage_materials", "")
+        safeDbSet("arch_storage_synced", 0)
+        safeDbSet("arch_storage_inv_id", -1)
+        self.storageInvId = -1
+    end
+
     self.storageIconObjId = 49429
     self.bankIconObjId = 995
     self.storageSyncedLive = false
     self.bankSyncedLive = false
     self.storageHasCache = (safeDbGet("arch_storage_synced", 0) == 1) or (storEntries > 0)
     self.bankHasCache = (safeDbGet("arch_bank_synced", 0) == 1) or (bankEntries > 0)
-    self.storageInvId = tonumber(safeDbGet("arch_storage_inv_id", -1)) or -1
-    self.bankInvId = tonumber(safeDbGet("arch_bank_inv_id", -1)) or -1
 
     -- Computed state for UI consumption
     self.lastResult = {
@@ -375,15 +411,17 @@ end
 --   matCounts ({ [canonicalMaterialName] = totalCount }),
 --   archMatKinds (number of slots containing archaeology materials),
 --   nonMatSlots (number of slots containing non-material items),
---   artCounts ({ [damagedArtefactName] = totalCount })
+--   artCounts ({ [damagedArtefactName] = totalCount }),
+--   totalSlots (number of total slots in the container)
 function Tracker:extractMaterialsFromInv(inv)
     local matCounts = {}
     local artCounts = {}
     local archMatKinds = 0
     local nonMatSlots = 0
-    local firstArchObjId = nil
 
     local slots = getInventorySlots(inv)
+    local totalSlots = #slots
+
     for _, slot in ipairs(slots) do
         local obj, count, rawName = getSlotItemInfo(slot)
         if rawName and count > 0 then
@@ -392,12 +430,6 @@ function Tracker:extractMaterialsFromInv(inv)
                 matCounts[mat.name] = (matCounts[mat.name] or 0) + count
                 if mat.isArchMaterial then
                     archMatKinds = archMatKinds + 1
-                    if not firstArchObjId and obj then
-                        local okId, idVal = pcall(function() return obj.id or (obj.type and obj.type.id) end)
-                        if okId and tonumber(idVal) and tonumber(idVal) > 0 then
-                            firstArchObjId = tonumber(idVal)
-                        end
-                    end
                 end
             else
                 nonMatSlots = nonMatSlots + 1
@@ -409,7 +441,7 @@ function Tracker:extractMaterialsFromInv(inv)
         end
     end
 
-    return matCounts, archMatKinds, nonMatSlots, artCounts, firstArchObjId
+    return matCounts, archMatKinds, nonMatSlots, artCounts, totalSlots
 end
 
 -- Scans the player's Backpack, Bank, and any known/candidate Material Storage containers
@@ -481,11 +513,11 @@ function Tracker:scanAllInventories(triggerInvType)
         if okRef and ref then
             local storInv = findInventory(ref)
             if storInv then
-                local storMats, archKinds, _, _, firstObjId = self:extractMaterialsFromInv(storInv)
+                local storMats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(storInv)
                 local triggeredByStor = (triggerInvType ~= nil and triggerInvType == ref)
-                if triggeredByStor or archKinds > 0 then
+                local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(storMats, archKinds)
+                if not isInspect and (triggeredByStor or archKinds > 0) and (totalSlots == 0 or totalSlots >= 15) then
                     self.storageMaterials = storMats
-                    if firstObjId then self.storageIconObjId = firstObjId end
                     self.storageSyncedLive = true
                     checkedStorage = true
                     safeDbSet("arch_storage_synced", 1)
@@ -499,14 +531,19 @@ function Tracker:scanAllInventories(triggerInvType)
     if not checkedStorage and self.storageInvId and self.storageInvId >= 0 then
         local storInv = findInventory(self.storageInvId)
         if storInv then
-            local storMats, archKinds, _, _, firstObjId = self:extractMaterialsFromInv(storInv)
-            if archKinds > 0 then
+            local storMats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(storInv)
+            local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(storMats, archKinds)
+            if not isInspect and archKinds > 0 and nonMatSlots == 0 and (totalSlots == 0 or totalSlots >= 15) then
                 self.storageMaterials = storMats
-                if firstObjId then self.storageIconObjId = firstObjId end
                 self.storageSyncedLive = true
                 checkedStorage = true
                 safeDbSet("arch_storage_synced", 1)
                 safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
+            else
+                if isInspect or (totalSlots > 0 and totalSlots < 15) then
+                    self.storageInvId = -1
+                    safeDbSet("arch_storage_inv_id", -1)
+                end
             end
         end
     end
@@ -520,11 +557,12 @@ function Tracker:scanAllInventories(triggerInvType)
         if not isBag and not isBank and not isWorn then
             local customInv = findInventory(triggerInvType)
             if customInv then
-                local mats, archKinds, nonMatSlots, _, firstObjId = self:extractMaterialsFromInv(customInv)
-                -- Material Storage holds exclusively Archaeology materials
-                if archKinds >= 1 and nonMatSlots == 0 then
+                local mats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(customInv)
+                local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(mats, archKinds)
+                -- Material Storage holds exclusively Archaeology materials and has large capacity (>= 15 slots).
+                -- Damaged artefact inspection/restoration dialogs (<= 5 slots) are strictly excluded.
+                if not isInspect and archKinds >= 1 and nonMatSlots == 0 and (totalSlots == 0 or totalSlots >= 15) then
                     self.storageMaterials = mats
-                    if firstObjId then self.storageIconObjId = firstObjId end
                     self.storageSyncedLive = true
                     local okId, invId = pcall(function() return triggerInvType.id end)
                     if okId and type(invId) == "number" then

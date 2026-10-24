@@ -765,7 +765,7 @@ function Window:buildContentComponents(container)
         }
     end
 
-    self.badgeStorage = createSyncBadge("Stor", self.tracker.storageIconObjId or STORAGE_ICON_OBJ_ID, function()
+    self.badgeStorage = createSyncBadge("Stor", STORAGE_ICON_OBJ_ID, function()
         self:onHoverSyncBadge("storage")
     end)
 
@@ -1460,7 +1460,7 @@ function Window:onHoverSyncBadge(badgeKind)
     local s = isStorage and status.storage or status.bank
     local name = isStorage and "Material Storage" or "Bank"
     local iconObjId = isStorage
-        and (self.tracker and self.tracker.storageIconObjId or STORAGE_ICON_OBJ_ID)
+        and STORAGE_ICON_OBJ_ID
         or BANK_ICON_OBJ_ID
     local openHint = isStorage
         and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
@@ -1851,12 +1851,11 @@ function Window:refresh()
     end
     if self.badgeStorage then
         self.badgeStorage.setState(getBadgeState(syncStatus.storage))
-        if t.storageIconObjId then
-            self.badgeStorage.setIcon(t.storageIconObjId)
-        end
+        self.badgeStorage.setIcon(STORAGE_ICON_OBJ_ID)
     end
     if self.badgeBank then
         self.badgeBank.setState(getBadgeState(syncStatus.bank))
+        self.badgeBank.setIcon(BANK_ICON_OBJ_ID)
     end
 
     -- 3. Update Artefact & Deficit Summary Card
