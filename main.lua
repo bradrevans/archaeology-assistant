@@ -76,8 +76,8 @@ end
 local function onChatMessage(event)
     if not event or not tracker or not window then return end
     xpcall(function()
-        local msg = event.text or event.message
-        if tracker:onChatMessage(msg) then
+        local msg = event.chatMessage or event.text or event.message or (type(event) == "string" and event)
+        if msg and tracker:onChatMessage(msg) then
             window:refresh()
         end
     end, function(e)

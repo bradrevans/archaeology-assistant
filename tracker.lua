@@ -627,19 +627,36 @@ function Tracker:scanAllInventories(triggerInvType)
     end
 end
 
--- Handles chat messages for Sign of the Porter / Material Cart transfers to Material Storage
+-- Handles chat messages for Sign of the Porter / Grace of the Elves / Material Cart transfers to Material Storage
 function Tracker:onChatMessage(text)
     if type(text) ~= "string" or text == "" then
         return false
     end
     local clean = string.gsub(text, "<[^>]+>", "")
-    -- Match Sign of the Porter transporting an item to material storage:
+    local lower = string.lower(clean)
+
+    -- Match porter / grace of the elves / material storage transport events:
     -- e.g. "Your sign of the porter transports the following item to your material storage: Third Age iron."
-    local transported = string.match(clean, "material storage:%s*([^%.!]+)")
-    if transported then
-        local mat = Materials.get(transported)
-        if mat then
-            self.storageMaterials[mat.name] = (self.storageMaterials[mat.name] or 0) + 1
+    -- "Your Grace of the elves transports the following item to your material storage: Cadmium red."
+    if string.find(lower, "porter") or string.find(lower, "grace of the elves") or string.find(lower, "material storage") then
+        local found = false
+        for matName, matDef in pairs(Materials.ALL or {}) do
+            local matLower = string.lower(matName)
+            if string.find(lower, matLower, 1, true) then
+                local qty = 1
+                local qMatch = string.match(clean, "(%d+)%s*[xX]%s*" .. matName)
+                    or string.match(clean, matName .. "%s*[xX]%s*(%d+)")
+                    or string.match(clean, "(%d+)%s+" .. matName)
+                if qMatch and tonumber(qMatch) and tonumber(qMatch) > 0 and tonumber(qMatch) <= 100 then
+                    qty = tonumber(qMatch)
+                end
+
+                self.storageMaterials[matDef.name] = (self.storageMaterials[matDef.name] or 0) + qty
+                found = true
+            end
+        end
+
+        if found then
             safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
             self:recalculate()
             return true
