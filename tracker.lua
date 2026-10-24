@@ -488,6 +488,15 @@ function Tracker:scanAllInventories(triggerInvType)
 
             local consumedMats = {}
             for artName, countRestored in pairs(artsRestored) do
+                -- If pinned, decrement the pinned target count so the restored artefact is removed from tracking
+                if self.isPinned and self.pinnedArtefactCounts and self.pinnedArtefactCounts[artName] then
+                    self.pinnedArtefactCounts[artName] = math.max(0, self.pinnedArtefactCounts[artName] - countRestored)
+                    if self.pinnedArtefactCounts[artName] == 0 then
+                        self.pinnedArtefactCounts[artName] = nil
+                    end
+                    safeDbSet("arch_pinned_artefacts", serializeCountMap(self.pinnedArtefactCounts))
+                end
+
                 local artDef = Artefacts.findByName(artName)
                 if artDef and artDef.materials then
                     for _, req in ipairs(artDef.materials) do
@@ -498,6 +507,25 @@ function Tracker:scanAllInventories(triggerInvType)
 
             local storageChanged = false
             local bankChanged = false
+
+            -- Deduct materials consumed by restoring an artefact from Material Storage (where workbench pulls from)
+            for matName, consumedCount in pairs(consumedMats) do
+                local remainingToConsume = consumedCount
+                local prevBag = self.prevBackpackMaterials[matName] or 0
+                local currBag = bagMats[matName] or 0
+                local bagLost = math.max(0, prevBag - currBag)
+                local consumedFromBag = math.min(bagLost, remainingToConsume)
+                remainingToConsume = remainingToConsume - consumedFromBag
+
+                if remainingToConsume > 0 then
+                    local currentStor = self.storageMaterials[matName] or 0
+                    local storDeduct = math.min(currentStor, remainingToConsume)
+                    if storDeduct > 0 then
+                        self.storageMaterials[matName] = currentStor - storDeduct
+                        storageChanged = true
+                    end
+                end
+            end
             for matName, prevCount in pairs(self.prevBackpackMaterials) do
                 local currentCount = bagMats[matName] or 0
                 local delta = currentCount - prevCount
@@ -581,6 +609,33 @@ function Tracker:scanAllInventories(triggerInvType)
                 safeDbSet("arch_bank_synced", 1)
                 safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
                 safeDbSet("arch_bank_artefacts", serializeCountMap(self.bankArtefacts))
+            end
+        end
+    end
+
+    -- 3. Check if triggerInvType is the Material Storage container
+    if triggerInvType then
+        local isBag = (config.Inv.INV and triggerInvType == config.Inv.INV)
+        local isBank = (config.Inv.BANK and triggerInvType == config.Inv.BANK)
+        local isWorn = (config.Inv.WORN and triggerInvType == config.Inv.WORN)
+        if not isBag and not isBank and not isWorn then
+            local customInv = findInventory(triggerInvType)
+            if customInv and customInv ~= bagInv and customInv ~= bankInv then
+                local mats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(customInv)
+                local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(mats, archKinds)
+                -- Material Storage holds exclusively Archaeology materials and has large capacity (>= 20 slots)
+                local isStorage = (self.lastAction == "storage" or totalSlots >= 20)
+                    and archKinds >= 1
+                    and nonMatSlots == 0
+                    and not isInspect
+
+                if isStorage then
+                    self.storageMaterials = mats
+                    self.storageSyncedLive = true
+                    self.storageHasCache = true
+                    safeDbSet("arch_storage_synced", 1)
+                    safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
+                end
             end
         end
     end
