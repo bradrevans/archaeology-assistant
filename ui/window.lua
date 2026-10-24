@@ -1351,7 +1351,7 @@ function Window:onHoverSyncBadge(badgeKind)
     local s = isStorage and status.storage or status.bank
     local name = isStorage and "Material Storage" or "Bank"
     local openHint = isStorage
-        and "Open Material Storage (at an Archaeologist's workbench) to sync."
+        and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
         or "Open your Bank to sync."
     local contents = isStorage
         and string.format("%d material types stored.", s.matTypes or 0)

@@ -27,6 +27,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - Clean responsive reflow: expanding the window allocates 100% of extra width to the `Location` column.
 - **Sync Status Badges with In-Game Icons & Rich Tooltips**:
   - Compact icon badges in the toolbar for **Material Storage** (Archaeology Journal / Material icon) and **Bank** (Coins pile icon).
+  - Hovering displays sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, or opening your Bank).
   - Status dot indicator and borders:
     - 🟢 **Synced (Green)**: Verified live in the current game session.
     - 🟠 **Cached (Amber)**: Loaded from previous session cache (resync recommended in case items changed on another device).
