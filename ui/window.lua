@@ -186,7 +186,19 @@ function Window:createToolbarButton(parent, label, tooltipText, toggleable, onCl
             width = 90,
             height = 26,
             toggleable = toggleable == true,
-            tooltip = tooltipText
+            tooltip = tooltipText,
+            _onScrollWheel = function(comp, delta)
+                self:hideRowTooltip()
+                local onWheel = (self.win and self.win._onScrollWheel)
+                    or (self.win and self.win._scroll and self.win._scroll._onScrollWheel)
+                if onWheel then
+                    return onWheel(comp, delta)
+                elseif self.win and self.win.ScrollBy then
+                    self.win:ScrollBy(delta * (self.win.scrollStep or 28))
+                    return false
+                end
+                return false
+            end
         })
         return {
             isPretty = true,
@@ -220,6 +232,20 @@ function Window:createToolbarButton(parent, label, tooltipText, toggleable, onCl
         btn.label = label
         if onClick then
             btn:Subscribe(ui.Hook.ONBUTTONPRESSED, onClick)
+        end
+        if ui and ui.Hook and ui.Hook.ONSCROLLWHEEL then
+            btn:Subscribe(ui.Hook.ONSCROLLWHEEL, function(comp, delta)
+                self:hideRowTooltip()
+                local onWheel = (self.win and self.win._onScrollWheel)
+                    or (self.win and self.win._scroll and self.win._scroll._onScrollWheel)
+                if onWheel then
+                    return onWheel(comp, delta)
+                elseif self.win and self.win.ScrollBy then
+                    self.win:ScrollBy(delta * (self.win.scrollStep or 28))
+                    return false
+                end
+                return false
+            end)
         end
         return {
             isPretty = false,
@@ -268,6 +294,15 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self:buildSharedRowTooltip(parent)
     self:setupResizeHandles(parent, win)
     self:updateToolbarLayout(true)
+
+    -- Intercept mouse wheel scrolling to immediately dismiss any open floating row tooltip
+    if win._onScrollWheel then
+        local origOnWheel = win._onScrollWheel
+        win._onScrollWheel = function(component, delta)
+            self:hideRowTooltip()
+            return origOnWheel(component, delta)
+        end
+    end
 
     -- Hook into PrettyUI's overlay sync & resize events to persist window bounds and reflow toolbar
     local anchor = ui.Layer.new(win.root)
@@ -543,19 +578,37 @@ function Window:buildContentComponents(container)
         end
     )
 
+    local function forwardScrollWheel(comp)
+        if not comp or not ui or not ui.Hook or not ui.Hook.ONSCROLLWHEEL then return end
+        comp:Subscribe(ui.Hook.ONSCROLLWHEEL, function(component, delta)
+            self:hideRowTooltip()
+            local onWheel = (self.win and self.win._onScrollWheel)
+                or (self.win and self.win._scroll and self.win._scroll._onScrollWheel)
+            if onWheel then
+                return onWheel(component, delta)
+            elseif self.win and self.win.ScrollBy then
+                self.win:ScrollBy(delta * (self.win.scrollStep or 28))
+                return false
+            end
+            return false
+        end)
+    end
+
     local function bindRowHover(comp, onOver)
-        if ui and ui.Hook and ui.Hook.ONMOUSEOVER then
+        if not comp or not ui or not ui.Hook then return end
+        if ui.Hook.ONMOUSEOVER then
             comp:Subscribe(ui.Hook.ONMOUSEOVER, function()
                 onOver()
-                return true
+                return false
             end)
         end
-        if ui and ui.Hook and ui.Hook.ONMOUSELEAVE then
+        if ui.Hook.ONMOUSELEAVE then
             comp:Subscribe(ui.Hook.ONMOUSELEAVE, function()
                 self:hideRowTooltip()
-                return true
+                return false
             end)
         end
+        forwardScrollWheel(comp)
     end
 
     -- 3. Compact Sync Status Icon Badges (Storage & Bank) on the toolbar row.
@@ -708,9 +761,11 @@ function Window:buildContentComponents(container)
     local summaryBg = ui.Rectangle.new(container)
     summaryBg.colour = COL_BG_CARD
     summaryBg.fill = true
+    summaryBg.clickthrough = false
     summaryBg:SetPos(8, 68)
     summaryBg:SetSize(-16, 46, 1.0, 0)
     self.summaryBg = summaryBg
+    forwardScrollWheel(summaryBg)
 
     self.summaryTitle   = createWrappingText(container, COL_GOLD, 14, 71)
     self.deficitSummary = createWrappingText(container, COL_AMBER, 14, 91)
@@ -722,12 +777,15 @@ function Window:buildContentComponents(container)
     artLayer:SetPos(0, 120)
     artLayer:SetSize(0, artLayerH, 1.0, 0)
     self.artefactTableLayer = artLayer
+    forwardScrollWheel(artLayer)
 
     local artHeaderBg = ui.Rectangle.new(artLayer)
     artHeaderBg.colour = COL_BG_HEADER
     artHeaderBg.fill = true
+    artHeaderBg.clickthrough = false
     artHeaderBg:SetPos(8, 0)
     artHeaderBg:SetSize(-16, 22, 1.0, 0)
+    forwardScrollWheel(artHeaderBg)
 
     local colArtUse = ui.Text.new(artLayer)
     colArtUse.font = id.Font.MUSEO_SANS_15PT_REGULAR
@@ -988,13 +1046,16 @@ function Window:buildContentComponents(container)
     tableLayer:SetSize(0, tableLayerH, 1.0, 0)
     tableLayer.hidden = true
     self.tableLayer = tableLayer
+    forwardScrollWheel(tableLayer)
 
     local tableHeaderBg = ui.Rectangle.new(tableLayer)
     tableHeaderBg.colour = COL_BG_HEADER
     tableHeaderBg.fill = true
+    tableHeaderBg.clickthrough = false
     tableHeaderBg:SetPos(8, 0)
     tableHeaderBg:SetSize(-16, 22, 1.0, 0)
     self.tableHeaderBg = tableHeaderBg
+    forwardScrollWheel(tableHeaderBg)
 
     local colHeaderMat = ui.Text.new(tableLayer)
     colHeaderMat.font = id.Font.MUSEO_SANS_15PT_REGULAR
@@ -1265,7 +1326,7 @@ function Window:buildSharedRowTooltip(parent)
     local tipRoot = ui.Layer.new(parent)
     tipRoot.clickthrough = true
     tipRoot.hidden = true
-    tipRoot:SetSize(380, 90)
+    tipRoot:SetSize(400, 90)
 
     local border = ui.Rectangle.new(tipRoot)
     border.colour = COL_GOLD
@@ -1280,6 +1341,12 @@ function Window:buildSharedRowTooltip(parent)
     bg.clickthrough = true
     bg:SetPos(1, 1)
     bg:SetSize(-2, -2, 1.0, 1.0)
+
+    local tipIcon = ui.Sprite.new(tipRoot)
+    tipIcon.clickthrough = true
+    tipIcon.hidden = true
+    tipIcon:SetPos(8, 8)
+    tipIcon:SetSize(32, 32)
 
     local function makeTipText(colour, yPos)
         local txt = ui.Text.new(tipRoot)
@@ -1298,39 +1365,78 @@ function Window:buildSharedRowTooltip(parent)
         return txt
     end
 
+    if ui and ui.Hook and ui.Hook.ONSCROLLWHEEL then
+        tipRoot:Subscribe(ui.Hook.ONSCROLLWHEEL, function(component, delta)
+            self:hideRowTooltip()
+            local onWheel = (self.win and self.win._onScrollWheel)
+                or (self.win and self.win._scroll and self.win._scroll._onScrollWheel)
+            if onWheel then
+                return onWheel(component, delta)
+            elseif self.win and self.win.ScrollBy then
+                self.win:ScrollBy(delta * (self.win.scrollStep or 28))
+                return false
+            end
+            return false
+        end)
+    end
+
     self.tooltipRoot = tipRoot
     self.tooltipBorder = border
+    self.tooltipIcon = tipIcon
     self.tooltipTitle = makeTipText(COL_GOLD, 6)
     self.tooltipSub = makeTipText(COL_WHITE, 26)
     self.tooltipDetail = makeTipText(COL_CREAM, 48)
 end
 
-function Window:showRowTooltip(titleText, subText, detailText, titleCol)
+function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
     if not self.tooltipRoot or not self.isVisible then
         return
     end
-    local tipW = 380
-    local availTxtW = tipW - 16
+    local tipW = 400
+    local hasIcon = false
+    objId = tonumber(objId)
+    if objId and objId > 0 and self.tooltipIcon then
+        local ok = pcall(function()
+            self.tooltipIcon:SetAssociatedObject(math.tointeger(objId) or objId)
+            self.tooltipIcon.associatedObjectQuantity = (objId == 995) and 10000 or 1
+            if ui.ObjectQuantityDisplayMode then
+                self.tooltipIcon.associatedObjectQuantityMode = ui.ObjectQuantityDisplayMode.NEVER
+            end
+        end)
+        if ok then
+            hasIcon = true
+            self.tooltipIcon.hidden = false
+        else
+            self.tooltipIcon.hidden = true
+        end
+    elseif self.tooltipIcon then
+        self.tooltipIcon.hidden = true
+    end
+
+    local textX = hasIcon and 46 or 8
+    local availTxtW = tipW - textX - 8
     local hTitle  = measureWrappedTextHeight(titleText, availTxtW)
     local hSub    = measureWrappedTextHeight(subText, availTxtW)
     local hDetail = measureWrappedTextHeight(detailText, availTxtW)
-    local tipH = 6 + hTitle + 3 + hSub + 3 + hDetail + 6
 
     self.tooltipBorder.colour = titleCol or COL_GOLD
     self.tooltipTitle.colour = titleCol or COL_GOLD
     self.tooltipTitle.content = titleText
-    self.tooltipTitle:SetPos(8, 6)
-    self.tooltipTitle:SetSize(-16, hTitle, 1.0, 0)
+    self.tooltipTitle:SetPos(textX, 6)
+    self.tooltipTitle:SetSize(- (textX + 8), hTitle, 1.0, 0)
 
     local subY = 6 + hTitle + 3
     self.tooltipSub.content = subText
-    self.tooltipSub:SetPos(8, subY)
-    self.tooltipSub:SetSize(-16, hSub, 1.0, 0)
+    self.tooltipSub:SetPos(textX, subY)
+    self.tooltipSub:SetSize(- (textX + 8), hSub, 1.0, 0)
 
     local detailY = subY + hSub + 3
     self.tooltipDetail.content = detailText
-    self.tooltipDetail:SetPos(8, detailY)
-    self.tooltipDetail:SetSize(-16, hDetail, 1.0, 0)
+    self.tooltipDetail:SetPos(textX, detailY)
+    self.tooltipDetail:SetSize(- (textX + 8), hDetail, 1.0, 0)
+
+    local minH = hasIcon and 48 or 36
+    local tipH = math.max(minH, detailY + hDetail + 6)
 
     local mx, my = getScaledMousePos((self.root and self.root.x or 100) + 120, (self.root and self.root.y or 100) + 120)
     local tx = math.floor(mx + 16)
@@ -1355,6 +1461,9 @@ function Window:hideRowTooltip()
     if self.tooltipRoot and not self.tooltipRoot.hidden then
         self.tooltipRoot.hidden = true
     end
+    if self.tooltipIcon and not self.tooltipIcon.hidden then
+        self.tooltipIcon.hidden = true
+    end
 end
 
 function Window:onHoverSyncBadge(badgeKind)
@@ -1364,6 +1473,9 @@ function Window:onHoverSyncBadge(badgeKind)
     local isStorage = (badgeKind == "storage")
     local s = isStorage and status.storage or status.bank
     local name = isStorage and "Material Storage" or "Bank"
+    local iconObjId = isStorage
+        and (self.tracker and self.tracker.storageIconObjId or STORAGE_ICON_OBJ_ID)
+        or BANK_ICON_OBJ_ID
     local openHint = isStorage
         and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
         or "Open your Bank to sync."
@@ -1376,28 +1488,32 @@ function Window:onHoverSyncBadge(badgeKind)
             name .. ": Ignored",
             "Current source mode: " .. mode.label .. ".",
             "Click the Src button to include " .. name .. " in calculations.",
-            COL_MUTED
+            COL_MUTED,
+            iconObjId
         )
     elseif s.synced then
         self:showRowTooltip(
             name .. ": Synced",
             "Read live this session. " .. contents,
             "Updates automatically while open. Changes made elsewhere (e.g. another device) need a resync.",
-            COL_GREEN
+            COL_GREEN,
+            iconObjId
         )
     elseif s.cached then
         self:showRowTooltip(
             name .. ": Cached - resync recommended",
             "Using counts saved from a previous session. " .. contents,
             openHint .. " Counts may be out of date if changed on another device.",
-            COL_AMBER
+            COL_AMBER,
+            iconObjId
         )
     else
         self:showRowTooltip(
             name .. ": Not synced",
             "No data yet - " .. name .. " contents are not being counted.",
             openHint,
-            COL_RED
+            COL_RED,
+            iconObjId
         )
     end
 end
@@ -1410,6 +1526,7 @@ function Window:onHoverArtefactRow(rowIdx)
         return
     end
     local art = item.artefact
+    local objId = art and art.id
     local title = string.format("%s (Lv %d) | %s XP | %s Chronotes", art.name, art.level or 1, formatInt(art.xp), formatInt(art.chronotes))
     local sub = string.format(
         "Owned: %d (Bag: %d, Bank: %d) | Included: %d",
@@ -1423,7 +1540,7 @@ function Window:onHoverArtefactRow(rowIdx)
         table.insert(reqParts, string.format("%s (%s/%s)", req.name, formatInt(owned), formatInt(needed)))
     end
     local detail = string.format("Materials (%dx): %s", mult, table.concat(reqParts, ", "))
-    self:showRowTooltip(title, sub, detail, COL_GOLD)
+    self:showRowTooltip(title, sub, detail, COL_GOLD, objId)
 end
 
 function Window:onHoverMaterialRow(rowIdx)
@@ -1434,6 +1551,7 @@ function Window:onHoverMaterialRow(rowIdx)
         return
     end
     local mat = item.material
+    local objId = mat and mat.id
     local lvlStr = (mat and mat.isArchMaterial == false) and "Secondary" or ("Lv " .. tostring((mat and mat.level) or 1))
     local title = string.format("%s (%s)", item.name, lvlStr)
     local locStr = (mat and mat._cachedLoc and mat._cachedLoc ~= "-") and mat._cachedLoc or "None / Secondary"
@@ -1447,7 +1565,7 @@ function Window:onHoverMaterialRow(rowIdx)
         item.short > 0 and formatInt(item.short) or "Ready"
     )
     local detail = string.format("Locations: %s", locStr)
-    self:showRowTooltip(title, sub, detail, COL_GOLD)
+    self:showRowTooltip(title, sub, detail, COL_GOLD, objId)
 end
 
 function Window:getAvailableContentWidth()

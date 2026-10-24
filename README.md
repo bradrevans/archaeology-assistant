@@ -14,6 +14,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - **Artefacts Tab**:
     - Scans damaged artefacts across your **Backpack** and **Bank**.
     - Displays in-game item icons alongside artefact names.
+    - Hovering any row displays a rich floating tooltip with an enlarged (32×32) in-game item sprite, restoration XP, Chronotes, and the complete materials recipe with live `owned / required` quantities scaled to your target count.
     - Individual **Track** toggles (`On` / `Off`) and **`+` / `-`** quantity overrides per artefact.
     - Displays artefact level, owned quantities (`Bag`, `Bank`, or combined), and live repair status (`Ready`, `X / Y Ready`, `Short (N mats)`, or `Off (Can Repair)`).
     - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
@@ -21,15 +22,17 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - **Materials Tab**:
     - Calculates exact restoration materials required based on tracked artefacts.
     - Displays in-game item icons alongside material names.
+    - Hovering any row displays a rich floating tooltip with an enlarged (32×32) in-game item sprite, exact container breakdown (`Bag`, `Storage`, `Bank`), total deficit, and all known excavation cache / dig site locations.
     - Displays required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
     - **Show Filter** toggle (`Show: All` vs. `Short Only`) to focus exclusively on missing items.
 - **Native `PrettyUI` Movable, Resizable & Scrollable Window**:
   - Uses `prettyui.Window` (`6398181`) with smooth scrolling, edge/corner resizing, and automatic geometry and visibility persistence in `PersistentDB`.
   - Integrates with the **RS3 Ribbon Bar** (`hasRibbonIcon: true`) so you can show/hide the window anytime from the plugin hub.
   - Clean responsive reflow: expanding the window allocates 100% of extra width to the `Location` column.
+  - **Full Mouse Wheel Table Scrolling**: Scrolling anywhere over table rows, buttons, steppers, headers, summary card, or the scrollbar scrolls smoothly without getting blocked, and active tooltips dismiss immediately upon scrolling.
 - **Sync Status Badges with In-Game Icons & Rich Tooltips**:
   - Compact icon badges in the toolbar for **Material Storage** (Archaeology Journal / Material icon) and **Bank** (Coins pile icon).
-  - Hovering displays sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, or opening your Bank).
+  - Hovering displays an enlarged (32×32) item icon and sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, or opening your Bank).
   - Status dot indicator and borders:
     - 🟢 **Synced (Green)**: Verified live in the current game session.
     - 🟠 **Cached (Amber)**: Loaded from previous session cache (resync recommended in case items changed on another device).
