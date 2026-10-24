@@ -168,8 +168,9 @@ function Tracker.new()
     local storEntries = countMapEntries(self.storageMaterials)
     local bankEntries = countMapEntries(self.bankMaterials) + countMapEntries(self.bankArtefacts)
 
-    self.storageInvId = tonumber(safeDbGet("arch_storage_inv_id", -1)) or -1
+    self.storageInvId = -1
     self.bankInvId = tonumber(safeDbGet("arch_bank_inv_id", -1)) or -1
+    safeDbSet("arch_storage_inv_id", -1)
 
     -- Guard against cached storage corruption caused by inspecting a damaged artefact in a previous session
     if storEntries > 0 and storEntries <= 5 and isArtefactRecipeContainer(self.storageMaterials, storEntries) then
@@ -177,16 +178,16 @@ function Tracker.new()
         storEntries = 0
         safeDbSet("arch_storage_materials", "")
         safeDbSet("arch_storage_synced", 0)
-        safeDbSet("arch_storage_inv_id", -1)
-        self.storageInvId = -1
     end
 
     self.storageIconObjId = 49429
     self.bankIconObjId = 995
     self.storageSyncedLive = false
     self.bankSyncedLive = false
-    self.storageHasCache = (safeDbGet("arch_storage_synced", 0) == 1) or (storEntries > 0)
-    self.bankHasCache = (safeDbGet("arch_bank_synced", 0) == 1) or (bankEntries > 0)
+    self.storageHasCache = (storEntries > 0)
+    self.bankHasCache = (bankEntries > 0)
+    self.lastActionWasDrop = false
+    self.lastActionWasDeposit = false
 
     -- Computed state for UI consumption
     self.lastResult = {
@@ -490,7 +491,11 @@ function Tracker:scanAllInventories(triggerInvType)
                         consumedMats[matName] = consumed - consumedFromBag
                     end
 
-                    if depositedCount > 0 then
+                    -- If the player explicitly dropped the item, do not credit to storage
+                    if self.lastActionWasDrop then
+                        -- Dropping resources decreases the total naturally
+                    elseif depositedCount > 0 then
+                        -- Deposited (Material Cart, Bank Deposit Box, bank booth): retain player progress
                         self.storageMaterials[matName] = (self.storageMaterials[matName] or 0) + depositedCount
                         storageChanged = true
                     end
@@ -500,6 +505,9 @@ function Tracker:scanAllInventories(triggerInvType)
             if storageChanged then
                 safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
             end
+
+            self.lastActionWasDrop = false
+            self.lastActionWasDeposit = false
         end
 
         self.backpackMaterials = bagMats
@@ -547,7 +555,7 @@ function Tracker:scanAllInventories(triggerInvType)
         end
     end
 
-    -- 3. Check candidate Material Storage Inv names or previously discovered storageInvId
+    -- 3. Check candidate Material Storage Inv names from config.Inv
     local candidateKeys = {
         "ARCHAEOLOGY_MATERIAL_STORAGE",
         "MATERIAL_STORAGE",
@@ -557,7 +565,6 @@ function Tracker:scanAllInventories(triggerInvType)
         "MAT_STORAGE"
     }
 
-    local checkedStorage = false
     for _, key in ipairs(candidateKeys) do
         local okRef, ref = pcall(function() return config.Inv[key] end)
         if okRef and ref then
@@ -569,7 +576,6 @@ function Tracker:scanAllInventories(triggerInvType)
                 if not isInspect and (triggeredByStor or archKinds > 0) and (totalSlots == 0 or totalSlots >= 15) then
                     self.storageMaterials = storMats
                     self.storageSyncedLive = true
-                    checkedStorage = true
                     safeDbSet("arch_storage_synced", 1)
                     safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
                     break
@@ -577,53 +583,18 @@ function Tracker:scanAllInventories(triggerInvType)
             end
         end
     end
+end
 
-    if not checkedStorage and self.storageInvId and self.storageInvId >= 0 then
-        local storInv = findInventory(self.storageInvId)
-        if storInv then
-            local storMats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(storInv)
-            local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(storMats, archKinds)
-            if not isInspect and archKinds > 0 and nonMatSlots == 0 and (totalSlots == 0 or totalSlots >= 15) then
-                self.storageMaterials = storMats
-                self.storageSyncedLive = true
-                checkedStorage = true
-                safeDbSet("arch_storage_synced", 1)
-                safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
-            else
-                if isInspect or (totalSlots > 0 and totalSlots < 15) then
-                    self.storageInvId = -1
-                    safeDbSet("arch_storage_inv_id", -1)
-                end
-            end
-        end
-    end
-
-    -- 4. If an event fired with a specific event.inv that is neither INV nor BANK,
-    --    inspect it to see if it is the Archaeology Material Storage container!
-    if triggerInvType then
-        local isBag = (config.Inv.INV and triggerInvType == config.Inv.INV)
-        local isBank = (config.Inv.BANK and triggerInvType == config.Inv.BANK)
-        local isWorn = (config.Inv.WORN and triggerInvType == config.Inv.WORN)
-        if not isBag and not isBank and not isWorn then
-            local customInv = findInventory(triggerInvType)
-            if customInv then
-                local mats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(customInv)
-                local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(mats, archKinds)
-                -- Material Storage holds exclusively Archaeology materials and has large capacity (>= 15 slots).
-                -- Damaged artefact inspection/restoration dialogs (<= 5 slots) are strictly excluded.
-                if not isInspect and archKinds >= 1 and nonMatSlots == 0 and (totalSlots == 0 or totalSlots >= 15) then
-                    self.storageMaterials = mats
-                    self.storageSyncedLive = true
-                    local okId, invId = pcall(function() return triggerInvType.id end)
-                    if okId and type(invId) == "number" then
-                        self.storageInvId = invId
-                        safeDbSet("arch_storage_inv_id", invId)
-                    end
-                    safeDbSet("arch_storage_synced", 1)
-                    safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
-                end
-            end
-        end
+-- Tracks player actions (e.g. Drop vs Deposit) from in-game MiniMenu clicks
+function Tracker:onMiniMenuAction(verb, full)
+    local vLower = string.lower(verb or "")
+    local fLower = string.lower(full or "")
+    if vLower == "drop" or string.find(fLower, "drop") then
+        self.lastActionWasDrop = true
+        self.lastActionWasDeposit = false
+    elseif string.find(fLower, "deposit") or string.find(fLower, "cart") or string.find(fLower, "bank") then
+        self.lastActionWasDeposit = true
+        self.lastActionWasDrop = false
     end
 end
 

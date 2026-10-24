@@ -89,6 +89,22 @@ if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
     Event.ChatMessage.Subscribe("arch_assistant_chat", onChatMessage)
 end
 
+-- Track player player actions like Drop vs Deposit from the MiniMenu
+local function onMiniMenuSelected(event)
+    if not event or not event.entry or not tracker then return end
+    xpcall(function()
+        local verb = event.entry.verbText or ""
+        local full = event.entry.fullText or ""
+        tracker:onMiniMenuAction(verb, full)
+    end, function(e)
+        recordError("onMiniMenuSelected", e)
+    end)
+end
+
+if Event and Event.MiniMenuEntrySelected and Event.MiniMenuEntrySelected.Subscribe then
+    Event.MiniMenuEntrySelected.Subscribe("arch_assistant_minimenu", onMiniMenuSelected)
+end
+
 -- Global shutdown hook called automatically by the RS3 client when disabling or closing
 function PluginShutdown()
     if Event and Event.InventoryAdded and Event.InventoryAdded.Unsubscribe then
@@ -99,6 +115,9 @@ function PluginShutdown()
     end
     if Event and Event.ChatMessage and Event.ChatMessage.Unsubscribe then
         pcall(function() Event.ChatMessage.Unsubscribe("arch_assistant_chat") end)
+    end
+    if Event and Event.MiniMenuEntrySelected and Event.MiniMenuEntrySelected.Unsubscribe then
+        pcall(function() Event.MiniMenuEntrySelected.Unsubscribe("arch_assistant_minimenu") end)
     end
     if window and window.shutdown then
         pcall(function() window:shutdown() end)

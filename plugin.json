@@ -4,6 +4,9 @@
     "contactEmailAddress": "bradrevans@gmail.com",
     "hasRibbonIcon": true,
     "hasSettingsIcon": false,
+    "requiredPermissions": [
+        "chatAccess"
+    ],
     "requiredDependencies": {
         "prettyui": "prettyui"
     }
