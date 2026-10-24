@@ -454,8 +454,58 @@ function Tracker:scanAllInventories(triggerInvType)
     local bagInv = findInventory(config.Inv.INV)
     if bagInv then
         local bagMats, _, _, bagArts = self:extractMaterialsFromInv(bagInv)
+
+        -- If materials left the backpack, they were deposited (e.g. into a Material Cart or deposit box).
+        -- Retain player progress by crediting them to Material Storage, excluding materials consumed by restoring an artefact.
+        if self.prevBackpackMaterials then
+            local artsRestored = {}
+            for artName, prevArtCount in pairs(self.prevBackpackArtefacts or {}) do
+                local currentArtCount = bagArts[artName] or 0
+                if currentArtCount < prevArtCount then
+                    artsRestored[artName] = prevArtCount - currentArtCount
+                end
+            end
+
+            local consumedMats = {}
+            for artName, countRestored in pairs(artsRestored) do
+                local artDef = Artefacts.findByName(artName)
+                if artDef and artDef.materials then
+                    for _, req in ipairs(artDef.materials) do
+                        consumedMats[req.name] = (consumedMats[req.name] or 0) + (req.count * countRestored)
+                    end
+                end
+            end
+
+            local storageChanged = false
+            for matName, prevCount in pairs(self.prevBackpackMaterials) do
+                local currentCount = bagMats[matName] or 0
+                local delta = currentCount - prevCount
+                if delta < 0 then
+                    local removedCount = -delta
+                    local consumed = consumedMats[matName] or 0
+                    local depositedCount = removedCount
+                    if consumed > 0 then
+                        local consumedFromBag = math.min(depositedCount, consumed)
+                        depositedCount = depositedCount - consumedFromBag
+                        consumedMats[matName] = consumed - consumedFromBag
+                    end
+
+                    if depositedCount > 0 then
+                        self.storageMaterials[matName] = (self.storageMaterials[matName] or 0) + depositedCount
+                        storageChanged = true
+                    end
+                end
+            end
+
+            if storageChanged then
+                safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
+            end
+        end
+
         self.backpackMaterials = bagMats
         self.backpackArtefacts = bagArts
+        self.prevBackpackMaterials = bagMats
+        self.prevBackpackArtefacts = bagArts
     end
 
     -- 2. Check Bank (config.Inv.BANK or bankInvId) if available for both materials and damaged artefacts

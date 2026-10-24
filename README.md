@@ -51,7 +51,9 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 - **Duplicate Artefacts Inclusion (`Dupes` button)**:
   - Toggle default inclusion between **Dupes: All** and **Dupes: 1x** (or shows **Dupes: Custom** when individual `+`/`-` overrides are active).
 - **Porter & Cart Live Tracking**:
-  - Detects Sign of the Porter transfers to Material Storage from in-game chat messages, updating material counts and deficits in real time without requiring a reopen.
+  - Automatically retains gathered material progress when depositing via **Material Carts**, deposit boxes, or bank chests without requiring a manual Material Storage resync.
+  - Automatically credits Sign of the Porter transfers to Material Storage in real time from in-game chat messages.
+  - Correctly distinguishes material deposits from artefact restoration (where required materials are consumed).
 - **Clean Empty States**:
   - Hides empty tables and reflows window scroll height cleanly when no damaged artefacts are carried or all required materials are ready.
 
