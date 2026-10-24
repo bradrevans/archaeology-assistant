@@ -22,8 +22,6 @@ local BADGE_W = 42
 local BANK_ICON_OBJ_ID = 995
 local STORAGE_ICON_OBJ_ID = 49429
 
--- Location column is hidden when it would be narrower than this (prevents overflow when tiny)
-local MIN_LOC_COL_W = 60
 
 local HUB_EVENT_ID = "arch_assistant_hub"
 local MOUNT_EVENT_ID = "arch_assistant_mount"
@@ -997,7 +995,7 @@ function Window:buildContentComponents(container)
     colHeaderMat.content = "Material"
     colHeaderMat.maxLines = 1
     colHeaderMat:SetPos(14, 2, 0, 0)
-    colHeaderMat:SetSize(165, 20, 0, 0)
+    colHeaderMat:SetSize(155, 20, 0, 0)
     self.colHeaderMat = colHeaderMat
 
     local colHeaderLvl = ui.Text.new(tableLayer)
@@ -1005,8 +1003,8 @@ function Window:buildContentComponents(container)
     colHeaderLvl.colour = COL_GOLD
     colHeaderLvl.content = "Lvl"
     colHeaderLvl.maxLines = 1
-    colHeaderLvl:SetPos(183, 2, 0, 0)
-    colHeaderLvl:SetSize(36, 20, 0, 0)
+    colHeaderLvl:SetPos(173, 2, 0, 0)
+    colHeaderLvl:SetSize(32, 20, 0, 0)
     self.colHeaderLvl = colHeaderLvl
 
     local colHeaderLoc = ui.Text.new(tableLayer)
@@ -1014,8 +1012,8 @@ function Window:buildContentComponents(container)
     colHeaderLoc.colour = COL_GOLD
     colHeaderLoc.content = "Location"
     colHeaderLoc.maxLines = 1
-    colHeaderLoc:SetPos(223, 2, 0, 0)
-    colHeaderLoc:SetSize(-464, 20, 1.0, 0)
+    colHeaderLoc:SetPos(209, 2, 0, 0)
+    colHeaderLoc:SetSize(-390, 20, 1.0, 0)
     self.colHeaderLoc = colHeaderLoc
 
     local colHeaderProg = ui.Text.new(tableLayer)
@@ -1023,17 +1021,17 @@ function Window:buildContentComponents(container)
     colHeaderProg.colour = COL_GOLD
     colHeaderProg.content = "Owned / Req"
     colHeaderProg.maxLines = 1
-    colHeaderProg:SetPos(-237, 2, 1.0, 0)
-    colHeaderProg:SetSize(120, 20, 0, 0)
+    colHeaderProg:SetPos(-175, 2, 1.0, 0)
+    colHeaderProg:SetSize(100, 20, 0, 0)
     self.colHeaderProg = colHeaderProg
 
     local colHeaderShort = ui.Text.new(tableLayer)
     colHeaderShort.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHeaderShort.colour = COL_GOLD
-    colHeaderShort.content = "Remaining"
+    colHeaderShort.content = "Short"
     colHeaderShort.maxLines = 1
-    colHeaderShort:SetPos(-113, 2, 1.0, 0)
-    colHeaderShort:SetSize(105, 20, 0, 0)
+    colHeaderShort:SetPos(-71, 2, 1.0, 0)
+    colHeaderShort:SetSize(63, 20, 0, 0)
     self.colHeaderShort = colHeaderShort
 
     for i = 1, MAX_MATERIAL_ROWS do
@@ -1057,7 +1055,7 @@ function Window:buildContentComponents(container)
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
         nameTxt:SetPos(14, rowY + 2, 0, 0)
-        nameTxt:SetSize(165, ROW_HEIGHT - 2, 0, 0)
+        nameTxt:SetSize(155, ROW_HEIGHT - 2, 0, 0)
         nameTxt.hidden = (i > 1)
 
         local lvlTxt = ui.Text.new(tableLayer)
@@ -1065,8 +1063,8 @@ function Window:buildContentComponents(container)
         lvlTxt.colour = COL_CREAM
         lvlTxt.maxLines = 1
         lvlTxt.clickthrough = true
-        lvlTxt:SetPos(183, rowY + 2, 0, 0)
-        lvlTxt:SetSize(36, ROW_HEIGHT - 2, 0, 0)
+        lvlTxt:SetPos(173, rowY + 2, 0, 0)
+        lvlTxt:SetSize(32, ROW_HEIGHT - 2, 0, 0)
         lvlTxt.hidden = (i > 1)
 
         local locTxt = ui.Text.new(tableLayer)
@@ -1074,8 +1072,8 @@ function Window:buildContentComponents(container)
         locTxt.colour = COL_MUTED
         locTxt.maxLines = 1
         locTxt.clickthrough = true
-        locTxt:SetPos(223, rowY + 2, 0, 0)
-        locTxt:SetSize(-464, ROW_HEIGHT - 2, 1.0, 0)
+        locTxt:SetPos(209, rowY + 2, 0, 0)
+        locTxt:SetSize(-390, ROW_HEIGHT - 2, 1.0, 0)
         locTxt.hidden = (i > 1)
 
         local progTxt = ui.Text.new(tableLayer)
@@ -1083,8 +1081,8 @@ function Window:buildContentComponents(container)
         progTxt.colour = COL_WHITE
         progTxt.maxLines = 1
         progTxt.clickthrough = true
-        progTxt:SetPos(-237, rowY + 2, 1.0, 0)
-        progTxt:SetSize(120, ROW_HEIGHT - 2, 0, 0)
+        progTxt:SetPos(-175, rowY + 2, 1.0, 0)
+        progTxt:SetSize(100, ROW_HEIGHT - 2, 0, 0)
         progTxt.hidden = (i > 1)
 
         local statusTxt = ui.Text.new(tableLayer)
@@ -1092,8 +1090,8 @@ function Window:buildContentComponents(container)
         statusTxt.colour = COL_WHITE
         statusTxt.maxLines = 1
         statusTxt.clickthrough = true
-        statusTxt:SetPos(-113, rowY + 2, 1.0, 0)
-        statusTxt:SetSize(105, ROW_HEIGHT - 2, 0, 0)
+        statusTxt:SetPos(-71, rowY + 2, 1.0, 0)
+        statusTxt:SetSize(63, ROW_HEIGHT - 2, 0, 0)
         statusTxt.hidden = (i > 1)
 
         self.materialRows[i] = {
@@ -1519,29 +1517,9 @@ function Window:updateToolbarLayout(forceReflow)
             self.badgeBank.setBounds(xBank, 36, BADGE_W, 26)
         end
 
-        -- Hide the Location column entirely when the window is too narrow to fit it
-        -- (its width is relative to the window and would otherwise go negative/overflow)
-        local locW = (availW + 16) - 464
-        self:setLocationColumnHidden(locW < MIN_LOC_COL_W)
     end
 
     self._inLayout = false
-end
-
-function Window:setLocationColumnHidden(hidden)
-    hidden = (hidden == true)
-    self._locColHidden = hidden
-    if self.colHeaderLoc then
-        self.colHeaderLoc.hidden = hidden
-    end
-    for _, rowUI in ipairs(self.materialRows or {}) do
-        if hidden then
-            rowUI.locTxt.hidden = true
-        else
-            -- Only re-show cells for rows currently in use
-            rowUI.locTxt.hidden = (rowUI.bg.hidden == true)
-        end
-    end
 end
 
 function Window:reflowDynamicContent(availW, forceReflow)
@@ -1921,7 +1899,7 @@ function Window:refresh()
             rowUI.bg.hidden = false
             rowUI.nameTxt.hidden = false
             rowUI.lvlTxt.hidden = false
-            rowUI.locTxt.hidden = (self._locColHidden == true)
+            rowUI.locTxt.hidden = false
             rowUI.progTxt.hidden = false
             rowUI.statusTxt.hidden = false
 
