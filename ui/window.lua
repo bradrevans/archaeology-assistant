@@ -49,8 +49,6 @@ local COL_BG_HEADER    = makeColour(0.10, 0.14, 0.19, 0.85)
 local COL_BG_ROW       = makeColour(0.08, 0.11, 0.15, 0.55)
 local COL_BG_ALT       = makeColour(0.13, 0.17, 0.22, 0.55)
 
-local COL_BTN_ON       = makeColour(0.12, 0.36, 0.18, 0.92)
-local COL_BTN_OFF      = makeColour(0.30, 0.14, 0.14, 0.85)
 local COL_BTN_STEP     = makeColour(0.18, 0.24, 0.32, 0.90)
 
 local COL_SYNC_READY   = makeColour(0.08, 0.24, 0.13, 0.72)
@@ -787,21 +785,13 @@ function Window:buildContentComponents(container)
     artHeaderBg:SetSize(-16, 22, 1.0, 0)
     forwardScrollWheel(artHeaderBg)
 
-    local colArtUse = ui.Text.new(artLayer)
-    colArtUse.font = id.Font.MUSEO_SANS_15PT_REGULAR
-    colArtUse.colour = COL_GOLD
-    colArtUse.content = "Track"
-    colArtUse.maxLines = 1
-    colArtUse:SetPos(12, 2, 0, 0)
-    colArtUse:SetSize(46, 20, 0, 0)
-
     local colArtName = ui.Text.new(artLayer)
     colArtName.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtName.colour = COL_GOLD
     colArtName.content = "Artefact"
     colArtName.maxLines = 1
-    colArtName:SetPos(84, 2, 0, 0)
-    colArtName:SetSize(-468, 20, 1.0, 0)
+    colArtName:SetPos(38, 2, 0, 0)
+    colArtName:SetSize(-422, 20, 1.0, 0)
 
     local colArtLvl = ui.Text.new(artLayer)
     colArtLvl.font = id.Font.MUSEO_SANS_15PT_REGULAR
@@ -851,47 +841,10 @@ function Window:buildContentComponents(container)
             self:onHoverArtefactRow(rowIdx)
         end)
 
-        -- On/Off Toggle Pill Button
-        local toggleBg = ui.Rectangle.new(artLayer)
-        toggleBg.colour = COL_BTN_ON
-        toggleBg.fill = true
-        toggleBg.clickthrough = false
-        toggleBg:SetPos(12, rowY + 2, 0, 0)
-        toggleBg:SetSize(44, ROW_HEIGHT - 6, 0, 0)
-        toggleBg.hidden = (i > 1)
-        toggleBg:Subscribe(ui.Hook.ONCLICK, function()
-            local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
-            if item and item.artefact then
-                self.tracker:toggleArtefactExcluded(item.artefact.damagedName)
-                self:refresh()
-                self:onHoverArtefactRow(rowIdx)
-            end
-            return false
-        end)
-        bindRowHover(toggleBg, function()
-            self:onHoverArtefactRow(rowIdx)
-        end)
-
-        local toggleTxt = ui.Text.new(artLayer)
-        toggleTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
-        toggleTxt.colour = COL_WHITE
-        toggleTxt.content = "On"
-        toggleTxt.maxLines = 1
-        toggleTxt.clickthrough = true
-        if ui.AlignMode then
-            pcall(function()
-                toggleTxt.alignHorizontal = ui.AlignMode.CENTRE
-                toggleTxt.alignVertical = ui.AlignMode.CENTRE
-            end)
-        end
-        toggleTxt:SetPos(12, rowY + 2, 0, 0)
-        toggleTxt:SetSize(44, ROW_HEIGHT - 6, 0, 0)
-        toggleTxt.hidden = (i > 1)
-
         local icon = ui.Sprite.new(artLayer)
         icon.clickthrough = true
-        icon:SetPos(60, rowY + 2, 0, 0)
-        icon:SetSize(20, 20)
+        icon:SetPos(14, rowY + 2, 0, 0)
+        icon:SetSize(18, 18)
         icon.hidden = true
 
         local nameTxt = ui.Text.new(artLayer)
@@ -899,8 +852,8 @@ function Window:buildContentComponents(container)
         nameTxt.colour = COL_WHITE
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
-        nameTxt:SetPos(84, rowY + 2, 0, 0)
-        nameTxt:SetSize(-468, ROW_HEIGHT - 2, 1.0, 0)
+        nameTxt:SetPos(38, rowY + 2, 0, 0)
+        nameTxt:SetSize(-422, ROW_HEIGHT - 2, 1.0, 0)
         nameTxt.hidden = (i > 1)
 
         local lvlTxt = ui.Text.new(artLayer)
@@ -1021,8 +974,6 @@ function Window:buildContentComponents(container)
 
         self.artefactRows[i] = {
             bg = bg,
-            toggleBg = toggleBg,
-            toggleTxt = toggleTxt,
             icon = icon,
             nameTxt = nameTxt,
             lvlTxt = lvlTxt,
@@ -1933,8 +1884,6 @@ function Window:refresh()
             end
 
             rowUI.bg.hidden = false
-            rowUI.toggleBg.hidden = false
-            rowUI.toggleTxt.hidden = false
             rowUI.nameTxt.hidden = false
             rowUI.lvlTxt.hidden = false
             rowUI.ownedTxt.hidden = false
@@ -1962,23 +1911,17 @@ function Window:refresh()
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
 
             if item.excluded or item.effectiveCount == 0 then
-                rowUI.toggleBg.colour = COL_BTN_OFF
-                rowUI.toggleTxt.content = "Off"
-                rowUI.toggleTxt.colour = COL_MUTED
                 rowUI.nameTxt.colour = COL_MUTED
                 rowUI.lvlTxt.colour = COL_MUTED
                 rowUI.qtyTxt.colour = COL_MUTED
                 if item.maxPossibleNow >= 1 then
-                    rowUI.statusTxt.content = "Off (Can Repair)"
+                    rowUI.statusTxt.content = "0 (Can Repair)"
                     rowUI.statusTxt.colour = COL_MUTED
                 else
                     rowUI.statusTxt.content = "Excluded"
                     rowUI.statusTxt.colour = COL_MUTED
                 end
             else
-                rowUI.toggleBg.colour = COL_BTN_ON
-                rowUI.toggleTxt.content = "On"
-                rowUI.toggleTxt.colour = COL_WHITE
                 rowUI.qtyTxt.colour = COL_WHITE
 
                 if item.maxPossibleNow >= item.effectiveCount then
@@ -2009,8 +1952,6 @@ function Window:refresh()
         else
             if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
-            rowUI.toggleBg.hidden = true
-            rowUI.toggleTxt.hidden = true
             rowUI.nameTxt.hidden = true
             rowUI.lvlTxt.hidden = true
             rowUI.ownedTxt.hidden = true
