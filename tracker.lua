@@ -274,12 +274,20 @@ function Tracker:getSourceMode()
     return Tracker.SOURCE_MODES[self.sourceModeIndex] or Tracker.SOURCE_MODES[1]
 end
 
--- Returns structured sync status for Material Storage and Bank icon badges/tooltips
+-- Returns structured sync status for Material Storage, Bank, and Collector Board icon badges/tooltips
 function Tracker:getSyncStatus()
     local mode = self:getSourceMode()
     local storEntries = countMapEntries(self.storageMaterials)
     local bankMatEntries = countMapEntries(self.bankMaterials)
     local bankArtEntries = countMapEntries(self.bankArtefacts)
+
+    local submittedCount = 0
+    for _, colSub in pairs(self.submittedArtefacts or {}) do
+        for _, v in pairs(colSub or {}) do
+            if v then submittedCount = submittedCount + 1 end
+        end
+    end
+    local completedCount = countMapEntries(self.completedCollections)
 
     return {
         storage = {
@@ -294,6 +302,13 @@ function Tracker:getSyncStatus()
             enabled = (mode.useBank == true) or (mode.id ~= "BAG_ONLY"),
             matTypes = bankMatEntries,
             artTypes = bankArtEntries
+        },
+        board = {
+            synced = self.boardSyncedLive == true,
+            cached = (not self.boardSyncedLive) and (self.boardHasCache or submittedCount > 0 or completedCount > 0),
+            enabled = true,
+            completedCount = completedCount,
+            submittedCount = submittedCount
         }
     }
 end
@@ -577,9 +592,6 @@ function Tracker:getCollectionProgress(col)
         return { readyCount = 0, damagedCount = 0, totalCount = 0, isReady = false, isCompleted = false, isTargeted = false, artefacts = {} }
     end
 
-    local mode = self:getSourceMode()
-    local includeBank = (mode.id ~= "BAG_ONLY")
-
     local total = #col.artefacts
     local readyCount = 0
     local damagedCount = 0
@@ -588,12 +600,12 @@ function Tracker:getCollectionProgress(col)
     for _, artName in ipairs(col.artefacts) do
         local isSubmitted = self:isArtefactSubmitted(col.name, artName)
         local bagRestored = self.backpackRestored[artName] or 0
-        local bankRestored = includeBank and (self.bankRestored[artName] or 0) or 0
+        local bankRestored = self.bankRestored[artName] or 0
         local totalRestored = bagRestored + bankRestored
 
         local damagedName = artName .. " (damaged)"
         local bagDamaged = self.backpackArtefacts[damagedName] or 0
-        local bankDamaged = includeBank and (self.bankArtefacts[damagedName] or 0) or 0
+        local bankDamaged = self.bankArtefacts[damagedName] or 0
         local totalDamaged = bagDamaged + bankDamaged
 
         local isReady = isSubmitted or (totalRestored > 0)
@@ -632,9 +644,6 @@ function Tracker:getTargetedArtefactRequirements()
         return requirements
     end
 
-    local mode = self:getSourceMode()
-    local includeBank = (mode.id ~= "BAG_ONLY")
-
     for colName, _ in pairs(self.targetedCollections) do
         if self:isCollectionTargeted(colName) then
             local col = Collections.BY_NAME[colName]
@@ -664,7 +673,7 @@ function Tracker:getTargetedArtefactRequirements()
 
     for _, req in pairs(requirements) do
         local bagRestored = self.backpackRestored[req.artName] or 0
-        local bankRestored = includeBank and (self.bankRestored[req.artName] or 0) or 0
+        local bankRestored = self.bankRestored[req.artName] or 0
         local totalRestored = bagRestored + bankRestored
         req.ownedRestored = totalRestored
         req.neededToRestore = math.max(0, req.count - totalRestored)
@@ -1074,6 +1083,64 @@ function Tracker:scanAllInventories(triggerInvType)
     end
 end
 
+-- Scans any currently open Collector Information or Archaeology journal interface components
+function Tracker:scanCollectorInterface()
+    if not ui or not ui.Interfaces then return false end
+    local detected = false
+
+    local function inspectComp(comp, depth)
+        if not comp or depth > 6 then return end
+        local txt = nil
+        pcall(function() txt = comp.content or comp.text or (comp.GetText and comp:GetText()) end)
+        if txt and type(txt) == "string" and txt ~= "" then
+            local txtLower = string.lower(txt)
+            for artName, _ in pairs(Artefacts.ALL or {}) do
+                local artLower = string.lower(artName)
+                if string.find(txtLower, artLower, 1, true) then
+                    if string.find(txtLower, "1/1") or string.find(txtLower, "handed in")
+                        or string.find(txtLower, "submitted") or string.find(txtLower, "complete")
+                        or string.find(txtLower, "contributed") or string.find(txtLower, "done") then
+                        for _, col in ipairs(Collections.LIST or {}) do
+                            if col.artefacts then
+                                for _, colArt in ipairs(col.artefacts) do
+                                    if colArt == artName then
+                                        self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
+                                        if not self.submittedArtefacts[col.name][artName] then
+                                            self.submittedArtefacts[col.name][artName] = true
+                                            detected = true
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        local children = nil
+        pcall(function() children = comp:GetChildren() end)
+        if not children then pcall(function() children = comp.children end) end
+        if children and type(children) == "table" then
+            for _, child in ipairs(children) do
+                inspectComp(child, depth + 1)
+            end
+        end
+    end
+
+    pcall(function()
+        if id and id.Component and id.Component.TOPLEVEL_V2__GAME_AREA then
+            local root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
+            if root then inspectComp(root, 1) end
+        end
+    end)
+
+    if detected then
+        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+    end
+    return detected
+end
+
 -- Synchronizes completed collections and submitted artefacts from in-game achievements
 function Tracker:syncCollectionsDoneStatus()
     local syncedCount = 0
@@ -1095,15 +1162,19 @@ function Tracker:syncCollectionsDoneStatus()
                             self.completedCollections[col.name] = 1
                             syncedCount = syncedCount + 1
                         end
-                        -- Fully completed collection: mark all artefacts as submitted
-                        if not self.submittedArtefacts[col.name] then
-                            self.submittedArtefacts[col.name] = {}
-                        end
-                        if col.artefacts then
-                            for _, artName in ipairs(col.artefacts) do
-                                if not self.submittedArtefacts[col.name][artName] then
-                                    self.submittedArtefacts[col.name][artName] = true
-                                    submittedChanged = true
+                        -- Non-repeatable collections are permanently submitted once the achievement is complete.
+                        -- For repeatable collections, achievements in RS3 stay -2 forever; we do NOT auto-mark
+                        -- all artefacts as submitted for the current repeatable run!
+                        if not col.isRepeatable then
+                            if not self.submittedArtefacts[col.name] then
+                                self.submittedArtefacts[col.name] = {}
+                            end
+                            if col.artefacts then
+                                for _, artName in ipairs(col.artefacts) do
+                                    if not self.submittedArtefacts[col.name][artName] then
+                                        self.submittedArtefacts[col.name][artName] = true
+                                        submittedChanged = true
+                                    end
                                 end
                             end
                         end
@@ -1168,7 +1239,6 @@ function Tracker:syncCollectionsDoneStatus()
     end
 
     if hasValidAchievementData then
-        self.boardSyncedLive = true
         self.boardHasCache = true
     end
 
@@ -1183,6 +1253,15 @@ function Tracker:syncCollectionsDoneStatus()
         self:recalculate()
     end
     return syncedCount
+end
+
+-- Forces a live sync of the Collector noticeboard, journal, and active collector interfaces
+function Tracker:syncCollectorBoard()
+    self.boardSyncedLive = true
+    self.boardHasCache = true
+    self:syncCollectionsDoneStatus()
+    self:scanCollectorInterface()
+    return self:recalculate()
 end
 
 -- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart vs Checking Noticeboard) from in-game MiniMenu clicks
@@ -1203,10 +1282,7 @@ function Tracker:onMiniMenuAction(verb, full)
         or string.find(fLower, "journal") or string.find(fLower, "collection")
         or string.find(vLower, "collector") or string.find(fLower, "contribute")
         or string.find(vLower, "contribute") then
-        self.boardSyncedLive = true
-        self.boardHasCache = true
-        self:syncCollectionsDoneStatus()
-        self:recalculate()
+        self:syncCollectorBoard()
     end
 end
 
@@ -1245,6 +1321,35 @@ function Tracker:onChatMessage(text)
             return true
         end
     end
+
+    -- Match collector artefact submission / contribution events:
+    -- e.g. "You hand over the <artefact> to <collector>."
+    if string.find(lower, "hand over") or string.find(lower, "contribute") or string.find(lower, "give") or string.find(lower, "donat") then
+        local foundArt = false
+        for artName, _ in pairs(Artefacts.ALL or {}) do
+            local artLower = string.lower(artName)
+            if string.find(lower, artLower, 1, true) then
+                for _, col in ipairs(Collections.LIST or {}) do
+                    if col.artefacts then
+                        for _, cArt in ipairs(col.artefacts) do
+                            if cArt == artName then
+                                self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
+                                self.submittedArtefacts[col.name][artName] = true
+                                foundArt = true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        if foundArt then
+            self.boardSyncedLive = true
+            self.boardHasCache = true
+            safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+            self:recalculate()
+            return true
+        end
+    end
     return false
 end
 
@@ -1262,7 +1367,6 @@ function Tracker:recalculate(triggerInvType)
     self:scanAllInventories(triggerInvType)
 
     local mode = self:getSourceMode()
-    local includeBankArts = (mode.id ~= "BAG_ONLY")
 
     local combinedArts = {}
     if self.isPinned then
@@ -1285,20 +1389,18 @@ function Tracker:recalculate(triggerInvType)
                 }
             end
         end
-        if includeBankArts then
-            for damagedName, bankCount in pairs(self.bankArtefacts or {}) do
-                if bankCount and bankCount > 0 then
-                    local entry = combinedArts[damagedName]
-                    if entry then
-                        entry.inBank = bankCount
-                        entry.rawCount = entry.inBag + bankCount
-                    else
-                        combinedArts[damagedName] = {
-                            inBag = 0,
-                            inBank = bankCount,
-                            rawCount = bankCount
-                        }
-                    end
+        for damagedName, bankCount in pairs(self.bankArtefacts or {}) do
+            if bankCount and bankCount > 0 then
+                local entry = combinedArts[damagedName]
+                if entry then
+                    entry.inBank = bankCount
+                    entry.rawCount = entry.inBag + bankCount
+                else
+                    combinedArts[damagedName] = {
+                        inBag = 0,
+                        inBank = bankCount,
+                        rawCount = bankCount
+                    }
                 end
             end
         end

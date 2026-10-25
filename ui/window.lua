@@ -35,6 +35,7 @@ local COL_FILTER_MODES = {
 local BADGE_W = 42
 local BANK_ICON_OBJ_ID = 995
 local STORAGE_ICON_OBJ_ID = 49429
+local BOARD_ICON_OBJ_ID = 49423
 
 
 local HUB_EVENT_ID = "arch_assistant_hub"
@@ -834,6 +835,19 @@ function Window:buildContentComponents(container)
         }
     end
 
+    self.badgeBoard = createSyncBadge("Board", BOARD_ICON_OBJ_ID, function()
+        self:onHoverSyncBadge("board")
+    end)
+    if self.badgeBoard.root and ui and ui.Hook and ui.Hook.ONCLICK then
+        self.badgeBoard.root:Subscribe(ui.Hook.ONCLICK, function()
+            if self.tracker and self.tracker.syncCollectorBoard then
+                self.tracker:syncCollectorBoard()
+                self:refresh()
+            end
+            return false
+        end)
+    end
+
     self.badgeStorage = createSyncBadge("Stor", STORAGE_ICON_OBJ_ID, function()
         self:onHoverSyncBadge("storage")
     end)
@@ -1530,7 +1544,7 @@ local function countWrappedLines(text, width)
             return math.floor(count)
         end
     end
-    local limit = math.max(60, width - 8)
+    local limit = math.max(60, width)
     if getStringPxWidth(text) <= limit then
         return 1
     end
@@ -1646,7 +1660,7 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
     if not self.tooltipRoot or not self.isVisible then
         return
     end
-    local tipW = 420
+    local tipW = 460
     local hasIcon = false
     objId = tonumber(objId)
     if objId and objId > 0 and self.tooltipIcon then
@@ -1708,7 +1722,7 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
                 lineTxt.colour = COL_AMBER
             elseif string.find(text, "Tetracompass") then
                 lineTxt.colour = COL_CREAM
-            elseif string.find(text, ": Ready") then
+            elseif string.find(text, ": Handed in") or string.find(text, ": Restored") or string.find(text, ": Ready") then
                 lineTxt.colour = COL_GREEN
             elseif string.find(text, ": Damaged") then
                 lineTxt.colour = COL_AMBER
@@ -1778,7 +1792,7 @@ function Window:onHoverSyncBadge(badgeKind)
 
     local s = isStorage and status.storage or (isBank and status.bank or status.board)
     local name = isStorage and "Material Storage" or (isBank and "Bank" or "Collector Board")
-    local iconObjId = isStorage and STORAGE_ICON_OBJ_ID or (isBank and BANK_ICON_OBJ_ID or 49429)
+    local iconObjId = isStorage and STORAGE_ICON_OBJ_ID or (isBank and BANK_ICON_OBJ_ID or BOARD_ICON_OBJ_ID)
 
     local openHint = isStorage
         and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
@@ -1789,7 +1803,7 @@ function Window:onHoverSyncBadge(badgeKind)
         and string.format("%d material types stored.", s.matTypes or 0)
         or (isBank
             and string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
-            or string.format("%d collections marked as completed.", s.completedCount or 0))
+            or string.format("%d collections completed, %d artefacts handed in.", s.completedCount or 0, s.submittedCount or 0))
 
     if not s.enabled then
         self:showRowTooltip(
@@ -1880,13 +1894,13 @@ function Window:onHoverCollectionRow(rowIdx)
 
     for _, a in ipairs(prog.artefacts or {}) do
         if a.isSubmitted then
-            table.insert(details, string.format("  %s: Submitted to collector", a.name))
+            table.insert(details, string.format("  %s: Handed in", a.name))
         elseif a.isReady then
-            table.insert(details, string.format("  %s: Restored (%d in Bag/Bank)", a.name, a.restoredCount))
+            table.insert(details, string.format("  %s: Restored (%d)", a.name, a.restoredCount))
         elseif a.damagedCount > 0 then
-            table.insert(details, string.format("  %s: Damaged to restore (%d in Bag/Bank)", a.name, a.damagedCount))
+            table.insert(details, string.format("  %s: Damaged (%d)", a.name, a.damagedCount))
         else
-            table.insert(details, string.format("  %s: Missing (Need to excavate)", a.name))
+            table.insert(details, string.format("  %s: Missing", a.name))
         end
     end
 
@@ -2024,8 +2038,10 @@ function Window:updateToolbarLayout(forceReflow)
             self.btnSpots.setHidden(not isMatTab)
         end
 
-        local badgesTotalW = BADGE_W * 2 + gap
-        local totalBtnsW = math.max(180, availW - badgesTotalW - (gap * 3))
+        local xBank = 8 + availW - BADGE_W
+        local xStor = xBank - gap - BADGE_W
+        local xBoard = xStor - gap - BADGE_W
+        local totalBtnsW = math.max(160, xBoard - 8 - gap)
 
         if isColTab then
             local isTwoBtns = not hasTargets
@@ -2066,9 +2082,9 @@ function Window:updateToolbarLayout(forceReflow)
             end
         end
 
-        local xStor = 8 + totalBtnsW + gap
-        local xBank = xStor + BADGE_W + gap
-
+        if self.badgeBoard then
+            self.badgeBoard.setBounds(xBoard, 36, BADGE_W, 26)
+        end
         if self.badgeStorage then
             self.badgeStorage.setBounds(xStor, 36, BADGE_W, 26)
         end
@@ -2321,6 +2337,10 @@ function Window:refresh()
         if s.synced then return "synced" end
         if s.cached then return "cached" end
         return "missing"
+    end
+    if self.badgeBoard then
+        self.badgeBoard.setState(getBadgeState(syncStatus.board))
+        self.badgeBoard.setIcon(BOARD_ICON_OBJ_ID)
     end
     if self.badgeStorage then
         self.badgeStorage.setState(getBadgeState(syncStatus.storage))

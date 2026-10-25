@@ -18,14 +18,15 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - **T97 Weapon Components** in Gold (e.g. `Inquisitor staff piece`).
       - **Mystery & Blueprint Unlocks** in Amber (e.g. `Howl's Thinking Cap`, `Koschei's needle`).
       - **Repeatable Tetracompass Farming** in Cream (e.g. Green Gobbo Goodies, Red Rum Relics, Zarosian, Guthixian).
-    - **Automatic Achievement Syncing**: Collection completion (`Done` in green vs `-` in muted) is read-only and automatically queried from in-game client achievements on startup and in real time without requiring opening any noticeboard. Permanent completion progress is preserved even when clearing temporary inventory caches.
+    - **Current-Run Repeatable Submission Sync**: For repeatable collections (like Red Rum Relics I), completed achievements in the past do not assume subsequent runs are complete. The plugin tracks which artefacts have been handed in for the *current run*, syncing automatically when checking the Collector Information noticeboard, reading your Archaeology journal, or contributing artefacts to collectors in-game.
+    - **Collector Board Sync Badge (`Board`)**: Live status badge in the toolbar alongside `Stor` and `Bank`. Amber when cached, green when checked live this session, and clickable to immediately sync.
     - **Dynamic Collection Resizing**: 100% of window resize width expansion is allocated to the **Collection** column so collection names are never truncated.
     - **Turn-In, Submitted & Damaged vs Restored Distinction**: Live scan of artefacts across your Backpack and Bank distinguishes between items already submitted to collectors, restored artefacts ready for turn-in, and damaged artefacts waiting to be restored (e.g. `Ready!`, `2/3 (1 Dmg)`, or `0/3 (2 Dmg)`). Previously submitted items are taken into account so they never block completion progress or generate unnecessary restoration requirements.
     - **Multi-Collection Tracking ("Collection-Level Pinning")**:
       - Click `Track` on any collection to track it; track multiple collections simultaneously.
       - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab (excluding any artefacts already submitted to collectors).
       - Displays tracked collection tags on artefacts in the Artefacts tab.
-    - **Clean Multiline Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete syntax-highlighted checklist of every required artefact with its live status (`Submitted to collector`, `Restored`, `Damaged to restore`, `Missing`) with zero unprintable newline glyphs.
+    - **Clean Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a concise checklist of every required artefact with its live status (`Handed in`, `Restored (N)`, `Damaged (N)`, `Missing`) with zero phantom empty lines or unprintable glyphs.
     - **Filter & Management**: Toolbar filter button (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`) and `Clear Tracked` button.
   - **Artefacts Tab (Second)**:
     - Scans damaged artefacts across your **Backpack** and **Bank**, including uncollected artefacts targeted by collections.
@@ -50,7 +51,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
     - **Excavation Spot Highlighter** toggle (`Spots: On` vs. `Spots: Off`) to highlight world spots in 3D space.
 - **In-Game Excavation Spot Highlighting & Overhead Deficit Indicators (Artefacts & Materials)**:
   - Scans nearby active world objects (`LocList`) for **Material Caches** (`Material cache (...)`) and all 103 **Excavation Hotspots** yielding materials or artefacts you currently need.
-  - **Shows Needed Artefacts Overhead**: If an excavation hotspot yields an artefact required for your tracked collections or inclusion plan, and you do not already have enough damaged or repaired copies, the artefact appears directly on the overhead badge with its in-game item icon and cyan `x1 (Art)` label.
+  - **Shows Needed Artefacts Overhead by Name**: If an excavation hotspot yields an artefact required for your tracked collections or inclusion plan, and you do not already have enough damaged or repaired copies, the artefact appears directly on the overhead badge with its in-game item icon and cyan label displaying the artefact name (e.g. `x1 Venator dagger`).
   - **Visually Unique Styling**: Hotspots yielding needed artefacts feature a distinct, vibrant **Cyan** border and downward pointer chevron so you can identify needed artefact spots across the dig site at a glance.
   - Overhead indicators display each obtainable needed material with its in-game item sprite, live deficit quantity, and percentage likelihood based on the spot's material pool (e.g. `100%` for material caches, `25%` for 4-material hotspots).
   - **Dynamic Real-Time Dismissal ("until they're gone")**: As you collect materials (via inventory updates or Sign of the Porter cart transfers) or excavate damaged artefacts, required counts decrease in real time; once all needed items from a spot are satisfied, the indicator and highlight vanish automatically.
@@ -64,7 +65,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - Accessible via the Ribbon Bar hub panel.
   - **Clear All Cache & Saved Data**: Completely wipes cached Material Storage and Bank contents, tracked targets, and custom quantity overrides while preserving permanent account achievement completions.
 - **Sync Status Badges with In-Game Icons & Rich Tooltips**:
-  - Compact icon badges in the toolbar for **Material Storage** (`Stor`, Archaeology Journal icon) and **Bank** (`Bank`, Coins pile icon) visible across all tabs.
+  - Compact icon badges in the toolbar for **Material Storage** (`Stor`, Archaeology Journal icon), **Bank** (`Bank`, Coins pile icon), and **Collector Board** (`Board`, Chronote icon) right-aligned with zero margin gap across all tabs.
   - Inspecting damaged artefacts or previewing restoration recipes never corrupts Material Storage or mutates the storage badge icon.
   - Hovering displays an enlarged (32x32) item icon and sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, or opening your Bank).
   - Status dot indicator and borders:

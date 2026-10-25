@@ -563,7 +563,7 @@ function Overlay:onDraw()
                         if item then
                             local str
                             if item.isArtefact then
-                                str = string.format("x%d (Art)", item.short)
+                                str = string.format("x%d %s", item.short, item.name)
                                 slot.text.colour = COL_CYAN
                             else
                                 str = string.format("x%d (%d%%)", item.short, pct)
@@ -593,7 +593,7 @@ function Overlay:onDraw()
                         end
                     end
 
-                    local pillW = math.max(105, math.min(150, maxTextW + 36))
+                    local pillW = math.max(105, math.min(240, maxTextW + 36))
 
                     for s = 1, numItems do
                         widget.slots[s].text:SetSize(pillW - 32, 18)
