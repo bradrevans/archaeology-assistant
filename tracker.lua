@@ -199,6 +199,32 @@ function Tracker.new()
     self.targetedCollections = deserializeCountMap(safeDbGet("arch_targeted_collections", ""))
     self.submittedArtefacts = parseSubmittedMap(safeDbGet("arch_submitted_artefacts", ""))
 
+    -- Clean out falsely auto-populated repeatable collection submissions from previous sessions
+    if Collections and Collections.LIST then
+        local cleaned = false
+        for _, col in ipairs(Collections.LIST) do
+            if col.isRepeatable and self.submittedArtefacts[col.name] then
+                -- If all artefacts were marked as submitted, this was from the old achievement bug; prune it!
+                local allSub = true
+                local count = 0
+                for _, artName in ipairs(col.artefacts or {}) do
+                    count = count + 1
+                    if not self.submittedArtefacts[col.name][artName] then
+                        allSub = false
+                        break
+                    end
+                end
+                if allSub and count > 0 then
+                    self.submittedArtefacts[col.name] = nil
+                    cleaned = true
+                end
+            end
+        end
+        if cleaned then
+            safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+        end
+    end
+
     -- Cached material counts by canonical material name
     self.backpackMaterials = {}
     self.storageMaterials = deserializeCountMap(safeDbGet("arch_storage_materials", ""))
@@ -582,6 +608,22 @@ function Tracker:toggleArtefactSubmitted(colName, artName)
         self.submittedArtefacts[colName][artName] = nil
     else
         self.submittedArtefacts[colName][artName] = true
+    end
+    safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+    return self:recalculate()
+end
+
+function Tracker:clearRepeatableSubmissions(colName)
+    if colName then
+        if self.submittedArtefacts then
+            self.submittedArtefacts[colName] = nil
+        end
+    else
+        for _, col in ipairs(Collections and Collections.LIST or {}) do
+            if col.isRepeatable and self.submittedArtefacts then
+                self.submittedArtefacts[col.name] = nil
+            end
+        end
     end
     safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
     return self:recalculate()

@@ -35,7 +35,7 @@ local COL_FILTER_MODES = {
 local BADGE_W = 42
 local BANK_ICON_OBJ_ID = 995
 local STORAGE_ICON_OBJ_ID = 49429
-local BOARD_ICON_OBJ_ID = 49423
+local BOARD_ICON_OBJ_ID = 49424
 
 
 local HUB_EVENT_ID = "arch_assistant_hub"
@@ -940,14 +940,14 @@ function Window:buildContentComponents(container)
     colHName.content = "Collection"
     colHName.maxLines = 1
     colHName:SetPos(146, 2, 0, 0)
-    colHName:SetSize(-474, 20, 1.0, 0)
+    colHName:SetSize(-518, 20, 1.0, 0)
 
     local colHReward = ui.Text.new(colLayer)
     colHReward.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHReward.colour = COL_GOLD
     colHReward.content = "Reward"
     colHReward.maxLines = 1
-    colHReward:SetPos(-324, 2, 1.0, 0)
+    colHReward:SetPos(-367, 2, 1.0, 0)
     colHReward:SetSize(230, 20, 0, 0)
 
     local colHReady = ui.Text.new(colLayer)
@@ -955,8 +955,8 @@ function Window:buildContentComponents(container)
     colHReady.colour = COL_GOLD
     colHReady.content = "Ready"
     colHReady.maxLines = 1
-    colHReady:SetPos(-90, 2, 1.0, 0)
-    colHReady:SetSize(82, 20, 0, 0)
+    colHReady:SetPos(-133, 2, 1.0, 0)
+    colHReady:SetSize(125, 20, 0, 0)
 
     local colStartY = 24
     for i = 1, MAX_COLLECTION_ROWS do
@@ -1026,7 +1026,7 @@ function Window:buildContentComponents(container)
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
         nameTxt:SetPos(146, rowY + 2)
-        nameTxt:SetSize(-474, ROW_HEIGHT - 2, 1.0, 0)
+        nameTxt:SetSize(-518, ROW_HEIGHT - 2, 1.0, 0)
         nameTxt.hidden = (i > 1)
 
         -- Reward text
@@ -1035,7 +1035,7 @@ function Window:buildContentComponents(container)
         rewardTxt.colour = COL_MUTED
         rewardTxt.maxLines = 1
         rewardTxt.clickthrough = true
-        rewardTxt:SetPos(-324, rowY + 2, 1.0, 0)
+        rewardTxt:SetPos(-367, rowY + 2, 1.0, 0)
         rewardTxt:SetSize(230, ROW_HEIGHT - 2, 0, 0)
         rewardTxt.hidden = (i > 1)
 
@@ -1045,8 +1045,8 @@ function Window:buildContentComponents(container)
         readyTxt.colour = COL_MUTED
         readyTxt.maxLines = 1
         readyTxt.clickthrough = true
-        readyTxt:SetPos(-90, rowY + 2, 1.0, 0)
-        readyTxt:SetSize(82, ROW_HEIGHT - 2, 0, 0)
+        readyTxt:SetPos(-133, rowY + 2, 1.0, 0)
+        readyTxt:SetSize(125, ROW_HEIGHT - 2, 0, 0)
         readyTxt.hidden = (i > 1)
 
         self.collectionRows[i] = {
@@ -1100,14 +1100,14 @@ function Window:buildContentComponents(container)
     colArtLoc.content = "Location"
     colArtLoc.maxLines = 1
     colArtLoc:SetPos(202, 2, 0, 0)
-    colArtLoc:SetSize(-442, 20, 1.0, 0)
+    colArtLoc:SetSize(-496, 20, 1.0, 0)
 
     local colArtOwned = ui.Text.new(artLayer)
     colArtOwned.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtOwned.colour = COL_GOLD
     colArtOwned.content = "Owned"
     colArtOwned.maxLines = 1
-    colArtOwned:SetPos(-246, 2, 1.0, 0)
+    colArtOwned:SetPos(-288, 2, 1.0, 0)
     colArtOwned:SetSize(54, 20, 0, 0)
 
     local colArtQty = ui.Text.new(artLayer)
@@ -1115,7 +1115,7 @@ function Window:buildContentComponents(container)
     colArtQty.colour = COL_GOLD
     colArtQty.content = "Include"
     colArtQty.maxLines = 1
-    colArtQty:SetPos(-188, 2, 1.0, 0)
+    colArtQty:SetPos(-228, 2, 1.0, 0)
     colArtQty:SetSize(64, 20, 0, 0)
 
     local colArtStatus = ui.Text.new(artLayer)
@@ -1123,8 +1123,13 @@ function Window:buildContentComponents(container)
     colArtStatus.colour = COL_GOLD
     colArtStatus.content = "Status"
     colArtStatus.maxLines = 1
-    colArtStatus:SetPos(-118, 2, 1.0, 0)
-    colArtStatus:SetSize(110, 20, 0, 0)
+    colArtStatus:SetPos(-158, 2, 1.0, 0)
+    colArtStatus:SetSize(150, 20, 0, 0)
+
+    self.colArtLoc = colArtLoc
+    self.colArtOwned = colArtOwned
+    self.colArtQty = colArtQty
+    self.colArtStatus = colArtStatus
 
     local startY = 24
     for i = 1, MAX_ARTEFACT_ROWS do
@@ -1172,7 +1177,7 @@ function Window:buildContentComponents(container)
         locTxt.maxLines = 1
         locTxt.clickthrough = true
         locTxt:SetPos(202, rowY + 2, 0, 0)
-        locTxt:SetSize(-452, ROW_HEIGHT - 2, 1.0, 0)
+        locTxt:SetSize(-496, ROW_HEIGHT - 2, 1.0, 0)
         locTxt.hidden = (i > 1)
 
         local ownedTxt = ui.Text.new(artLayer)
@@ -1180,7 +1185,7 @@ function Window:buildContentComponents(container)
         ownedTxt.colour = COL_MUTED
         ownedTxt.maxLines = 1
         ownedTxt.clickthrough = true
-        ownedTxt:SetPos(-246, rowY + 2, 1.0, 0)
+        ownedTxt:SetPos(-288, rowY + 2, 1.0, 0)
         ownedTxt:SetSize(54, ROW_HEIGHT - 2, 0, 0)
         ownedTxt.hidden = (i > 1)
 
@@ -1189,7 +1194,7 @@ function Window:buildContentComponents(container)
         minusBg.colour = COL_BTN_STEP
         minusBg.fill = true
         minusBg.clickthrough = false
-        minusBg:SetPos(-188, rowY + 2, 1.0, 0)
+        minusBg:SetPos(-228, rowY + 2, 1.0, 0)
         minusBg:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         minusBg.hidden = true
         minusBg:Subscribe(ui.Hook.ONCLICK, function()
@@ -1217,7 +1222,7 @@ function Window:buildContentComponents(container)
                 minusTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        minusTxt:SetPos(-188, rowY + 2, 1.0, 0)
+        minusTxt:SetPos(-228, rowY + 2, 1.0, 0)
         minusTxt:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         minusTxt.hidden = true
 
@@ -1232,7 +1237,7 @@ function Window:buildContentComponents(container)
                 qtyTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        qtyTxt:SetPos(-168, rowY + 2, 1.0, 0)
+        qtyTxt:SetPos(-208, rowY + 2, 1.0, 0)
         qtyTxt:SetSize(24, ROW_HEIGHT - 2, 0, 0)
         qtyTxt.hidden = (i > 1)
 
@@ -1241,7 +1246,7 @@ function Window:buildContentComponents(container)
         plusBg.colour = COL_BTN_STEP
         plusBg.fill = true
         plusBg.clickthrough = false
-        plusBg:SetPos(-142, rowY + 2, 1.0, 0)
+        plusBg:SetPos(-182, rowY + 2, 1.0, 0)
         plusBg:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         plusBg:Subscribe(ui.Hook.ONCLICK, function()
             local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
@@ -1269,7 +1274,7 @@ function Window:buildContentComponents(container)
                 plusTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        plusTxt:SetPos(-142, rowY + 2, 1.0, 0)
+        plusTxt:SetPos(-182, rowY + 2, 1.0, 0)
         plusTxt:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         plusTxt.hidden = true
 
@@ -1277,10 +1282,28 @@ function Window:buildContentComponents(container)
         statusTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         statusTxt.colour = COL_WHITE
         statusTxt.maxLines = 1
-        statusTxt.clickthrough = true
-        statusTxt:SetPos(-118, rowY + 2, 1.0, 0)
-        statusTxt:SetSize(110, ROW_HEIGHT - 2, 0, 0)
+        statusTxt.clickthrough = false
+        statusTxt:SetPos(-158, rowY + 2, 1.0, 0)
+        statusTxt:SetSize(150, ROW_HEIGHT - 2, 0, 0)
         statusTxt.hidden = (i > 1)
+        statusTxt:Subscribe(ui.Hook.ONCLICK, function()
+            local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
+            if item and item.artefact and item.colNames and #item.colNames > 0 then
+                local toggled = false
+                for _, colName in ipairs(item.colNames) do
+                    local col = Collections and Collections.BY_NAME and Collections.BY_NAME[colName]
+                    if col and col.isRepeatable then
+                        self.tracker:toggleArtefactSubmitted(colName, item.artefact.name)
+                        toggled = true
+                    end
+                end
+                if toggled then
+                    self:refresh()
+                    self:onHoverArtefactRow(rowIdx)
+                end
+            end
+            return false
+        end)
 
         self.artefactRows[i] = {
             bg = bg,
@@ -1929,9 +1952,10 @@ function Window:onHoverArtefactRow(rowIdx)
     local title = string.format("%s (Lv %d) | %s XP | %s Chronotes", art.name, art.level or 1, formatInt(art.xp), formatInt(art.chronotes))
     local locStr = art.location or "Archaeology"
     local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0))
+    local statusStr = item.statusText or (item.excluded and "Excluded" or "Ready")
     local sub = string.format(
-        "Location: %s | Owned Damaged: %d (Bag: %d, Bank: %d) | Included: %d",
-        locStr, ownedDamaged, item.inBag or 0, item.inBank or 0, item.effectiveCount
+        "Status: %s | Location: %s | Damaged: %d (Bag: %d, Bank: %d)",
+        statusStr, locStr, ownedDamaged, item.inBag or 0, item.inBank or 0
     )
     local reqParts = {}
     local mult = math.max(1, item.effectiveCount > 0 and item.effectiveCount or 1)
@@ -1942,7 +1966,18 @@ function Window:onHoverArtefactRow(rowIdx)
     end
     local detail = string.format("Materials (%dx): %s", mult, table.concat(reqParts, ", "))
     if item.colNames and #item.colNames > 0 then
-        detail = string.format("Targeted by: %s\n%s", table.concat(item.colNames, ", "), detail)
+        local hasRepeatable = false
+        for _, cName in ipairs(item.colNames) do
+            local col = Collections and Collections.BY_NAME and Collections.BY_NAME[cName]
+            if col and col.isRepeatable then
+                hasRepeatable = true
+                break
+            end
+        end
+        local tip = hasRepeatable and "\nTip: Click Status column to toggle 'Handed in'." or ""
+        detail = string.format("Status: %s\nTargeted by: %s%s\n%s", statusStr, table.concat(item.colNames, ", "), tip, detail)
+    else
+        detail = string.format("Status: %s\n%s", statusStr, detail)
     end
     self:showRowTooltip(title, sub, detail, COL_GOLD, objId)
 end
@@ -2133,6 +2168,43 @@ function Window:reflowDynamicContent(availW, forceReflow)
         end
         self.artefactTableLayer:SetPos(0, tableHeaderY)
         self.tableLayer:SetPos(0, tableHeaderY)
+    end
+
+    -- Dynamic Status & Location width expansion for Artefacts table
+    if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
+        local statusW = math.min(240, math.max(150, math.floor(150 + ((availW or 480) - 520) * 0.25)))
+        local statusOffset = statusW + 8
+        local qtyOffset = statusOffset + 70
+        local ownedOffset = qtyOffset + 60
+        local locNegOffset = ownedOffset + 6
+
+        if forceReflow or self._lastStatusW ~= statusW then
+            self._lastStatusW = statusW
+            self.colArtStatus:SetPos(-statusOffset, 2, 1.0, 0)
+            self.colArtStatus:SetSize(statusW, 20, 0, 0)
+            self.colArtQty:SetPos(-qtyOffset, 2, 1.0, 0)
+            self.colArtOwned:SetPos(-ownedOffset, 2, 1.0, 0)
+            self.colArtLoc:SetSize(-(202 + locNegOffset), 20, 1.0, 0)
+
+            if self.artefactRows then
+                local artStartY = 24
+                for i = 1, MAX_ARTEFACT_ROWS do
+                    local row = self.artefactRows[i]
+                    if row then
+                        local rY = artStartY + (i - 1) * ROW_HEIGHT
+                        row.statusTxt:SetPos(-statusOffset, rY + 2, 1.0, 0)
+                        row.statusTxt:SetSize(statusW, ROW_HEIGHT - 2, 0, 0)
+                        row.plusBg:SetPos(-qtyOffset + 46, rY + 2, 1.0, 0)
+                        row.plusTxt:SetPos(-qtyOffset + 46, rY + 2, 1.0, 0)
+                        row.qtyTxt:SetPos(-qtyOffset + 20, rY + 2, 1.0, 0)
+                        row.minusBg:SetPos(-qtyOffset, rY + 2, 1.0, 0)
+                        row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0)
+                        row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
+                        row.locTxt:SetSize(-(202 + locNegOffset), ROW_HEIGHT - 2, 1.0, 0)
+                    end
+                end
+            end
+        end
     end
 
     -- Update Scrollable Content Height for the active tab only when it changes
@@ -2568,7 +2640,24 @@ function Window:refresh()
 
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
 
-            if item.excluded or item.effectiveCount == 0 then
+            local isAllSubmitted = false
+            if item.colNames and #item.colNames > 0 then
+                isAllSubmitted = true
+                for _, cName in ipairs(item.colNames) do
+                    if not self.tracker:isArtefactSubmitted(cName, item.artefact.name) then
+                        isAllSubmitted = false
+                        break
+                    end
+                end
+            end
+
+            if isAllSubmitted then
+                rowUI.statusTxt.content = "Handed in"
+                rowUI.statusTxt.colour = COL_CYAN
+                rowUI.nameTxt.colour = COL_MUTED
+                rowUI.lvlTxt.colour = COL_MUTED
+                rowUI.qtyTxt.colour = COL_MUTED
+            elseif item.excluded or item.effectiveCount == 0 then
                 rowUI.nameTxt.colour = COL_MUTED
                 rowUI.lvlTxt.colour = COL_MUTED
                 rowUI.qtyTxt.colour = COL_MUTED
@@ -2618,6 +2707,7 @@ function Window:refresh()
                     rowUI.statusTxt.colour = COL_RED
                 end
             end
+            item.statusText = rowUI.statusTxt.content
         else
             if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
