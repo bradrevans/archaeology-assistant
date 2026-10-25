@@ -13,7 +13,7 @@ Overlay.__index = Overlay
 
 local MAX_INDICATORS = 12
 local MAX_SLOTS_PER_INDICATOR = 6
-local SCAN_INTERVAL_TICKS = 2 -- ~1.2s between background LocList scans
+local SCAN_INTERVAL_TICKS = 60 -- ~1.0s to 1.2s between background LocList scans (at 50-60Hz logic rate)
 local DEFAULT_PILL_W = 110
 local ROW_H = 22
 local PILL_H = 30
@@ -319,6 +319,7 @@ function Overlay:scanWorldSpots()
     -- 1. Extract all currently short/deficit materials from Tracker
     local deficits = {}
     local anyShort = false
+    local deficitCount = 0
 
     if self.tracker and self.tracker.lastResult and self.tracker.lastResult.materials then
         for _, row in ipairs(self.tracker.lastResult.materials) do
@@ -331,6 +332,7 @@ function Overlay:scanWorldSpots()
                     isArtefact = false
                 }
                 anyShort = true
+                deficitCount = deficitCount + row.short
             end
         end
     end
@@ -340,6 +342,7 @@ function Overlay:scanWorldSpots()
     -- If neither materials nor artefacts are needed, all indicators are dismissed immediately ("until they're gone")
     if not anyShort and not anyArts then
         self.activeSpots = {}
+        self._lastScanCoord = nil
         return
     end
 
@@ -350,6 +353,36 @@ function Overlay:scanWorldSpots()
             or (PlayerList and PlayerList.Self and PlayerList.Self())
         pCoord = p and p.coordGrid
     end)
+
+    if not pCoord then
+        return
+    end
+
+    -- Fast-path stationary cache: if the player hasn't moved and deficit state is unchanged,
+    -- reuse existing active spots (verifying entities are still valid) without re-querying LocList!
+    local isStationary = false
+    if self._lastScanCoord and pCoord.x == self._lastScanCoord.x and pCoord.z == self._lastScanCoord.z then
+        if self._lastDeficitCount == deficitCount and self._lastAnyArts == anyArts then
+            isStationary = true
+        end
+    end
+
+    if isStationary and #self.activeSpots > 0 then
+        local allAlive = true
+        for _, spot in ipairs(self.activeSpots) do
+            if not isEntityAlive(spot.entity) then
+                allAlive = false
+                break
+            end
+        end
+        if allAlive then
+            return
+        end
+    end
+
+    self._lastScanCoord = { x = pCoord.x, z = pCoord.z, level = pCoord.level }
+    self._lastDeficitCount = deficitCount
+    self._lastAnyArts = anyArts
 
     local locs = nil
     if pCoord and LocList and LocList.ByDistance then
@@ -474,6 +507,41 @@ function Overlay:scanWorldSpots()
     self.activeSpots = matched
 end
 
+local function projectToScreen(entity, coordGrid, height)
+    local pos = nil
+    if entity then
+        pcall(function()
+            pos = ScreenConvert.CoordGridToScreen(entity, height)
+        end)
+        if not pos then
+            pcall(function()
+                pos = ScreenConvert.CoordFineToScreen(entity, height)
+            end)
+        end
+    end
+    if not pos and coordGrid then
+        pcall(function()
+            pos = ScreenConvert.CoordGridToScreen(coordGrid, height)
+        end)
+    end
+    return pos
+end
+
+local function measureTextWidth(str, font, fallbackCharW)
+    if not str or str == "" then return 0 end
+    local w = nil
+    if (type(font) == "table" or type(font) == "userdata") and font.GetStringWidth then
+        local ok, measured = pcall(function() return font:GetStringWidth(str, false) end)
+        if ok and measured and measured > 0 then
+            w = measured
+        end
+    end
+    if not w or w <= 0 then
+        w = #str * (fallbackCharW or 8.5)
+    end
+    return w
+end
+
 -- Smooth per-frame 2D screen projection and indicator positioning
 function Overlay:onDraw()
     if not self.mounted then
@@ -497,41 +565,6 @@ function Overlay:onDraw()
     end
     if self.parent and self.parent.height and self.parent.height > 0 then
         parentH = self.parent.height
-    end
-
-    local function projectToScreen(entity, coordGrid, height)
-        local pos = nil
-        if entity then
-            pcall(function()
-                pos = ScreenConvert.CoordGridToScreen(entity, height)
-            end)
-            if not pos then
-                pcall(function()
-                    pos = ScreenConvert.CoordFineToScreen(entity, height)
-                end)
-            end
-        end
-        if not pos and coordGrid then
-            pcall(function()
-                pos = ScreenConvert.CoordGridToScreen(coordGrid, height)
-            end)
-        end
-        return pos
-    end
-
-    local function measureTextWidth(str, font, fallbackCharW)
-        if not str or str == "" then return 0 end
-        local w = nil
-        if (type(font) == "table" or type(font) == "userdata") and font.GetStringWidth then
-            local ok, measured = pcall(function() return font:GetStringWidth(str, false) end)
-            if ok and measured and measured > 0 then
-                w = measured
-            end
-        end
-        if not w or w <= 0 then
-            w = #str * (fallbackCharW or 8.5)
-        end
-        return w
     end
 
     for i = 1, MAX_INDICATORS do

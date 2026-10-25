@@ -5,6 +5,8 @@
 
 print("[Archaeology Assistant] Initializing plugin v0.2.0...")
 
+
+
 local function recordError(context, err)
     local msg = string.format("[%s] %s", tostring(context), tostring(err))
     print("[Archaeology Assistant ERROR] " .. msg)

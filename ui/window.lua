@@ -28,14 +28,15 @@ local COL_FILTER_MODES = {
     { id = "all", label = "Show: All" },
     { id = "incomplete", label = "Incomplete" },
     { id = "targeted", label = "Targeted" },
-    { id = "powers", label = "Powers/Relics" }
+    { id = "powers", label = "Powers/Relics" },
+    { id = "unsynced", label = "Unsynced" }
 }
 
 -- Sync badge sizing & icons (Coins item icon represents the Bank, Arch Journal represents Storage)
 local BADGE_W = 42
 local BANK_ICON_OBJ_ID = 995
 local STORAGE_ICON_OBJ_ID = 49429
-local BOARD_ICON_OBJ_ID = 49429
+local BOARD_ICON_OBJ_ID = 49430
 
 
 local HUB_EVENT_ID = "arch_assistant_hub"
@@ -850,12 +851,121 @@ function Window:buildContentComponents(container)
         }
     end
 
-    self.badgeBoard = createSyncBadge("Board", BOARD_ICON_OBJ_ID, function()
-        self:onHoverSyncBadge("board")
+    local function createCollectorSyncPill(onHoverFn, onClickFn)
+        local root = ui.Layer.new(container)
+        root.clickthrough = false
+        root:SetPos(0, 36)
+        root:SetSize(115, 26)
+
+        local border = ui.Rectangle.new(root)
+        border.colour = COL_MUTED
+        border.fill = true
+        border.clickthrough = true
+        border:SetPos(0, 0)
+        border:SetSize(0, 0, 1.0, 1.0)
+
+        local bg = ui.Rectangle.new(root)
+        bg.colour = COL_BG_CARD
+        bg.fill = true
+        bg.clickthrough = true
+        bg:SetPos(2, 2)
+        bg:SetSize(-4, -4, 1.0, 1.0)
+
+        if onClickFn and ui and ui.Hook then
+            if ui.Hook.ONCLICK then
+                root:Subscribe(ui.Hook.ONCLICK, function()
+                    onClickFn()
+                    return false
+                end)
+            end
+            if ui.Hook.ONMOUSEBUTTONDOWN then
+                root:Subscribe(ui.Hook.ONMOUSEBUTTONDOWN, function(comp, btnIdx)
+                    if btnIdx == 0 then
+                        onClickFn()
+                        return false
+                    end
+                end)
+            end
+        end
+
+        local txt = ui.Text.new(root)
+        txt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        txt.colour = COL_MUTED
+        txt.maxLines = 1
+        txt.clickthrough = true
+        txt:SetPos(6, 4)
+        txt:SetSize(-20, 16, 1.0, 0)
+        txt.content = "Collectors"
+
+        local dotOutline = ui.Rectangle.new(root)
+        dotOutline.colour = makeColour(0.04, 0.04, 0.04, 0.9)
+        dotOutline.fill = true
+        dotOutline.clickthrough = true
+        dotOutline:SetPos(-13, 3, 1.0, 0)
+        dotOutline:SetSize(10, 10)
+
+        local dot = ui.Rectangle.new(root)
+        dot.colour = COL_RED
+        dot.fill = true
+        dot.clickthrough = true
+        dot:SetPos(-12, 4, 1.0, 0)
+        dot:SetSize(8, 8)
+
+        bindRowHover(root, onHoverFn)
+
+        return {
+            root = root,
+            bg = bg,
+            border = border,
+            txt = txt,
+            dot = dot,
+            setBounds = function(x, y, w, h)
+                root:SetPos(x, y)
+                root:SetSize(w, h)
+            end,
+            setHidden = function(hidden)
+                root.hidden = (hidden == true)
+            end,
+            setStatus = function(syncedCount, totalCount)
+                txt.content = string.format("Collectors: %d/%d", syncedCount or 0, totalCount or 13)
+                if syncedCount == totalCount and (totalCount or 0) > 0 then
+                    border.colour = COL_GREEN
+                    bg.colour = COL_SYNC_READY
+                    dot.colour = COL_GREEN
+                    txt.colour = COL_GREEN
+                elseif (syncedCount or 0) > 0 then
+                    border.colour = COL_AMBER
+                    bg.colour = COL_SYNC_CACHED
+                    dot.colour = COL_AMBER
+                    txt.colour = COL_AMBER
+                else
+                    border.colour = COL_RED
+                    bg.colour = COL_SYNC_MISSING
+                    dot.colour = COL_RED
+                    txt.colour = COL_RED
+                end
+            end
+        }
+    end
+
+    -- Dedicated Collections-page collector sync indicator
+    self.btnCollectorsSync = createCollectorSyncPill(function()
+        self:onHoverCollectorsStatus()
     end, function()
-        if self.tracker and self.tracker.syncCollectorBoard then
-            self.tracker:syncCollectorBoard(true)
+        if self.tracker and self.tracker.isNoticeboardOpen and self.tracker:isNoticeboardOpen() then
+            self.tracker:syncCollectorBoard(false)
             self:refresh()
+        else
+            for idx, mode in ipairs(COL_FILTER_MODES) do
+                if mode.id == "unsynced" then
+                    self.colFilterIndex = (self.colFilterIndex == idx) and 1 or idx
+                    if self.btnColFilter then
+                        self.btnColFilter.setLabel(COL_FILTER_MODES[self.colFilterIndex].label)
+                    end
+                    self:refresh()
+                    break
+                end
+            end
         end
     end)
 
@@ -951,23 +1061,23 @@ function Window:buildContentComponents(container)
     colHName.content = "Collection"
     colHName.maxLines = 1
     colHName:SetPos(146, 2, 0, 0)
-    colHName:SetSize(-518, 20, 1.0, 0)
+    colHName:SetSize(-478, 20, 1.0, 0)
 
     local colHReward = ui.Text.new(colLayer)
     colHReward.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHReward.colour = COL_GOLD
     colHReward.content = "Reward"
     colHReward.maxLines = 1
-    colHReward:SetPos(-367, 2, 1.0, 0)
+    colHReward:SetPos(-327, 2, 1.0, 0)
     colHReward:SetSize(230, 20, 0, 0)
 
     local colHReady = ui.Text.new(colLayer)
     colHReady.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHReady.colour = COL_GOLD
-    colHReady.content = "Ready"
+    colHReady.content = "Progress"
     colHReady.maxLines = 1
-    colHReady:SetPos(-133, 2, 1.0, 0)
-    colHReady:SetSize(125, 20, 0, 0)
+    colHReady:SetPos(-93, 2, 1.0, 0)
+    colHReady:SetSize(85, 20, 0, 0)
 
     local colStartY = 24
     for i = 1, MAX_COLLECTION_ROWS do
@@ -1037,7 +1147,7 @@ function Window:buildContentComponents(container)
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
         nameTxt:SetPos(146, rowY + 2)
-        nameTxt:SetSize(-518, ROW_HEIGHT - 2, 1.0, 0)
+        nameTxt:SetSize(-478, ROW_HEIGHT - 2, 1.0, 0)
         nameTxt.hidden = (i > 1)
 
         -- Reward text
@@ -1046,18 +1156,18 @@ function Window:buildContentComponents(container)
         rewardTxt.colour = COL_MUTED
         rewardTxt.maxLines = 1
         rewardTxt.clickthrough = true
-        rewardTxt:SetPos(-367, rowY + 2, 1.0, 0)
+        rewardTxt:SetPos(-327, rowY + 2, 1.0, 0)
         rewardTxt:SetSize(230, ROW_HEIGHT - 2, 0, 0)
         rewardTxt.hidden = (i > 1)
 
-        -- Ready
+        -- Progress
         local readyTxt = ui.Text.new(colLayer)
         readyTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         readyTxt.colour = COL_MUTED
         readyTxt.maxLines = 1
         readyTxt.clickthrough = true
-        readyTxt:SetPos(-133, rowY + 2, 1.0, 0)
-        readyTxt:SetSize(125, ROW_HEIGHT - 2, 0, 0)
+        readyTxt:SetPos(-93, rowY + 2, 1.0, 0)
+        readyTxt:SetSize(85, ROW_HEIGHT - 2, 0, 0)
         readyTxt.hidden = (i > 1)
 
         self.collectionRows[i] = {
@@ -1665,7 +1775,7 @@ function Window:buildSharedRowTooltip(parent)
     self.tooltipSub = makeTipText(COL_WHITE, 26)
 
     self.tooltipLines = {}
-    for i = 1, 28 do
+    for i = 1, 35 do
         local txt = makeTipText(COL_CREAM, 48)
         txt.hidden = true
         self.tooltipLines[i] = txt
@@ -1738,8 +1848,16 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
                 lineTxt.colour = COL_AMBER
             elseif string.find(text, "Tetracompass") then
                 lineTxt.colour = COL_CREAM
-            elseif string.find(text, ": Handed in") or string.find(text, ": Restored") or string.find(text, ": Ready") then
+            elseif string.find(text, ": Handed in") or string.find(text, "Handed in to collector") then
+                lineTxt.colour = COL_CYAN
+            elseif string.find(text, ": Restored") or string.find(text, ": Ready") then
                 lineTxt.colour = COL_GREEN
+            elseif string.find(text, "%- Synced") or string.find(text, "%[✓%]") then
+                lineTxt.colour = COL_GREEN
+            elseif string.find(text, "%- Not synced") or string.find(text, "%[!%]") then
+                lineTxt.colour = COL_RED
+            elseif string.find(text, "COLLECTORS:") or string.find(text, "HOW TO SYNC") then
+                lineTxt.colour = COL_GOLD
             elseif string.find(text, ": Damaged") then
                 lineTxt.colour = COL_AMBER
             elseif string.find(text, ": Missing") then
@@ -1803,32 +1921,18 @@ function Window:onHoverSyncBadge(badgeKind)
     local status = self.tracker:getSyncStatus()
     local mode = self.tracker:getSourceMode()
     local isStorage = (badgeKind == "storage")
-    local isBank = (badgeKind == "bank")
-    local isBoard = (badgeKind == "board")
 
-    local s = isStorage and status.storage or (isBank and status.bank or status.board)
-    local name = isStorage and "Material Storage" or (isBank and "Bank" or "Collector Board")
-    local iconObjId = isStorage and STORAGE_ICON_OBJ_ID or (isBank and BANK_ICON_OBJ_ID or BOARD_ICON_OBJ_ID)
+    local s = isStorage and status.storage or status.bank
+    local name = isStorage and "Material Storage" or "Bank"
+    local iconObjId = isStorage and STORAGE_ICON_OBJ_ID or BANK_ICON_OBJ_ID
 
     local openHint = isStorage
         and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
-        or (isBank and "Open your Bank to sync."
-        or "Open the Collector Information noticeboard at the Archaeology Guild, check your Archaeology journal, or talk to a collector to sync.")
+        or "Open your Bank to sync."
 
     local contents = isStorage
         and string.format("%d material types stored.", s.matTypes or 0)
-        or (isBank
-            and string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
-            or string.format("%d collections completed, %d artefacts handed in.", s.completedCount or 0, s.submittedCount or 0))
-
-    if isBoard then
-        local scanSumm = self.tracker and self.tracker.lastCollectorScanSummary
-        if scanSumm then
-            contents = contents .. "\nLast scan: " .. scanSumm .. ".\n(Click badge to force rescan & log to dev console)"
-        else
-            contents = contents .. "\n(Click badge to force rescan & log to dev console)"
-        end
-    end
+        or string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
 
     if not s.enabled then
         self:showRowTooltip(
@@ -1842,9 +1946,7 @@ function Window:onHoverSyncBadge(badgeKind)
         self:showRowTooltip(
             name .. ": Synced",
             "Read live this session. " .. contents,
-            isBoard
-                and "Updates automatically when viewing collector noticeboards, journals, or achievements."
-                or "Updates automatically while open. Changes made elsewhere (e.g. another device) need a resync.",
+            "Updates automatically while open. Changes made elsewhere (e.g. another device) need a resync.",
             COL_GREEN,
             iconObjId
         )
@@ -1859,12 +1961,46 @@ function Window:onHoverSyncBadge(badgeKind)
     else
         self:showRowTooltip(
             name .. ": Not synced",
-            "No data yet - " .. (isBoard and "collections have not been synced." or (name .. " contents are not being counted.")),
+            "No data yet - " .. name .. " contents are not being counted.",
             openHint,
             COL_RED,
             iconObjId
         )
     end
+end
+
+function Window:onHoverCollectorsStatus()
+    if self._isResizing or not self.tracker then return end
+    local list, syncedCount, totalCount = self.tracker:getCollectorSyncStatuses()
+
+    local titleText = string.format("Collector Sync Status (%d of %d Synced)", syncedCount, totalCount)
+    local titleCol = (syncedCount == totalCount and totalCount > 0) and COL_GREEN or ((syncedCount > 0) and COL_AMBER or COL_RED)
+
+    local subText = (syncedCount == totalCount)
+        and "All collectors synced! Handed-in artefacts and collections are fully up to date."
+        or "Noticeboard scan needed to track turned-in artefacts for unsynced collectors."
+
+    local lines = {}
+    table.insert(lines, "COLLECTORS:")
+    for _, c in ipairs(list or {}) do
+        local subTag = c.submittedCount > 0 and string.format(", %d turned in", c.submittedCount) or ""
+        local statusTxt = c.synced and "Synced" or "Not synced"
+        table.insert(lines, string.format("  %s (%d col%s%s) - %s",
+            c.name,
+            c.collectionsCount,
+            c.collectionsCount == 1 and "" or "s",
+            subTag,
+            statusTxt
+        ))
+    end
+
+    table.insert(lines, "")
+    table.insert(lines, "HOW TO SYNC:")
+    table.insert(lines, "• Click the 'Collector Information Noticeboard' at Arch Guild, OR")
+    table.insert(lines, "• Right-click Archaeology Journal -> select 'Collector information'.")
+    table.insert(lines, "• Click each collector on the list to automatically sync!")
+
+    self:showRowTooltip(titleText, subText, lines, titleCol, 49430)
 end
 
 function Window:onToggleCollectionTarget(rowIdx)
@@ -1889,22 +2025,37 @@ function Window:onHoverCollectionRow(rowIdx)
     local title = string.format("%s (Level %d)", col.name, col.level)
     local statusStr
     if prog.isReady then
-        statusStr = "Ready to Turn In!"
-    elseif (prog.submittedCount or 0) > 0 and (prog.damagedCount or 0) > 0 then
-        statusStr = string.format("%d Handed In, %d Restored, %d Damaged (%d req)", prog.submittedCount, prog.readyCount - prog.submittedCount, prog.damagedCount, prog.totalCount)
-    elseif (prog.submittedCount or 0) > 0 then
-        statusStr = string.format("%d Handed In, %d Restored (%d req)", prog.submittedCount, prog.readyCount - prog.submittedCount, prog.totalCount)
-    elseif (prog.damagedCount or 0) > 0 then
-        statusStr = string.format("%d Restored, %d Damaged (%d req)", prog.readyCount, prog.damagedCount, prog.totalCount)
+        statusStr = string.format("All %d Ready to Turn In!", prog.totalCount)
     else
-        statusStr = string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
+        local parts = {}
+        if (prog.submittedCount or 0) > 0 then
+            table.insert(parts, string.format("%d In", prog.submittedCount))
+        end
+        if (prog.restoredOnlyCount or 0) > 0 then
+            table.insert(parts, string.format("%d Restored", prog.restoredOnlyCount))
+        end
+        if (prog.damagedOnlyCount or 0) > 0 then
+            table.insert(parts, string.format("%d Dmg", prog.damagedOnlyCount))
+        end
+        local missing = (prog.totalCount or 0) - (prog.haveCount or 0)
+        if missing > 0 then
+            table.insert(parts, string.format("%d Missing", missing))
+        end
+        statusStr = string.format("%d/%d possessed (%s)", prog.haveCount or 0, prog.totalCount or 0, table.concat(parts, ", "))
     end
     if prog.isCompleted then
         statusStr = statusStr .. " [Completed]"
     end
-    local sub = string.format("Collector: %s | %s", col.collector, statusStr)
+    local isColSynced = (self.tracker and self.tracker.isCollectorSynced) and self.tracker:isCollectorSynced(col.collector)
+    local syncTag = isColSynced and "Synced" or "Unsynced"
+    local sub = string.format("Collector: %s [%s] | %s", col.collector, syncTag, statusStr)
 
     local details = {}
+    if not isColSynced then
+        table.insert(details, string.format("Notice: %s is not yet synced.", col.collector))
+        table.insert(details, string.format("Click '%s' on noticeboard or via Arch Journal to sync.", col.collector))
+        table.insert(details, "")
+    end
     if col.specialBenefit and col.specialBenefit ~= "" then
         table.insert(details, string.format("Power/Benefit: %s", col.specialBenefit))
     end
@@ -1924,10 +2075,26 @@ function Window:onHoverCollectionRow(rowIdx)
     for _, a in ipairs(prog.artefacts or {}) do
         if a.isSubmitted then
             table.insert(details, string.format("  %s: Handed in to collector", a.name))
-        elseif a.isReady then
-            table.insert(details, string.format("  %s: Restored (%d)", a.name, a.restoredCount))
-        elseif a.damagedCount > 0 then
-            table.insert(details, string.format("  %s: Damaged (%d)", a.name, a.damagedCount))
+        elseif a.restoredCount and a.restoredCount > 0 then
+            local locStr
+            if (a.bagRestored or 0) > 0 and (a.bankRestored or 0) > 0 then
+                locStr = string.format("%d in Bag, %d in Bank", a.bagRestored, a.bankRestored)
+            elseif (a.bagRestored or 0) > 0 then
+                locStr = string.format("%d in Bag", a.bagRestored)
+            else
+                locStr = string.format("%d in Bank", a.bankRestored or a.restoredCount)
+            end
+            table.insert(details, string.format("  %s: Restored (%s)", a.name, locStr))
+        elseif a.damagedCount and a.damagedCount > 0 then
+            local locStr
+            if (a.bagDamaged or 0) > 0 and (a.bankDamaged or 0) > 0 then
+                locStr = string.format("%d in Bag, %d in Bank", a.bagDamaged, a.bankDamaged)
+            elseif (a.bagDamaged or 0) > 0 then
+                locStr = string.format("%d in Bag", a.bagDamaged)
+            else
+                locStr = string.format("%d in Bank", a.bankDamaged or a.damagedCount)
+            end
+            table.insert(details, string.format("  %s: Damaged (%s)", a.name, locStr))
         else
             table.insert(details, string.format("  %s: Missing", a.name))
         end
@@ -2060,6 +2227,9 @@ function Window:updateToolbarLayout(forceReflow)
 
         -- Row 2: Contextual Control Toolbar + 2 Sync Status Badges at y = 36
         self.btnColFilter.setHidden(not isColTab)
+        if self.btnCollectorsSync then
+            self.btnCollectorsSync.setHidden(not isColTab)
+        end
         self.btnClearTargets.setHidden(not isColTab)
         self.btnArtFilter.setHidden(not isArtTab)
         self.btnDupes.setHidden(not isArtTab)
@@ -2071,16 +2241,23 @@ function Window:updateToolbarLayout(forceReflow)
 
         local xBank = 8 + availW - BADGE_W
         local xStor = xBank - gap - BADGE_W
-        local xBoard = xStor - gap - BADGE_W
-        local totalBtnsW = math.max(160, xBoard - 8 - gap)
+        local totalBtnsW = math.max(160, xStor - 8 - gap)
 
         if isColTab then
-            local w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
-            local w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
-            local w3 = totalBtnsW - (gap * 2) - (w1 + w2)
-            self.btnSource.setBounds(8, 36, w1, 26)
-            self.btnColFilter.setBounds(8 + w1 + gap, 36, w2, 26)
-            self.btnClearTargets.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
+            local w1 = math.floor((totalBtnsW - (gap * 3)) * 0.24)
+            local w2 = math.floor((totalBtnsW - (gap * 3)) * 0.24)
+            local w3 = math.floor((totalBtnsW - (gap * 3)) * 0.18)
+            local w4 = totalBtnsW - (gap * 3) - (w1 + w2 + w3)
+            local x1 = 8
+            local x2 = x1 + w1 + gap
+            local x3 = x2 + w2 + gap
+            local x4 = x3 + w3 + gap
+            self.btnSource.setBounds(x1, 36, w1, 26)
+            self.btnColFilter.setBounds(x2, 36, w2, 26)
+            self.btnClearTargets.setBounds(x3, 36, w3, 26)
+            if self.btnCollectorsSync then
+                self.btnCollectorsSync.setBounds(x4, 36, w4, 26)
+            end
         elseif isArtTab then
             local w1 = math.floor((totalBtnsW - (gap * 3)) * 0.25)
             local w2 = math.floor((totalBtnsW - (gap * 3)) * 0.27)
@@ -2105,9 +2282,6 @@ function Window:updateToolbarLayout(forceReflow)
             end
         end
 
-        if self.badgeBoard then
-            self.badgeBoard.setBounds(xBoard, 36, BADGE_W, 26)
-        end
         if self.badgeStorage then
             self.badgeStorage.setBounds(xStor, 36, BADGE_W, 26)
         end
@@ -2398,10 +2572,6 @@ function Window:refresh()
         if s.cached then return "cached" end
         return "missing"
     end
-    if self.badgeBoard then
-        self.badgeBoard.setState(getBadgeState(syncStatus.board))
-        self.badgeBoard.setIcon(BOARD_ICON_OBJ_ID)
-    end
     if self.badgeStorage then
         self.badgeStorage.setState(getBadgeState(syncStatus.storage))
         self.badgeStorage.setIcon(STORAGE_ICON_OBJ_ID)
@@ -2410,14 +2580,21 @@ function Window:refresh()
         self.badgeBank.setState(getBadgeState(syncStatus.bank))
         self.badgeBank.setIcon(BANK_ICON_OBJ_ID)
     end
+    if self.btnCollectorsSync and t and t.getCollectorSyncStatuses then
+        local _, syncedCount, totalCount = t:getCollectorSyncStatuses()
+        self.btnCollectorsSync.setStatus(syncedCount, totalCount)
+    end
 
     -- 3. Update Artefact & Deficit Summary Card
     if isColTab then
+        local _, syncedCollectors, totalCollectors = (t and t.getCollectorSyncStatuses) and t:getCollectorSyncStatuses() or nil, 0, 0
+        local syncRatio = (totalCollectors and totalCollectors > 0) and string.format("  |  Collectors: %d/%d Synced", syncedCollectors, totalCollectors) or ""
         self.summaryTitle.content = string.format(
-            "Collections: %d / %d Completed  |  %d Tracked",
+            "Collections: %d / %d Completed  |  %d Tracked%s",
             completedCols,
             totalCols,
-            targetedCols
+            targetedCols,
+            syncRatio
         )
         self.summaryTitle.colour = COL_GOLD
         if readyCols > 0 then
@@ -2427,6 +2604,12 @@ function Window:refresh()
                 COL_FILTER_MODES[self.colFilterIndex].label
             )
             self.deficitSummary.colour = COL_GREEN
+        elseif syncedCollectors and totalCollectors and syncedCollectors < totalCollectors then
+            self.deficitSummary.content = string.format(
+                "%d collector(s) unsynced. Click noticeboard or right-click Arch Journal -> 'Collector information' to sync!",
+                totalCollectors - syncedCollectors
+            )
+            self.deficitSummary.colour = COL_AMBER
         else
             self.deficitSummary.content = string.format(
                 "Target collections to automatically set required artefacts & materials.  (Filter: %s)",
@@ -2547,23 +2730,22 @@ function Window:refresh()
                     rowUI.rewardTxt.content = rew
                 end
 
-                -- Ready count / status
+                -- Progress count: shows number of (handed in + restored + damaged) / total
                 rowUI.readyTxt.hidden = false
+                local have = prog.haveCount or (prog.readyCount + (prog.damagedCount or 0))
+                local total = prog.totalCount or 0
                 if prog.isReady then
                     rowUI.readyTxt.colour = COL_GREEN
-                    rowUI.readyTxt.content = "Ready!"
-                elseif (prog.submittedCount or 0) > 0 and (prog.damagedCount or 0) > 0 then
-                    rowUI.readyTxt.colour = COL_CREAM
-                    rowUI.readyTxt.content = string.format("%d/%d (%d In, %d Dmg)", prog.readyCount, prog.totalCount, prog.submittedCount, prog.damagedCount)
-                elseif (prog.submittedCount or 0) > 0 then
-                    rowUI.readyTxt.colour = COL_CREAM
-                    rowUI.readyTxt.content = string.format("%d/%d (%d In)", prog.readyCount, prog.totalCount, prog.submittedCount)
-                elseif (prog.damagedCount or 0) > 0 then
+                    rowUI.readyTxt.content = string.format("%d / %d", total, total)
+                elseif have == total and total > 0 then
+                    rowUI.readyTxt.colour = COL_GOLD
+                    rowUI.readyTxt.content = string.format("%d / %d", have, total)
+                elseif have > 0 then
                     rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_AMBER
-                    rowUI.readyTxt.content = string.format("%d/%d (%d Dmg)", prog.readyCount, prog.totalCount, prog.damagedCount)
+                    rowUI.readyTxt.content = string.format("%d / %d", have, total)
                 else
-                    rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_MUTED
-                    rowUI.readyTxt.content = string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
+                    rowUI.readyTxt.colour = COL_MUTED
+                    rowUI.readyTxt.content = string.format("0 / %d", total)
                 end
             else
                 rowUI.bg.hidden = true

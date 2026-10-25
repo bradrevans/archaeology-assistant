@@ -198,32 +198,7 @@ function Tracker.new()
     self.completedCollections = deserializeCountMap(safeDbGet("arch_completed_collections", ""))
     self.targetedCollections = deserializeCountMap(safeDbGet("arch_targeted_collections", ""))
     self.submittedArtefacts = parseSubmittedMap(safeDbGet("arch_submitted_artefacts", ""))
-
-    -- Clean out falsely auto-populated repeatable collection submissions from previous sessions
-    if Collections and Collections.LIST then
-        local cleaned = false
-        for _, col in ipairs(Collections.LIST) do
-            if col.isRepeatable and self.submittedArtefacts[col.name] then
-                -- If all artefacts were marked as submitted, this was from the old achievement bug; prune it!
-                local allSub = true
-                local count = 0
-                for _, artName in ipairs(col.artefacts or {}) do
-                    count = count + 1
-                    if not self.submittedArtefacts[col.name][artName] then
-                        allSub = false
-                        break
-                    end
-                end
-                if allSub and count > 0 then
-                    self.submittedArtefacts[col.name] = nil
-                    cleaned = true
-                end
-            end
-        end
-        if cleaned then
-            safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
-        end
-    end
+    self.scannedCollectors = deserializeCountMap(safeDbGet("arch_scanned_collectors", ""))
 
     -- Cached material counts by canonical material name
     self.backpackMaterials = {}
@@ -272,7 +247,16 @@ function Tracker.new()
 
     self.storageHasCache = (storEntries > 0)
     self.bankHasCache = (bankEntries > 0)
-    self.boardHasCache = (countMapEntries(self.completedCollections) > 0)
+
+    local hasSubmissions = false
+    for _, colSub in pairs(self.submittedArtefacts or {}) do
+        for _, v in pairs(colSub or {}) do
+            if v then hasSubmissions = true; break end
+        end
+        if hasSubmissions then break end
+    end
+    local savedBoardCache = (tonumber(safeDbGet("arch_board_has_cache", 0)) or 0) == 1
+    self.boardHasCache = savedBoardCache or hasSubmissions
     self.lastAction = nil
 
     -- Computed state for UI consumption
@@ -331,7 +315,7 @@ function Tracker:getSyncStatus()
         },
         board = {
             synced = self.boardSyncedLive == true,
-            cached = (not self.boardSyncedLive) and (self.boardHasCache or submittedCount > 0 or completedCount > 0),
+            cached = (not self.boardSyncedLive) and (self.boardHasCache == true),
             enabled = true,
             completedCount = completedCount,
             submittedCount = submittedCount
@@ -491,6 +475,12 @@ function Tracker:clearAllCache()
     self.bankSyncedLive = false
     self.storageHasCache = false
     self.bankHasCache = false
+    self.boardSyncedLive = false
+    self.boardHasCache = false
+    self.submittedArtefacts = {}
+    self.completedCollections = {}
+    self.scannedCollectors = {}
+    self.lastCollectorScanSummary = nil
 
     safeDbSet("arch_storage_materials", "")
     safeDbSet("arch_storage_synced", 0)
@@ -504,6 +494,10 @@ function Tracker:clearAllCache()
     safeDbSet("arch_custom_art_counts", "")
     safeDbSet("arch_pinned_artefacts", "")
     safeDbSet("arch_is_pinned", 0)
+    safeDbSet("arch_submitted_artefacts", "")
+    safeDbSet("arch_board_has_cache", 0)
+    safeDbSet("arch_completed_collections", "")
+    safeDbSet("arch_scanned_collectors", "")
 
     return self:recalculate()
 end
@@ -540,7 +534,35 @@ end
 
 function Tracker:isCollectionCompleted(colName)
     if not colName then return false end
-    return (self.completedCollections[colName] or 0) > 0
+    local isComp = (self.completedCollections[colName] or 0) > 0
+
+    -- If all artefacts in the collection have been submitted to the collector, it is complete!
+    local col = Collections and Collections.BY_NAME and Collections.BY_NAME[colName]
+    if col and col.artefacts and #col.artefacts > 0 and self.submittedArtefacts and self.submittedArtefacts[colName] then
+        local allSub = true
+        for _, artName in ipairs(col.artefacts) do
+            if not self:isArtefactSubmitted(colName, artName, true) then
+                allSub = false
+                break
+            end
+        end
+        if allSub then
+            self.completedCollections[colName] = 1
+            safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+            -- Reset submitted artefacts so progress goes back to 0
+            self.submittedArtefacts[colName] = nil
+            safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+            return true
+        end
+    end
+
+    -- If already completed (and non-repeatable), ensure submittedArtefacts is cleared
+    if isComp and col and not col.isRepeatable and self.submittedArtefacts and self.submittedArtefacts[colName] then
+        self.submittedArtefacts[colName] = nil
+        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+    end
+
+    return isComp
 end
 
 function Tracker:toggleCollectionCompleted(colName)
@@ -549,6 +571,10 @@ function Tracker:toggleCollectionCompleted(colName)
         self.completedCollections[colName] = nil
     else
         self.completedCollections[colName] = 1
+        if self.submittedArtefacts and self.submittedArtefacts[colName] then
+            self.submittedArtefacts[colName] = nil
+            safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+        end
     end
     safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
     return self:recalculate()
@@ -584,15 +610,17 @@ function Tracker:hasTargetedCollections()
     return self:getTargetedCount() > 0
 end
 
-function Tracker:isArtefactSubmitted(colName, artName)
+function Tracker:isArtefactSubmitted(colName, artName, _skipColCheck)
     if not colName or not artName then return false end
-    if self.submittedArtefacts and self.submittedArtefacts[colName] and self.submittedArtefacts[colName][artName] then
-        return true
-    end
-    if self:isCollectionCompleted(colName) then
-        local col = Collections and Collections.BY_NAME and Collections.BY_NAME[colName]
-        if col and not col.isRepeatable then
+    if self.submittedArtefacts and self.submittedArtefacts[colName] then
+        if self.submittedArtefacts[colName][artName] then
             return true
+        end
+        local lowerTarget = string.lower(artName)
+        for sArt, sVal in pairs(self.submittedArtefacts[colName]) do
+            if sVal and string.lower(sArt) == lowerTarget then
+                return true
+            end
         end
     end
     return false
@@ -631,16 +659,37 @@ end
 
 function Tracker:getCollectionProgress(col)
     if not col or not col.artefacts then
-        return { readyCount = 0, damagedCount = 0, totalCount = 0, isReady = false, isCompleted = false, isTargeted = false, artefacts = {} }
+        return {
+            readyCount = 0,
+            damagedCount = 0,
+            submittedCount = 0,
+            restoredOnlyCount = 0,
+            damagedOnlyCount = 0,
+            haveCount = 0,
+            totalCount = 0,
+            isReady = false,
+            isCompleted = false,
+            isTargeted = false,
+            artefacts = {}
+        }
     end
 
     local total = #col.artefacts
+    local isCompleted = self:isCollectionCompleted(col.name)
     local readyCount = 0
     local damagedCount = 0
+    local submittedCount = 0
+    local restoredOnlyCount = 0
+    local damagedOnlyCount = 0
+    local haveCount = 0
     local artStatuses = {}
 
     for _, artName in ipairs(col.artefacts) do
         local isSubmitted = self:isArtefactSubmitted(col.name, artName)
+        if isSubmitted then
+            submittedCount = submittedCount + 1
+        end
+
         local bagRestored = self.backpackRestored[artName] or 0
         local bankRestored = self.bankRestored[artName] or 0
         local totalRestored = bagRestored + bankRestored
@@ -657,21 +706,38 @@ function Tracker:getCollectionProgress(col)
             damagedCount = damagedCount + 1
         end
 
+        if isSubmitted then
+            haveCount = haveCount + 1
+        elseif totalRestored > 0 then
+            haveCount = haveCount + 1
+            restoredOnlyCount = restoredOnlyCount + 1
+        elseif totalDamaged > 0 then
+            haveCount = haveCount + 1
+            damagedOnlyCount = damagedOnlyCount + 1
+        end
+
         table.insert(artStatuses, {
             name = artName,
             isSubmitted = isSubmitted,
             restoredCount = totalRestored,
+            bagRestored = bagRestored,
+            bankRestored = bankRestored,
             damagedCount = totalDamaged,
+            bagDamaged = bagDamaged,
+            bankDamaged = bankDamaged,
             isReady = isReady
         })
     end
 
-    local isCompleted = self:isCollectionCompleted(col.name)
     local isTargeted = self:isCollectionTargeted(col.name)
 
     return {
         readyCount = readyCount,
         damagedCount = damagedCount,
+        submittedCount = submittedCount,
+        restoredOnlyCount = restoredOnlyCount,
+        damagedOnlyCount = damagedOnlyCount,
+        haveCount = haveCount,
         totalCount = total,
         isReady = (readyCount >= total and total > 0),
         isCompleted = isCompleted,
@@ -809,6 +875,8 @@ function Tracker:getCollectionsForDisplay(filterMode)
             include = progress.isTargeted
         elseif filterMode == "powers" then
             include = (col.benefitType == "relic" or col.benefitType == "weapon" or col.benefitType == "mystery")
+        elseif filterMode == "unsynced" then
+            include = not self:isCollectorSynced(col.collector)
         end
 
         if include then
@@ -820,6 +888,105 @@ function Tracker:getCollectionsForDisplay(filterMode)
     end
 
     return list, totalCount, completedTotal, targetedTotal, readyTotal
+end
+
+function Tracker:isCollectorSynced(collectorName)
+    if not collectorName or collectorName == "" or collectorName == "Giles" then return true end
+    if self.scannedCollectors and (self.scannedCollectors[collectorName] or 0) > 0 then
+        return true
+    end
+    -- Check if any submitted artefacts exist for this collector
+    if self.submittedArtefacts and Collections and Collections.LIST then
+        for _, col in ipairs(Collections.LIST) do
+            if col.collector == collectorName and self.submittedArtefacts[col.name] then
+                for _, done in pairs(self.submittedArtefacts[col.name]) do
+                    if done then
+                        self.scannedCollectors[collectorName] = 1
+                        safeDbSet("arch_scanned_collectors", serializeCountMap(self.scannedCollectors))
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    -- Check if all collections for this collector are marked completed
+    if self.completedCollections and Collections and Collections.LIST then
+        local hasAny = false
+        local allDone = true
+        for _, col in ipairs(Collections.LIST) do
+            if col.collector == collectorName then
+                hasAny = true
+                if not self.completedCollections[col.name] then
+                    allDone = false
+                    break
+                end
+            end
+        end
+        if hasAny and allDone then
+            self.scannedCollectors[collectorName] = 1
+            safeDbSet("arch_scanned_collectors", serializeCountMap(self.scannedCollectors))
+            return true
+        end
+    end
+    return false
+end
+
+function Tracker:getCollectorSyncStatuses()
+    local map = {}
+    local order = {}
+    if Collections and Collections.LIST then
+        for _, col in ipairs(Collections.LIST) do
+            local cName = col.collector or "Unknown"
+            if cName ~= "Giles" then
+                if not map[cName] then
+                    map[cName] = {
+                        name = cName,
+                        collectionsCount = 0,
+                        completedCollectionsCount = 0,
+                        submittedCount = 0,
+                        totalArtefacts = 0,
+                        synced = false
+                    }
+                    table.insert(order, cName)
+                end
+                local ent = map[cName]
+                ent.collectionsCount = ent.collectionsCount + 1
+                if self.completedCollections and self.completedCollections[col.name] then
+                    ent.completedCollectionsCount = ent.completedCollectionsCount + 1
+                end
+                if col.artefacts then
+                    ent.totalArtefacts = ent.totalArtefacts + #col.artefacts
+                    for _, artName in ipairs(col.artefacts) do
+                        if self.submittedArtefacts and self.submittedArtefacts[col.name] and self.submittedArtefacts[col.name][artName] then
+                            ent.submittedCount = ent.submittedCount + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local list = {}
+    local totalCollectors = #order
+    local syncedCollectors = 0
+
+    for _, cName in ipairs(order) do
+        local ent = map[cName]
+        ent.synced = self:isCollectorSynced(cName)
+        if ent.synced then
+            syncedCollectors = syncedCollectors + 1
+        end
+        table.insert(list, ent)
+    end
+
+    table.sort(list, function(a, b)
+        if a.synced ~= b.synced then
+            return (a.synced and not b.synced)
+        end
+        return a.name < b.name
+    end)
+
+    return list, syncedCollectors, totalCollectors
 end
 
 function Tracker:savePersistentState()
@@ -835,6 +1002,7 @@ function Tracker:savePersistentState()
     safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
     safeDbSet("arch_targeted_collections", serializeCountMap(self.targetedCollections))
     safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+    safeDbSet("arch_scanned_collectors", serializeCountMap(self.scannedCollectors))
     safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
     safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
     safeDbSet("arch_storage_synced", self.storageSyncedLive and 1 or 0)
@@ -1048,10 +1216,25 @@ function Tracker:scanAllInventories(triggerInvType)
             self.lastAction = nil
         end
 
+        -- Track restored artefacts leaving the backpack to hand in to collectors
+        if self.prevBackpackRestored then
+            for artName, prevCount in pairs(self.prevBackpackRestored) do
+                local curCount = bagRestored[artName] or 0
+                if curCount < prevCount then
+                    local countHandedIn = prevCount - curCount
+                    if not checkedBank and self.lastAction ~= "drop" then
+                        self:onRestoredArtefactSubmitted(artName, countHandedIn)
+                    end
+                end
+            end
+        end
+
         self.backpackMaterials = bagMats
         self.backpackArtefacts = bagArts
+        self.backpackRestored = bagRestored or {}
         self.prevBackpackMaterials = bagMats
         self.prevBackpackArtefacts = bagArts
+        self.prevBackpackRestored = bagRestored or {}
     end
 
     -- 2. Check Bank (config.Inv.BANK or bankInvId) if available for both materials and damaged artefacts
@@ -1125,37 +1308,50 @@ function Tracker:scanAllInventories(triggerInvType)
     end
 end
 
+local COLLECTORS_LOOKUP = nil
+local COLLECTIONS_LOOKUP = nil
+
+local function getCollectorLookups()
+    if not COLLECTORS_LOOKUP then
+        COLLECTORS_LOOKUP = {}
+        COLLECTIONS_LOOKUP = {}
+        for _, col in ipairs(Collections and Collections.LIST or {}) do
+            if col.collector then
+                local cNorm = string.lower(string.match(col.collector, "^%s*(.-)%s*$") or "")
+                COLLECTORS_LOOKUP[cNorm] = col.collector
+                for word in string.gmatch(cNorm, "[%w']+") do
+                    if #word >= 4 and not COLLECTORS_LOOKUP[word] then
+                        COLLECTORS_LOOKUP[word] = col.collector
+                    end
+                end
+            end
+            if col.name then
+                local nNorm = string.lower(string.match(col.name, "^%s*(.-)%s*$") or "")
+                COLLECTIONS_LOOKUP[nNorm] = col
+            end
+        end
+    end
+    return COLLECTORS_LOOKUP, COLLECTIONS_LOOKUP
+end
+
+local ARTEFACT_COLLECTIONS = nil
+local function getArtefactCollectionsMap()
+    if not ARTEFACT_COLLECTIONS then
+        ARTEFACT_COLLECTIONS = {}
+        for _, col in ipairs(Collections and Collections.LIST or {}) do
+            for _, artName in ipairs(col.artefacts or {}) do
+                local artLower = string.lower(artName)
+                ARTEFACT_COLLECTIONS[artLower] = ARTEFACT_COLLECTIONS[artLower] or {}
+                table.insert(ARTEFACT_COLLECTIONS[artLower], { colName = col.name, collector = col.collector })
+            end
+        end
+    end
+    return ARTEFACT_COLLECTIONS
+end
+
 -- Scans any currently open Collector Information or Archaeology journal interface components
 function Tracker:scanCollectorInterface(forceLog)
-    if not ui or not ui.Interfaces or not id or not id.Component then return false end
-
-    local function printBoth(msg)
-        print(msg)
-    end
-
-    if forceLog then
-        printBoth("[Archaeology Assistant] === Collector Board Scan Triggered ===")
-    end
-
-    local root = nil
-    if id.Component.TOPLEVEL_V2__ROOT then
-        root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__ROOT)
-    end
-    if not root and id.Component.TOPLEVEL_V2__GAME_AREA then
-        root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
-    end
-
-    if not root then
-        if forceLog then
-            printBoth("[Archaeology Assistant] ERROR: No root component (TOPLEVEL_V2__ROOT) found.")
-        end
-        return false
-    end
-
-    local detected = false
-    local visitedCount = 0
-    local maxDepth = 0
-    local artsFound = 0
+    if not ui or not ui.Interfaces then return false end
 
     local function getCompText(c)
         if not c then return nil end
@@ -1167,55 +1363,113 @@ function Tracker:scanCollectorInterface(forceLog)
         return t
     end
 
-    local function inspectComp(comp, depth)
-        if not comp or depth > 24 or visitedCount >= 2500 then return end
-        visitedCount = visitedCount + 1
-        if depth > maxDepth then maxDepth = depth end
+    local function normalizeText(s)
+        if not s or type(s) ~= "string" then return "" end
+        local clean = string.gsub(s, "<[^>]+>", " ")
+        clean = string.gsub(clean, "[%s\194\160]+", " ")
+        clean = string.match(clean, "^%s*(.-)%s*$") or ""
+        return string.lower(clean)
+    end
+
+    local function safeExtractChild(a, b)
+        if type(a) == "table" or type(a) == "userdata" then
+            return a
+        elseif type(b) == "table" or type(b) == "userdata" then
+            return b
+        end
+        return nil
+    end
+
+    local detected = false
+    local totalVisited = 0
+    local maxDepthOverall = 0
+    local artsFound = 0
+    local activeCollection = nil
+    local activeCollectorName = nil
+    local collectionProgress = {}
+
+    local collectorsLookup, collectionsLookup = getCollectorLookups()
+
+    local function inspectCompNode(comp, sIdTag, depth, ifId)
+        if not comp then return end
+        totalVisited = totalVisited + 1
+        if depth > maxDepthOverall then maxDepthOverall = depth end
 
         local rawTxt = getCompText(comp)
-        local cleanTxt = rawTxt and string.gsub(rawTxt, "<[^>]+>", "") or nil
+        local norm = normalizeText(rawTxt)
+        local objId = nil
+        pcall(function() objId = comp.associatedObjectID or comp.objId or comp.itemId or comp.itemID end)
+        local sprId = nil
+        pcall(function() sprId = comp.spriteID or comp.sprite or comp.spriteId end)
+        local itemCount = nil
+        pcall(function() itemCount = comp.itemCount or comp.itemAmount or comp.associatedObjectCount or comp.associatedObjectAmount or comp.count or comp.quantity or comp.amount end)
 
-        if cleanTxt and #cleanTxt >= 3 and forceLog then
-            local cleanLower = string.lower(cleanTxt)
-            if string.find(cleanLower, "smoky", 1, true) or string.find(cleanLower, "tess", 1, true) or string.find(cleanLower, "fing", 1, true) then
-                printBoth(string.format("[Archaeology Assistant] Section label at depth %d: '%s'", depth, cleanTxt))
+        -- Check for Collector Name & Collection Name via fast O(1) hash lookup
+        if #norm >= 3 then
+            if collectorsLookup and collectorsLookup[norm] then
+                activeCollectorName = collectorsLookup[norm]
             end
-        end
-
-        local matchedArtName = nil
-        if cleanTxt and #cleanTxt >= 3 then
-            local cl = string.lower(cleanTxt)
-            for artName, _ in pairs(Artefacts.ALL or {}) do
-                if string.find(cl, string.lower(artName), 1, true) then
-                    matchedArtName = artName
-                    break
+            if collectionsLookup and collectionsLookup[norm] then
+                local colDef = collectionsLookup[norm]
+                activeCollection = colDef.name
+                if colDef.collector then
+                    activeCollectorName = colDef.collector
                 end
             end
         end
 
-        if not matchedArtName and comp.associatedObjectID and comp.associatedObjectID > 0 and Artefacts.BY_ID then
-            local artObj = Artefacts.BY_ID[comp.associatedObjectID]
+        -- Check for collection progress string e.g. "0/3", "1/5", "3/3"
+        if activeCollection and rawTxt then
+            local colDef = Collections and Collections.BY_NAME and Collections.BY_NAME[activeCollection]
+            if colDef and colDef.artefacts then
+                local pCur, pTot = string.match(norm, "^(%d+)%s*/%s*(%d+)$")
+                if not pCur then
+                    pCur, pTot = string.match(norm, "(%d+)%s*/%s*(%d+)")
+                end
+                if pCur and pTot then
+                    local nCur = tonumber(pCur)
+                    local nTot = tonumber(pTot)
+                    if nCur and nTot and nTot == #colDef.artefacts and nCur <= nTot then
+                        collectionProgress[activeCollection] = { submitted = nCur, total = nTot }
+                    end
+                end
+            end
+        end
+
+        -- Check for Artefact by associatedObjectID (fast O(1) lookup) or text
+        local matchedArtName = nil
+        if objId and objId > 0 and Artefacts and Artefacts.BY_ID then
+            local artObj = Artefacts.BY_ID[objId] or Artefacts.BY_ID[objId - 1]
             if artObj then
                 matchedArtName = artObj.name
+            end
+        end
+
+        if not matchedArtName and #norm >= 3 and #norm <= 45 and not string.find(norm, "/", 1, true) then
+            if Artefacts and Artefacts.BY_BASE_LOWER and Artefacts.BY_BASE_LOWER[norm] then
+                matchedArtName = Artefacts.BY_BASE_LOWER[norm].name
             end
         end
 
         if matchedArtName then
             artsFound = artsFound + 1
             local isDone = false
+            local hasExplicit0 = false
 
-            -- 1. Check text content indicators
+            -- 1. Check rawTxt
             if rawTxt then
-                local rawLower = string.lower(rawTxt)
-                if string.find(rawLower, "1/1") or string.find(rawLower, "1 / 1")
-                    or string.find(rawLower, "handed in") or string.find(rawLower, "turned in")
-                    or string.find(rawLower, "submitted") or string.find(rawLower, "complete")
-                    or string.find(rawLower, "contributed") or string.find(rawLower, "done")
-                    or string.find(rawLower, "yes") then
+                local rLow = normalizeText(rawTxt)
+                if string.find(rLow, "1/1") or string.find(rLow, "1 / 1")
+                    or string.find(rLow, "handed in") or string.find(rLow, "turned in")
+                    or string.find(rLow, "submitted") or string.find(rLow, "complete")
+                    or string.find(rLow, "contributed") or string.find(rLow, "done")
+                    or string.find(rLow, "yes") then
                     isDone = true
+                elseif string.find(rLow, "0/1") or string.find(rLow, "0 / 1") then
+                    hasExplicit0 = true
                 end
 
-                if not isDone and (string.find(rawLower, "<str>") or string.find(rawLower, "<s>")) then
+                if not isDone and (string.find(rawTxt, "<str>") or string.find(rawTxt, "<s>")) then
                     isDone = true
                 end
 
@@ -1225,7 +1479,7 @@ function Tracker:scanCollectorInterface(forceLog)
                             local r = tonumber(string.sub(hex, 1, 2), 16) or 0
                             local g = tonumber(string.sub(hex, 3, 4), 16) or 0
                             local b = tonumber(string.sub(hex, 5, 6), 16) or 0
-                            if g > 150 and g > (r + 30) and g > (b + 30) then
+                            if g > 140 and g > (r + 30) and g > (b + 30) then
                                 isDone = true
                                 break
                             end
@@ -1234,7 +1488,7 @@ function Tracker:scanCollectorInterface(forceLog)
                 end
             end
 
-            -- 2. Check native component colour properties
+            -- 2. Check colour properties
             if not isDone then
                 local colVal = comp.colour or comp.color or comp.rgba or comp.textColour or comp.textColor
                 if colVal then
@@ -1258,110 +1512,355 @@ function Tracker:scanCollectorInterface(forceLog)
                 end
             end
 
-            -- 3. Check sibling components under comp.parent
-            local siblingSummary = ""
+            -- 3. Check item count or populated object ID
+            if not isDone and objId and objId > 0 then
+                if itemCount and type(itemCount) == "number" and itemCount > 0 then
+                    isDone = true
+                end
+            end
+
+            -- 4. Check siblings under comp.parent
             if comp.parent then
-                local function checkSibling(sib)
+                local function inspectSibling(a, b)
+                    local sib = safeExtractChild(a, b)
                     if sib and sib ~= comp then
                         local sTxt = getCompText(sib)
                         if sTxt and type(sTxt) == "string" and sTxt ~= "" then
-                            siblingSummary = siblingSummary .. "[" .. sTxt .. "]"
-                            local sLower = string.lower(sTxt)
-                            if string.find(sLower, "0/1") or string.find(sLower, "0 / 1") then
-                                isDone = false
-                            elseif string.find(sLower, "1/1") or string.find(sLower, "1 / 1")
-                                or string.find(sLower, "done") or string.find(sLower, "turned in") then
+                            local sLow = string.lower(sTxt)
+                            if string.find(sLow, "0/1") or string.find(sLow, "0 / 1") then
+                                hasExplicit0 = true
+                            elseif string.find(sLow, "1/1") or string.find(sLow, "1 / 1")
+                                or string.find(sLow, "done") or string.find(sLow, "turned in")
+                                or string.find(sLow, "submitted") or string.find(sLow, "handed in") then
                                 isDone = true
+                            end
+                            for hex in string.gmatch(sTxt, "<col=([0-9a-fA-F]+)>") do
+                                if #hex >= 6 then
+                                    local r = tonumber(string.sub(hex, 1, 2), 16) or 0
+                                    local g = tonumber(string.sub(hex, 3, 4), 16) or 0
+                                    local b = tonumber(string.sub(hex, 5, 6), 16) or 0
+                                    if g > 140 and g > (r + 30) and g > (b + 30) then
+                                        isDone = true
+                                    end
+                                end
                             end
                         end
                     end
                     return false
                 end
+
                 if comp.parent.IterateStaticComponents then
-                    pcall(comp.parent.IterateStaticComponents, comp.parent, checkSibling)
+                    pcall(comp.parent.IterateStaticComponents, comp.parent, inspectSibling)
                 end
                 if comp.parent.IterateDynamicComponents then
-                    pcall(comp.parent.IterateDynamicComponents, comp.parent, checkSibling)
+                    pcall(comp.parent.IterateDynamicComponents, comp.parent, inspectSibling)
                 end
             end
 
-            if forceLog then
-                printBoth(string.format("[Archaeology Assistant] Artefact '%s' (depth %d): raw='%s', isDone=%s, sibs=%s",
-                    matchedArtName, depth, rawTxt or "(nil)", tostring(isDone), siblingSummary ~= "" and siblingSummary or "(none)"))
+            -- Special handling for Interface 657 (Collector Information noticeboard)
+            if ifId == 657 then
+                local isFullColor = false
+                local rgbaVal = nil
+                pcall(function() rgbaVal = comp.rgba end)
+                local alphaVal = nil
+                pcall(function() alphaVal = comp.alpha end)
+                local colVal = nil
+                pcall(function() colVal = comp.colour or comp.color end)
+
+                -- Full brightness / unshaded white (handed in):
+                -- rgba = 4294967295 (0xFFFFFFFF), alpha = 1.0, colour.x = 1.0
+                -- Dark silhouette (not handed in):
+                -- rgba = 336860375, alpha = 0.843, colour.x = 0.078
+                if rgbaVal and type(rgbaVal) == "number" and (rgbaVal == 4294967295 or rgbaVal == -1 or rgbaVal > 4000000000) then
+                    isFullColor = true
+                elseif alphaVal and type(alphaVal) == "number" and alphaVal >= 0.98 then
+                    if type(colVal) == "table" and (colVal.x or colVal.r) then
+                        local r = colVal.x or colVal.r or 0
+                        if r > 0.8 then isFullColor = true end
+                    else
+                        isFullColor = true
+                    end
+                end
+
+                if isFullColor then
+                    isDone = true
+                else
+                    hasExplicit0 = true
+                    isDone = false
+                end
             end
 
-            if isDone then
-                for _, col in ipairs(Collections.LIST or {}) do
-                    if col.artefacts then
-                        for _, colArt in ipairs(col.artefacts) do
-                            if colArt == matchedArtName then
-                                self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
-                                if not self.submittedArtefacts[col.name][matchedArtName] then
-                                    self.submittedArtefacts[col.name][matchedArtName] = true
-                                    detected = true
-                                    printBoth(string.format("[Archaeology Assistant] --> SUBMISSION DETECTED: '%s' for '%s'", matchedArtName, col.name))
-                                end
-                            end
-                        end
+            -- 5. If progress is 100% complete (submitted == total), all artefacts in collection are done
+            if not isDone and activeCollection and collectionProgress[activeCollection] then
+                local prog = collectionProgress[activeCollection]
+                if prog.submitted and prog.total and prog.submitted == prog.total and prog.total > 0 then
+                    isDone = true
+                end
+            end
+
+            if hasExplicit0 and not (activeCollection and collectionProgress[activeCollection] and collectionProgress[activeCollection].submitted == collectionProgress[activeCollection].total) then
+                isDone = false
+            end
+
+            local targetCollections = {}
+            local artColMap = getArtefactCollectionsMap()
+            local entries = artColMap and artColMap[string.lower(matchedArtName)] or {}
+
+            if activeCollectorName then
+                local aLow = string.lower(activeCollectorName)
+                for _, ent in ipairs(entries) do
+                    if ent.collector and string.lower(ent.collector) == aLow then
+                        table.insert(targetCollections, ent.colName)
+                    end
+                end
+            end
+            if #targetCollections == 0 and activeCollection then
+                for _, ent in ipairs(entries) do
+                    if ent.colName == activeCollection then
+                        table.insert(targetCollections, ent.colName)
+                    end
+                end
+            end
+            if #targetCollections == 0 then
+                for _, ent in ipairs(entries) do
+                    table.insert(targetCollections, ent.colName)
+                end
+            end
+
+            for _, cName in ipairs(targetCollections) do
+                self.submittedArtefacts[cName] = self.submittedArtefacts[cName] or {}
+                if isDone then
+                    if not self.submittedArtefacts[cName][matchedArtName] then
+                        self.submittedArtefacts[cName][matchedArtName] = true
+                        detected = true
+                    end
+                elseif hasExplicit0 then
+                    if self.submittedArtefacts[cName][matchedArtName] then
+                        self.submittedArtefacts[cName][matchedArtName] = nil
+                        detected = true
                     end
                 end
             end
         end
-
-        if comp.IterateStaticComponents then
-            pcall(comp.IterateStaticComponents, comp, function(child, visible)
-                inspectComp(child, depth + 1)
-                return false
-            end)
-        end
-        if comp.IterateDynamicComponents then
-            pcall(comp.IterateDynamicComponents, comp, function(child, visible)
-                inspectComp(child, depth + 1)
-                return false
-            end)
-        end
     end
 
-    inspectComp(root, 1)
-
-    self.lastCollectorScanSummary = string.format("%d nodes (depth %d), %d arts on screen", visitedCount, maxDepth, artsFound)
-
-    if detected then
-        self.boardSyncedLive = true
-        self.boardHasCache = true
-        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
-        self:recalculate()
-    elseif artsFound > 0 then
-        self.boardSyncedLive = true
-        self.boardHasCache = true
+    -- Check Interface 657 (Collector Information Noticeboard)
+    local hasNoticeboard657 = false
+    local ok657, iface657 = pcall(function() return ui.Interfaces:GetInterface(657) end)
+    if (ok657 and iface657) or ui.Interfaces:GetComponent(657, 0) or ui.Interfaces:GetComponent(657, 24) or ui.Interfaces:GetComponent(657, 2) then
+        hasNoticeboard657 = true
     end
 
-    if forceLog or detected or artsFound > 0 then
-        printBoth(string.format("[Archaeology Assistant] Scan complete: %d nodes inspected (depth %d). Arts seen: %d. New submissions: %s",
-            visitedCount, maxDepth, artsFound, tostring(detected)))
-        if artsFound == 0 and forceLog then
-            printBoth("[Archaeology Assistant] 0 artefacts found on screen. Ensure the Collector Information noticeboard or journal collection details pane is open.")
-        end
-    end
+    if hasNoticeboard657 then
+        local queue = {}
+        local qHead = 1
 
-    return detected
-end
-
-function Tracker:onLogicTick()
-    if self.scanTicksRemaining and self.scanTicksRemaining > 0 then
-        self.scanTicksRemaining = self.scanTicksRemaining - 1
-        if self.scanDelay and self.scanDelay > 0 then
-            self.scanDelay = self.scanDelay - 1
-            return false
+        local function enqueue657(comp, depth, sIdTag)
+            if comp and depth <= 16 then
+                table.insert(queue, { comp = comp, depth = depth, sIdTag = sIdTag })
+            end
         end
-        if self.scanTicksRemaining % 3 == 0 then
-            if self:scanCollectorInterface(false) then
-                self.scanTicksRemaining = 0
-                return true
+
+        local c2 = nil
+        pcall(function() c2 = ui.Interfaces:GetComponent(657, 2) end)
+        if c2 then enqueue657(c2, 1, "2") end
+
+        local c0 = nil
+        pcall(function() c0 = ui.Interfaces:GetComponent(657, 0) end)
+        if c0 and not c2 then enqueue657(c0, 1, "0") end
+
+        while qHead <= #queue and qHead < 2500 do
+            local node = queue[qHead]
+            qHead = qHead + 1
+            local comp = node.comp
+            local depth = node.depth
+
+            inspectCompNode(comp, node.sIdTag, depth, 657)
+
+            if depth < 12 then
+                if comp.IterateStaticComponents then
+                    pcall(comp.IterateStaticComponents, comp, function(a, b)
+                        local child = safeExtractChild(a, b)
+                        if child then enqueue657(child, depth + 1, (node.sIdTag or "?") .. ".s") end
+                        return false
+                    end)
+                end
+                if comp.IterateDynamicComponents then
+                    pcall(comp.IterateDynamicComponents, comp, function(a, b)
+                        local child = safeExtractChild(a, b)
+                        if child then enqueue657(child, depth + 1, (node.sIdTag or "?") .. ".d") end
+                        return false
+                    end)
+                end
             end
         end
     end
+
+    self.lastCollectorScanSummary = string.format("%d nodes (depth %d), %d arts on screen", totalVisited, maxDepthOverall, artsFound)
+
+    if artsFound > 0 then
+        self.boardSyncedLive = true
+        self.boardHasCache = true
+        safeDbSet("arch_board_has_cache", 1)
+        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+        if activeCollectorName and activeCollectorName ~= "" and activeCollectorName ~= "Noticeboard" then
+            self.scannedCollectors[activeCollectorName] = 1
+            safeDbSet("arch_scanned_collectors", serializeCountMap(self.scannedCollectors))
+        end
+        self:recalculate()
+    end
+
+    return (artsFound > 0), detected, activeCollectorName
+end
+
+function Tracker:isNoticeboardOpen()
+    local ok2, c2 = pcall(function() return ui.Interfaces:GetComponent(657, 2) end)
+    if ok2 and c2 ~= nil then return true end
+    local ok0, c0 = pcall(function() return ui.Interfaces:GetComponent(657, 0) end)
+    return (ok0 and c0 ~= nil)
+end
+
+function Tracker:detectActiveCollector()
+    local ok, c2 = pcall(function() return ui.Interfaces:GetComponent(657, 2) or ui.Interfaces:GetComponent(657, 0) end)
+    if not ok or not c2 then return nil end
+
+    local collectorsLookup, collectionsLookup = getCollectorLookups()
+    local queue = { { comp = c2, depth = 1 } }
+    local qHead = 1
+
+    while qHead <= #queue and qHead < 120 do
+        local node = queue[qHead]
+        qHead = qHead + 1
+        local comp = node.comp
+
+        local rawTxt = nil
+        pcall(function() rawTxt = comp.content or comp.text or (comp.GetText and comp:GetText()) or comp.textFormatted or comp.rawText end)
+        if rawTxt and type(rawTxt) == "string" and #rawTxt >= 3 then
+            local norm = string.lower(string.gsub(string.match(rawTxt, "^%s*(.-)%s*$") or "", "<[^>]+>", ""))
+            if collectorsLookup and collectorsLookup[norm] then
+                return collectorsLookup[norm]
+            end
+            if collectionsLookup and collectionsLookup[norm] and collectionsLookup[norm].collector then
+                return collectionsLookup[norm].collector
+            end
+        end
+
+        if node.depth < 8 then
+            if comp.IterateStaticComponents then
+                pcall(comp.IterateStaticComponents, comp, function(child)
+                    if child and #queue < 120 then table.insert(queue, { comp = child, depth = node.depth + 1 }) end
+                    return false
+                end)
+            end
+            if comp.IterateDynamicComponents then
+                pcall(comp.IterateDynamicComponents, comp, function(child)
+                    if child and #queue < 120 then table.insert(queue, { comp = child, depth = node.depth + 1 }) end
+                    return false
+                end)
+            end
+        end
+    end
+
+    return nil
+end
+
+function Tracker:checkBackpackChanged()
+    if not config or not config.Inv or not config.Inv.INV then return false end
+    local bagInv = findInventory(config.Inv.INV)
+    if not bagInv then return false end
+
+    local _, _, _, _, bagRestored = self:extractMaterialsFromInv(bagInv)
+
+    local changed = false
+    if self.backpackRestored then
+        for artName, count in pairs(self.backpackRestored) do
+            if (bagRestored[artName] or 0) ~= count then
+                changed = true
+                break
+            end
+        end
+        if not changed then
+            for artName, count in pairs(bagRestored or {}) do
+                if (self.backpackRestored[artName] or 0) ~= count then
+                    changed = true
+                    break
+                end
+            end
+        end
+    else
+        changed = true
+    end
+
+    if changed then
+        self:recalculate(config.Inv.INV)
+        return true
+    end
     return false
+end
+
+function Tracker:onLogicTick()
+    self._logicTicks = (self._logicTicks or 0) + 1
+
+    -- Throttle noticeboard checks: every 20 logic frames (~350ms) if closed, every 8 frames (~130ms) if open
+    local isNoticeboardOpen = (self.noticeboardOpenTicks and self.noticeboardOpenTicks > 0)
+    local checkInterval = isNoticeboardOpen and 8 or 20
+    if (self._logicTicks % checkInterval) ~= 0 then
+        return false
+    end
+
+    local updated = false
+
+    -- Check if backpack contents (restored artefacts) have changed (e.g. handed in to collector dialogue)
+    if self:checkBackpackChanged() then
+        updated = true
+    end
+
+    local ok2, c2 = pcall(function() return ui.Interfaces:GetComponent(657, 2) end)
+    local ok0, c0 = pcall(function() return ui.Interfaces:GetComponent(657, 0) end)
+    local isOpen657 = (ok2 and c2 ~= nil) or (ok0 and c0 ~= nil)
+
+    if isOpen657 then
+        self.noticeboardOpenTicks = (self.noticeboardOpenTicks or 0) + 1
+
+        -- Lightweight check (0.01ms): only detect if the active collector has changed!
+        local activeCollector = self:detectActiveCollector() or "Noticeboard"
+
+        -- ONLY run the scan if the collector has CHANGED or on initial open!
+        if (not self.noticeboardScanned) or (activeCollector ~= self._lastReportedCollector) then
+            self._lastReportedCollector = activeCollector
+            self.noticeboardScanned = true
+
+            local success, detected, collectorScanned = self:scanCollectorInterface(false)
+            if success then
+                self.boardSyncedLive = true
+                self.boardHasCache = true
+                safeDbSet("arch_board_has_cache", 1)
+                local cScanned = collectorScanned or (activeCollector ~= "Noticeboard" and activeCollector)
+                if cScanned and cScanned ~= "" then
+                    self.scannedCollectors[cScanned] = 1
+                    safeDbSet("arch_scanned_collectors", serializeCountMap(self.scannedCollectors))
+                end
+                self:recalculate()
+                updated = true
+            end
+        end
+    else
+        self.noticeboardScanned = false
+        self.noticeboardOpenTicks = 0
+        self._lastReportedCollector = nil
+    end
+
+    -- Periodically sync in-game achievement status (every ~20 seconds: ~60 throttled checks)
+    self._achCheckTicks = (self._achCheckTicks or 0) + 1
+    if self._achCheckTicks >= 60 then
+        self._achCheckTicks = 0
+        local synced = self:syncCollectionsDoneStatus(false)
+        if synced > 0 then
+            updated = true
+        end
+    end
+
+    return updated
 end
 
 -- Synchronizes completed collections and submitted artefacts from in-game achievements
@@ -1377,9 +1876,6 @@ function Tracker:syncCollectionsDoneStatus(forceLog)
         if achId and achId > 0 then
             if config and config.Achievement and config.Achievement.FromID then
                 local ok, ach = pcall(config.Achievement.FromID, achId)
-                if achId == 1091 and forceLog then
-                    print(string.format("[Archaeology Assistant DEBUG] Smoky Fings (ach 1091): ok=%s, progress=%s", tostring(ok), tostring(ach and ach.progress)))
-                end
                 if ok and ach and type(ach.progress) == "number" then
                     hasValidAchievementData = true
                     -- AchievementProgressType.COMPLETE is -2 (or 1 in some boolean states)
@@ -1388,21 +1884,10 @@ function Tracker:syncCollectionsDoneStatus(forceLog)
                             self.completedCollections[col.name] = 1
                             syncedCount = syncedCount + 1
                         end
-                        -- Non-repeatable collections are permanently submitted once the achievement is complete.
-                        -- For repeatable collections, achievements in RS3 stay -2 forever; we do NOT auto-mark
-                        -- all artefacts as submitted for the current repeatable run!
-                        if not col.isRepeatable then
-                            if not self.submittedArtefacts[col.name] then
-                                self.submittedArtefacts[col.name] = {}
-                            end
-                            if col.artefacts then
-                                for _, artName in ipairs(col.artefacts) do
-                                    if not self.submittedArtefacts[col.name][artName] then
-                                        self.submittedArtefacts[col.name][artName] = true
-                                        submittedChanged = true
-                                    end
-                                end
-                            end
+                        -- Once completed, ensure submittedArtefacts does not linger so progress resets back to 0
+                        if not col.isRepeatable and self.submittedArtefacts and self.submittedArtefacts[col.name] then
+                            self.submittedArtefacts[col.name] = nil
+                            submittedChanged = true
                         end
                     else
                         -- In-progress collection: check sub-requirements for individual submitted items
@@ -1464,10 +1949,6 @@ function Tracker:syncCollectionsDoneStatus(forceLog)
         end
     end
 
-    if hasValidAchievementData then
-        self.boardHasCache = true
-    end
-
     if submittedChanged then
         safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
     end
@@ -1484,13 +1965,55 @@ end
 -- Forces a live sync of the Collector noticeboard, journal, and active collector interfaces
 function Tracker:syncCollectorBoard(forceLog)
     local isForce = (forceLog ~= false)
-    print(string.format("[Archaeology Assistant] Manual Collector Board sync triggered (forceLog=%s)", tostring(isForce)))
     self:syncCollectionsDoneStatus(isForce)
-    self:scanCollectorInterface(isForce)
-    return self:recalculate()
+    local success, detected, collectorScanned = self:scanCollectorInterface(isForce)
+    local cScanned = collectorScanned or self:detectActiveCollector()
+    if success and cScanned and cScanned ~= "" and cScanned ~= "Noticeboard" then
+        self.scannedCollectors[cScanned] = 1
+        safeDbSet("arch_scanned_collectors", serializeCountMap(self.scannedCollectors))
+    end
+    self:recalculate()
+    return self.lastResult
 end
 
--- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart vs Checking Noticeboard) from in-game MiniMenu clicks
+-- Handles restored artefacts handed in to collectors directly from inventory
+function Tracker:onRestoredArtefactSubmitted(artName, countHandedIn)
+    if not artName or not Collections or not Collections.LIST then return end
+    local lowerTarget = string.lower(artName)
+
+    for _, col in ipairs(Collections.LIST) do
+        if col.artefacts then
+            for _, cArt in ipairs(col.artefacts) do
+                if string.lower(cArt) == lowerTarget then
+                    if not self.submittedArtefacts[col.name] then
+                        self.submittedArtefacts[col.name] = {}
+                    end
+                    self.submittedArtefacts[col.name][cArt] = true
+
+                    -- Check if all artefacts for this collection are now completed
+                    local allSub = true
+                    for _, reqArt in ipairs(col.artefacts) do
+                        if not self:isArtefactSubmitted(col.name, reqArt, true) then
+                            allSub = false
+                            break
+                        end
+                    end
+
+                    if allSub then
+                        self.completedCollections[col.name] = 1
+                        self.submittedArtefacts[col.name] = nil
+                        safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+                        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+                    else
+                        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart) from in-game MiniMenu clicks
 function Tracker:onMiniMenuAction(verb, full)
     local vLower = string.lower(verb or "")
     local fLower = string.lower(full or "")
@@ -1502,14 +2025,6 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "storage"
     elseif string.find(fLower, "deposit") then
         self.lastAction = "storage"
-    end
-
-    if string.find(fLower, "collector") or string.find(fLower, "noticeboard")
-        or string.find(fLower, "journal") or string.find(fLower, "collection")
-        or string.find(vLower, "collector") or string.find(fLower, "contribute")
-        or string.find(vLower, "contribute") then
-        self.scanTicksRemaining = 12
-        self.scanDelay = 3
     end
 end
 
@@ -1551,17 +2066,25 @@ function Tracker:onChatMessage(text)
 
     -- Match collector artefact submission / contribution events:
     -- e.g. "You hand over the <artefact> to <collector>."
-    if string.find(lower, "hand over") or string.find(lower, "contribute") or string.find(lower, "give") or string.find(lower, "donat") then
+    if string.find(lower, "hand") or string.find(lower, "contribut") or string.find(lower, "give") or string.find(lower, "donat") or string.find(lower, "turn in") or string.find(lower, "turned in") then
         local foundArt = false
-        for artName, _ in pairs(Artefacts.ALL or {}) do
-            local artLower = string.lower(artName)
+        local matchedCollector = nil
+        for _, col in ipairs(Collections and Collections.LIST or {}) do
+            if col.collector and string.find(lower, string.lower(col.collector), 1, true) then
+                matchedCollector = col.collector
+                break
+            end
+        end
+
+        for artLower, artObj in pairs(Artefacts and (Artefacts.BY_BASE_LOWER or Artefacts.ALL) or {}) do
             if string.find(lower, artLower, 1, true) then
+                local artName = artObj.name or artLower
                 for _, col in ipairs(Collections.LIST or {}) do
-                    if col.artefacts then
+                    if (not matchedCollector or col.collector == matchedCollector) and col.artefacts then
                         for _, cArt in ipairs(col.artefacts) do
-                            if cArt == artName then
+                            if string.lower(cArt) == string.lower(artName) then
                                 self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
-                                self.submittedArtefacts[col.name][artName] = true
+                                self.submittedArtefacts[col.name][cArt] = true
                                 foundArt = true
                             end
                         end
@@ -1572,6 +2095,37 @@ function Tracker:onChatMessage(text)
         if foundArt then
             self.boardSyncedLive = true
             self.boardHasCache = true
+            safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+            -- Check if any collections are now fully completed
+            for colName, _ in pairs(self.submittedArtefacts) do
+                self:isCollectionCompleted(colName)
+            end
+            self:syncCollectionsDoneStatus(false)
+            self:recalculate()
+            return true
+        end
+    end
+
+    -- Match collection completion or achievement completion events:
+    -- e.g. "You have completed the collection: ..." or "Achievement Completed: ..."
+    if string.find(lower, "completed the collection") or string.find(lower, "collection completed")
+        or string.find(lower, "achievement completed") or string.find(lower, "completed the achievement")
+        or string.find(lower, "achievement unlocked") or string.find(lower, "unlocked the achievement")
+        or string.find(lower, "collection complete") or string.find(lower, "completed collection")
+        or string.find(lower, "collection:") or string.find(lower, "collection '") then
+        self:syncCollectionsDoneStatus(false)
+        local matched = false
+        for _, col in ipairs(Collections and Collections.LIST or {}) do
+            if string.find(lower, string.lower(col.name), 1, true) then
+                self.completedCollections[col.name] = 1
+                if self.submittedArtefacts and self.submittedArtefacts[col.name] then
+                    self.submittedArtefacts[col.name] = nil
+                end
+                matched = true
+            end
+        end
+        if matched then
+            safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
             safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
             self:recalculate()
             return true
