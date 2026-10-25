@@ -2137,17 +2137,28 @@ function Artefacts.findByName(rawName)
     local norm = normalizeName(rawName)
     local exact = Artefacts.BY_DAMAGED_LOWER[norm]
     if exact then
-        return exact
+        return exact, true
     end
 
     local base, isDamagedSuffix = extractDamagedBaseName(rawName)
     if isDamagedSuffix then
         local byBase = Artefacts.BY_BASE_LOWER[base]
         if byBase then
-            return byBase
+            return byBase, true
+        end
+    else
+        local byRestored = Artefacts.BY_BASE_LOWER[base]
+        if byRestored then
+            return byRestored, false
         end
     end
     return nil
+end
+
+function Artefacts.findRestoredByName(rawName)
+    if not rawName or rawName == "" then return nil end
+    local norm = normalizeName(rawName)
+    return Artefacts.BY_BASE_LOWER[norm]
 end
 
 function Artefacts.findByObj(obj)

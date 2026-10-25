@@ -4,6 +4,7 @@
 
 local Materials = require("data/materials")
 local Artefacts = require("data/artefacts")
+local Collections = require("data/collections")
 
 local Tracker = {}
 Tracker.__index = Tracker
@@ -159,6 +160,14 @@ function Tracker.new()
     -- Cached damaged artefact counts in Backpack and Bank
     self.backpackArtefacts = {}
     self.bankArtefacts = deserializeCountMap(safeDbGet("arch_bank_artefacts", ""))
+
+    -- Cached restored artefact counts in Backpack and Bank
+    self.backpackRestored = {}
+    self.bankRestored = deserializeCountMap(safeDbGet("arch_bank_restored", ""))
+
+    -- Collections tracking
+    self.completedCollections = deserializeCountMap(safeDbGet("arch_completed_collections", ""))
+    self.targetedCollections = deserializeCountMap(safeDbGet("arch_targeted_collections", ""))
 
     -- Cached material counts by canonical material name
     self.backpackMaterials = {}
@@ -353,6 +362,189 @@ function Tracker:togglePin()
     return self:recalculate()
 end
 
+-- =========================================================================
+-- Collections Management (Completion, Targeting, Progress)
+-- =========================================================================
+
+function Tracker:isCollectionCompleted(colName)
+    if not colName then return false end
+    return (self.completedCollections[colName] or 0) > 0
+end
+
+function Tracker:toggleCollectionCompleted(colName)
+    if not colName then return self.lastResult end
+    if self:isCollectionCompleted(colName) then
+        self.completedCollections[colName] = nil
+    else
+        self.completedCollections[colName] = 1
+    end
+    safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+    return self:recalculate()
+end
+
+function Tracker:isCollectionTargeted(colName)
+    if not colName then return false end
+    return (self.targetedCollections[colName] or 0) > 0
+end
+
+function Tracker:toggleCollectionTargeted(colName)
+    if not colName then return self.lastResult end
+    if self:isCollectionTargeted(colName) then
+        self.targetedCollections[colName] = nil
+    else
+        self.targetedCollections[colName] = 1
+    end
+    safeDbSet("arch_targeted_collections", serializeCountMap(self.targetedCollections))
+    return self:recalculate()
+end
+
+function Tracker:clearTargetedCollections()
+    self.targetedCollections = {}
+    safeDbSet("arch_targeted_collections", "")
+    return self:recalculate()
+end
+
+function Tracker:getTargetedCount()
+    return countMapEntries(self.targetedCollections)
+end
+
+function Tracker:hasTargetedCollections()
+    return self:getTargetedCount() > 0
+end
+
+function Tracker:getCollectionProgress(col)
+    if not col or not col.artefacts then
+        return { readyCount = 0, totalCount = 0, isReady = false, isCompleted = false, isTargeted = false, artefacts = {} }
+    end
+
+    local mode = self:getSourceMode()
+    local includeBank = (mode.id ~= "BAG_ONLY")
+
+    local total = #col.artefacts
+    local readyCount = 0
+    local artStatuses = {}
+
+    for _, artName in ipairs(col.artefacts) do
+        local bagRestored = self.backpackRestored[artName] or 0
+        local bankRestored = includeBank and (self.bankRestored[artName] or 0) or 0
+        local totalRestored = bagRestored + bankRestored
+
+        local damagedName = artName .. " (damaged)"
+        local bagDamaged = self.backpackArtefacts[damagedName] or 0
+        local bankDamaged = includeBank and (self.bankArtefacts[damagedName] or 0) or 0
+        local totalDamaged = bagDamaged + bankDamaged
+
+        local isRestored = (totalRestored > 0)
+        if isRestored then
+            readyCount = readyCount + 1
+        end
+
+        table.insert(artStatuses, {
+            name = artName,
+            restoredCount = totalRestored,
+            damagedCount = totalDamaged,
+            isReady = isRestored
+        })
+    end
+
+    local isCompleted = self:isCollectionCompleted(col.name)
+    local isTargeted = self:isCollectionTargeted(col.name)
+
+    return {
+        readyCount = readyCount,
+        totalCount = total,
+        isReady = (readyCount >= total and total > 0),
+        isCompleted = isCompleted,
+        isTargeted = isTargeted,
+        artefacts = artStatuses
+    }
+end
+
+function Tracker:getTargetedArtefactRequirements()
+    local requirements = {}
+    if not Collections or not Collections.BY_NAME then
+        return requirements
+    end
+
+    local mode = self:getSourceMode()
+    local includeBank = (mode.id ~= "BAG_ONLY")
+
+    for colName, _ in pairs(self.targetedCollections) do
+        if self:isCollectionTargeted(colName) then
+            local col = Collections.BY_NAME[colName]
+            if col and col.artefacts then
+                for _, artName in ipairs(col.artefacts) do
+                    local damagedName = artName .. " (damaged)"
+                    if not requirements[damagedName] then
+                        requirements[damagedName] = {
+                            artName = artName,
+                            damagedName = damagedName,
+                            count = 1,
+                            collections = { col.name }
+                        }
+                    else
+                        requirements[damagedName].count = requirements[damagedName].count + 1
+                        table.insert(requirements[damagedName].collections, col.name)
+                    end
+                end
+            end
+        end
+    end
+
+    for _, req in pairs(requirements) do
+        local bagRestored = self.backpackRestored[req.artName] or 0
+        local bankRestored = includeBank and (self.bankRestored[req.artName] or 0) or 0
+        local totalRestored = bagRestored + bankRestored
+        req.ownedRestored = totalRestored
+        req.neededToRestore = math.max(0, req.count - totalRestored)
+    end
+
+    return requirements
+end
+
+function Tracker:getCollectionsForDisplay(filterMode)
+    local list = {}
+    if not Collections or not Collections.LIST then
+        return list, 0, 0, 0, 0
+    end
+
+    local totalCount = #Collections.LIST
+    local completedTotal = 0
+    local readyTotal = 0
+    local targetedTotal = 0
+
+    for _, col in ipairs(Collections.LIST) do
+        local progress = self:getCollectionProgress(col)
+        if progress.isCompleted then
+            completedTotal = completedTotal + 1
+        end
+        if progress.isReady then
+            readyTotal = readyTotal + 1
+        end
+        if progress.isTargeted then
+            targetedTotal = targetedTotal + 1
+        end
+
+        local include = true
+        if filterMode == "incomplete" then
+            include = not progress.isCompleted
+        elseif filterMode == "targeted" then
+            include = progress.isTargeted
+        elseif filterMode == "powers" then
+            include = (col.benefitType == "relic" or col.benefitType == "weapon" or col.benefitType == "mystery")
+        end
+
+        if include then
+            table.insert(list, {
+                data = col,
+                progress = progress
+            })
+        end
+    end
+
+    return list, totalCount, completedTotal, targetedTotal, readyTotal
+end
+
 function Tracker:savePersistentState()
     safeDbSet("arch_source_mode_idx", self.sourceModeIndex)
     safeDbSet("arch_include_dupes", self.includeDuplicates and 1 or 0)
@@ -362,6 +554,9 @@ function Tracker:savePersistentState()
     safeDbSet("arch_excluded_artefacts", serializeCountMap(self.excludedArtefacts))
     safeDbSet("arch_custom_art_counts", serializeCountMap(self.customArtefactCounts))
     safeDbSet("arch_bank_artefacts", serializeCountMap(self.bankArtefacts))
+    safeDbSet("arch_bank_restored", serializeCountMap(self.bankRestored))
+    safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+    safeDbSet("arch_targeted_collections", serializeCountMap(self.targetedCollections))
     safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
     safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
     safeDbSet("arch_storage_synced", self.storageSyncedLive and 1 or 0)
@@ -432,10 +627,12 @@ end
 --   archMatKinds (number of slots containing archaeology materials),
 --   nonMatSlots (number of slots containing non-material items),
 --   artCounts ({ [damagedArtefactName] = totalCount }),
+--   restoredCounts ({ [restoredArtefactName] = totalCount }),
 --   totalSlots (number of total slots in the container)
 function Tracker:extractMaterialsFromInv(inv)
     local matCounts = {}
     local artCounts = {}
+    local restoredCounts = {}
     local archMatKinds = 0
     local nonMatSlots = 0
 
@@ -453,15 +650,19 @@ function Tracker:extractMaterialsFromInv(inv)
                 end
             else
                 nonMatSlots = nonMatSlots + 1
-                local art = Artefacts.findByName(rawName)
+                local art, isDamaged = Artefacts.findByName(rawName)
                 if art then
-                    artCounts[art.damagedName] = (artCounts[art.damagedName] or 0) + count
+                    if isDamaged ~= false then
+                        artCounts[art.damagedName] = (artCounts[art.damagedName] or 0) + count
+                    else
+                        restoredCounts[art.name] = (restoredCounts[art.name] or 0) + count
+                    end
                 end
             end
         end
     end
 
-    return matCounts, archMatKinds, nonMatSlots, artCounts, totalSlots
+    return matCounts, archMatKinds, nonMatSlots, artCounts, restoredCounts, totalSlots
 end
 
 -- Scans the player's Backpack, Bank, and any known/candidate Material Storage containers
@@ -473,7 +674,8 @@ function Tracker:scanAllInventories(triggerInvType)
     -- 1. Always scan Backpack (config.Inv.INV) for both materials and damaged artefacts
     local bagInv = findInventory(config.Inv.INV)
     if bagInv then
-        local bagMats, _, _, bagArts = self:extractMaterialsFromInv(bagInv)
+        local bagMats, _, _, bagArts, bagRestored = self:extractMaterialsFromInv(bagInv)
+        self.backpackRestored = bagRestored or {}
 
         -- If materials left the backpack, they were deposited (e.g. into a Material Cart or deposit box).
         -- Retain player progress by crediting them to Material Storage, excluding materials consumed by restoring an artefact.
@@ -579,11 +781,12 @@ function Tracker:scanAllInventories(triggerInvType)
     if config.Inv.BANK then
         local bankInv = findInventory(config.Inv.BANK)
         if bankInv then
-            local bankMats, archKinds, nonMatSlots, bankArts = self:extractMaterialsFromInv(bankInv)
+            local bankMats, archKinds, nonMatSlots, bankArts, bankRestored = self:extractMaterialsFromInv(bankInv)
             local triggeredByBank = (triggerInvType ~= nil and triggerInvType == config.Inv.BANK)
             if triggeredByBank or archKinds > 0 or nonMatSlots > 0 then
                 self.bankMaterials = bankMats
                 self.bankArtefacts = bankArts
+                self.bankRestored = bankRestored or {}
                 self.bankSyncedLive = true
                 checkedBank = true
                 local okId, invId = pcall(function() return config.Inv.BANK.id end)
@@ -594,6 +797,7 @@ function Tracker:scanAllInventories(triggerInvType)
                 safeDbSet("arch_bank_synced", 1)
                 safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
                 safeDbSet("arch_bank_artefacts", serializeCountMap(self.bankArtefacts))
+                safeDbSet("arch_bank_restored", serializeCountMap(self.bankRestored))
             end
         end
     end
@@ -601,14 +805,16 @@ function Tracker:scanAllInventories(triggerInvType)
     if not checkedBank and self.bankInvId and self.bankInvId >= 0 then
         local bankInv = findInventory(self.bankInvId)
         if bankInv then
-            local bankMats, archKinds, nonMatSlots, bankArts = self:extractMaterialsFromInv(bankInv)
+            local bankMats, archKinds, nonMatSlots, bankArts, bankRestored = self:extractMaterialsFromInv(bankInv)
             if archKinds > 0 or nonMatSlots > 0 then
                 self.bankMaterials = bankMats
                 self.bankArtefacts = bankArts
+                self.bankRestored = bankRestored or {}
                 self.bankSyncedLive = true
                 safeDbSet("arch_bank_synced", 1)
                 safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
                 safeDbSet("arch_bank_artefacts", serializeCountMap(self.bankArtefacts))
+                safeDbSet("arch_bank_restored", serializeCountMap(self.bankRestored))
             end
         end
     end
@@ -750,6 +956,31 @@ function Tracker:recalculate(triggerInvType)
         end
     end
 
+    -- Merge any targeted collections requirements into combinedArts
+    local colTargets = self:getTargetedArtefactRequirements()
+    for damagedName, targetInfo in pairs(colTargets) do
+        local entry = combinedArts[damagedName]
+        if entry then
+            entry.colTarget = targetInfo.count
+            entry.colNames = targetInfo.collections
+            entry.ownedRestored = targetInfo.ownedRestored
+            entry.neededToRestore = targetInfo.neededToRestore
+            if targetInfo.neededToRestore > (entry.rawCount or 0) then
+                entry.rawCount = targetInfo.neededToRestore
+            end
+        else
+            combinedArts[damagedName] = {
+                inBag = self.backpackArtefacts[damagedName] or 0,
+                inBank = self.bankArtefacts[damagedName] or 0,
+                rawCount = targetInfo.neededToRestore,
+                colTarget = targetInfo.count,
+                colNames = targetInfo.collections,
+                ownedRestored = targetInfo.ownedRestored,
+                neededToRestore = targetInfo.neededToRestore
+            }
+        end
+    end
+
     local artefactsList = {}
     local requiredByMat = {}
     local totalArtefacts = 0
@@ -759,12 +990,16 @@ function Tracker:recalculate(triggerInvType)
 
     for damagedName, info in pairs(combinedArts) do
         local rawCount = info.rawCount or 0
-        if rawCount > 0 then
+        local minTarget = (info.neededToRestore and info.neededToRestore > 0) and info.neededToRestore or 0
+        if rawCount > 0 or minTarget > 0 then
             local art = Artefacts.findByName(damagedName)
             if art then
                 uniqueArtefacts = uniqueArtefacts + 1
                 local isExcluded = (self.excludedArtefacts[art.damagedName] ~= nil)
                 local defaultQty = self.includeDuplicates and rawCount or 1
+                if minTarget > defaultQty then
+                    defaultQty = minTarget
+                end
                 local targetCount = self.customArtefactCounts[art.damagedName] or defaultQty
                 local effectiveCount = isExcluded and 0 or targetCount
 
@@ -799,7 +1034,11 @@ function Tracker:recalculate(triggerInvType)
                     effectiveCount = effectiveCount,
                     excluded = isExcluded,
                     maxPossibleNow = maxPossibleNow,
-                    missingMatTypes = missingMatTypes
+                    missingMatTypes = missingMatTypes,
+                    colTarget = info.colTarget or 0,
+                    colNames = info.colNames,
+                    ownedRestored = info.ownedRestored or 0,
+                    neededToRestore = info.neededToRestore or 0
                 })
             end
         end

@@ -18,10 +18,18 @@ local DEFAULT_H = 470
 local MIN_W = 540
 local MIN_H = 300
 
--- Enough rows to display every Archaeology material / damaged artefact without pagination
+-- Enough rows to display every Archaeology material / damaged artefact / collection without pagination
 local MAX_MATERIAL_ROWS = 52
 local MAX_ARTEFACT_ROWS = 45
+local MAX_COLLECTION_ROWS = 80
 local ROW_HEIGHT = 24
+
+local COL_FILTER_MODES = {
+    { id = "all", label = "Show: All" },
+    { id = "incomplete", label = "Incomplete" },
+    { id = "targeted", label = "Targeted" },
+    { id = "powers", label = "Powers/Relics" }
+}
 
 -- Sync badge sizing & icons (Coins item icon represents the Bank, Arch Journal represents Storage)
 local BADGE_W = 42
@@ -111,7 +119,10 @@ function Window.new(tracker)
     local self = setmetatable({}, Window)
     self.tracker = tracker
     self.mounted = false
-    self.activeTab = "artefacts"
+    self.activeTab = safeDbGet("arch_active_tab", "collections")
+    self.colFilterIndex = 1
+    self.collectionRows = {}
+    self.currentCollections = {}
     self.materialRows = {}
     self.artefactRows = {}
     self.currentArtefacts = {}
@@ -506,12 +517,17 @@ function Window:buildFallbackWindow(parent, x, y, w, h)
 end
 
 function Window:switchTab(tabName)
-    if tabName ~= "artefacts" and tabName ~= "materials" then
+    if tabName ~= "collections" and tabName ~= "artefacts" and tabName ~= "materials" then
         return
     end
     self:hideRowTooltip()
     local changed = (self.activeTab ~= tabName)
     self.activeTab = tabName
+    safeDbSet("arch_active_tab", tabName)
+
+    if self.btnTabCollections then
+        self.btnTabCollections.setActive(self.activeTab == "collections")
+    end
     if self.btnTabArtefacts then
         self.btnTabArtefacts.setActive(self.activeTab == "artefacts")
     end
@@ -528,7 +544,17 @@ function Window:switchTab(tabName)
 end
 
 function Window:buildContentComponents(container)
-    -- 1. Top View Tabs (y = 6, height = 26) — Artefacts first, Materials second
+    -- 1. Top View Tabs (y = 6, height = 26) — Collections first, Artefacts second, Materials third
+    self.btnTabCollections = self:createToolbarButton(
+        container,
+        "Collections",
+        "View Archaeology collections, rewards, relic powers, turn-in readiness, and target collections for farming.",
+        true,
+        function()
+            self:switchTab("collections")
+        end
+    )
+
     self.btnTabArtefacts = self:createToolbarButton(
         container,
         "Artefacts",
@@ -557,6 +583,32 @@ function Window:buildContentComponents(container)
         false,
         function()
             self.tracker:cycleSourceMode()
+            self:refresh()
+        end
+    )
+
+    self.btnColFilter = self:createToolbarButton(
+        container,
+        "Show: All",
+        "Filter collections: All, Incomplete Only, Targeted Only, or Relics/Powers.",
+        false,
+        function()
+            self.colFilterIndex = (self.colFilterIndex % #COL_FILTER_MODES) + 1
+            local mode = COL_FILTER_MODES[self.colFilterIndex]
+            if self.btnColFilter then
+                self.btnColFilter.setLabel(mode.label)
+            end
+            self:refresh()
+        end
+    )
+
+    self.btnClearTargets = self:createToolbarButton(
+        container,
+        "Clear Targets",
+        "Clear all targeted collections (resets collection-level pinning).",
+        false,
+        function()
+            self.tracker:clearTargetedCollections()
             self:refresh()
         end
     )
@@ -803,7 +855,190 @@ function Window:buildContentComponents(container)
     self.summaryTitle   = createWrappingText(container, COL_GOLD, 14, 71)
     self.deficitSummary = createWrappingText(container, COL_AMBER, 14, 91)
 
-    -- 5A. ARTEFACTS VIEW LAYER (Tab 1)
+    -- 5A. COLLECTIONS VIEW LAYER (Tab: Collections)
+    local colLayerH = 26 + (MAX_COLLECTION_ROWS * ROW_HEIGHT)
+    local colLayer = ui.Layer.new(container)
+    colLayer.clickthrough = true
+    colLayer:SetPos(0, 120)
+    colLayer:SetSize(0, colLayerH, 1.0, 0)
+    colLayer.hidden = false
+    self.collectionsTableLayer = colLayer
+    forwardScrollWheel(colLayer)
+
+    local colHeaderBg = ui.Rectangle.new(colLayer)
+    colHeaderBg.colour = COL_BG_HEADER
+    colHeaderBg.fill = true
+    colHeaderBg.clickthrough = false
+    colHeaderBg:SetPos(8, 0)
+    colHeaderBg:SetSize(-16, 22, 1.0, 0)
+    forwardScrollWheel(colHeaderBg)
+
+    local colHTarget = ui.Text.new(colLayer)
+    colHTarget.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colHTarget.colour = COL_GOLD
+    colHTarget.content = "Target"
+    colHTarget.maxLines = 1
+    colHTarget:SetPos(12, 2, 0, 0)
+    colHTarget:SetSize(52, 20, 0, 0)
+
+    local colHDone = ui.Text.new(colLayer)
+    colHDone.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colHDone.colour = COL_GOLD
+    colHDone.content = "Done"
+    colHDone.maxLines = 1
+    colHDone:SetPos(68, 2, 0, 0)
+    colHDone:SetSize(42, 20, 0, 0)
+
+    local colHLvl = ui.Text.new(colLayer)
+    colHLvl.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colHLvl.colour = COL_GOLD
+    colHLvl.content = "Lvl"
+    colHLvl.maxLines = 1
+    colHLvl:SetPos(114, 2, 0, 0)
+    colHLvl:SetSize(30, 20, 0, 0)
+
+    local colHName = ui.Text.new(colLayer)
+    colHName.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colHName.colour = COL_GOLD
+    colHName.content = "Collection"
+    colHName.maxLines = 1
+    colHName:SetPos(148, 2, 0, 0)
+    colHName:SetSize(142, 20, 0, 0)
+
+    local colHReward = ui.Text.new(colLayer)
+    colHReward.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colHReward.colour = COL_GOLD
+    colHReward.content = "Reward / Account Power"
+    colHReward.maxLines = 1
+    colHReward:SetPos(294, 2, 0, 0)
+    colHReward:SetSize(-390, 20, 1.0, 0)
+
+    local colHReady = ui.Text.new(colLayer)
+    colHReady.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colHReady.colour = COL_GOLD
+    colHReady.content = "Ready"
+    colHReady.maxLines = 1
+    colHReady:SetPos(-90, 2, 1.0, 0)
+    colHReady:SetSize(82, 20, 0, 0)
+
+    local colStartY = 24
+    for i = 1, MAX_COLLECTION_ROWS do
+        local rowIdx = i
+        local rowY = colStartY + (i - 1) * ROW_HEIGHT
+
+        local bg = ui.Rectangle.new(colLayer)
+        bg.colour = (i % 2 == 1) and COL_BG_ROW or COL_BG_ALT
+        bg.fill = true
+        bg.clickthrough = false
+        bg:SetPos(8, rowY)
+        bg:SetSize(-16, ROW_HEIGHT - 2, 1.0, 0)
+        bg.hidden = (i > 1)
+        bindRowHover(bg, function()
+            self:onHoverCollectionRow(rowIdx)
+        end)
+
+        -- Target button
+        local targetBtnBg = ui.Rectangle.new(colLayer)
+        targetBtnBg.colour = COL_BTN_STEP
+        targetBtnBg.fill = true
+        targetBtnBg.clickthrough = false
+        targetBtnBg:SetPos(12, rowY + 2)
+        targetBtnBg:SetSize(50, ROW_HEIGHT - 6)
+        targetBtnBg.hidden = (i > 1)
+        forwardScrollWheel(targetBtnBg)
+
+        local targetBtnTxt = ui.Text.new(colLayer)
+        targetBtnTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        targetBtnTxt.colour = COL_MUTED
+        targetBtnTxt.content = "Target"
+        targetBtnTxt.maxLines = 1
+        targetBtnTxt.clickthrough = true
+        targetBtnTxt:SetPos(12, rowY + 2)
+        targetBtnTxt:SetSize(50, ROW_HEIGHT - 6)
+        targetBtnTxt.hidden = (i > 1)
+
+        targetBtnBg:Subscribe(ui.Hook.ONCLICK, function()
+            self:onToggleCollectionTarget(rowIdx)
+        end)
+
+        -- Done toggle button
+        local doneBtnBg = ui.Rectangle.new(colLayer)
+        doneBtnBg.colour = COL_BTN_STEP
+        doneBtnBg.fill = true
+        doneBtnBg.clickthrough = false
+        doneBtnBg:SetPos(66, rowY + 2)
+        doneBtnBg:SetSize(42, ROW_HEIGHT - 6)
+        doneBtnBg.hidden = (i > 1)
+        forwardScrollWheel(doneBtnBg)
+
+        local doneBtnTxt = ui.Text.new(colLayer)
+        doneBtnTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        doneBtnTxt.colour = COL_MUTED
+        doneBtnTxt.content = "O Inc"
+        doneBtnTxt.maxLines = 1
+        doneBtnTxt.clickthrough = true
+        doneBtnTxt:SetPos(66, rowY + 2)
+        doneBtnTxt:SetSize(42, ROW_HEIGHT - 6)
+        doneBtnTxt.hidden = (i > 1)
+
+        doneBtnBg:Subscribe(ui.Hook.ONCLICK, function()
+            self:onToggleCollectionDone(rowIdx)
+        end)
+
+        -- Level
+        local lvlTxt = ui.Text.new(colLayer)
+        lvlTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        lvlTxt.colour = COL_MUTED
+        lvlTxt.maxLines = 1
+        lvlTxt.clickthrough = true
+        lvlTxt:SetPos(114, rowY + 2)
+        lvlTxt:SetSize(30, ROW_HEIGHT - 2)
+        lvlTxt.hidden = (i > 1)
+
+        -- Name
+        local nameTxt = ui.Text.new(colLayer)
+        nameTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        nameTxt.colour = COL_WHITE
+        nameTxt.maxLines = 1
+        nameTxt.clickthrough = true
+        nameTxt:SetPos(148, rowY + 2)
+        nameTxt:SetSize(142, ROW_HEIGHT - 2)
+        nameTxt.hidden = (i > 1)
+
+        -- Reward / Power text
+        local rewardTxt = ui.Text.new(colLayer)
+        rewardTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        rewardTxt.colour = COL_MUTED
+        rewardTxt.maxLines = 1
+        rewardTxt.clickthrough = true
+        rewardTxt:SetPos(294, rowY + 2)
+        rewardTxt:SetSize(-390, ROW_HEIGHT - 2, 1.0, 0)
+        rewardTxt.hidden = (i > 1)
+
+        -- Ready
+        local readyTxt = ui.Text.new(colLayer)
+        readyTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        readyTxt.colour = COL_MUTED
+        readyTxt.maxLines = 1
+        readyTxt.clickthrough = true
+        readyTxt:SetPos(-90, rowY + 2, 1.0, 0)
+        readyTxt:SetSize(82, ROW_HEIGHT - 2, 0, 0)
+        readyTxt.hidden = (i > 1)
+
+        self.collectionRows[i] = {
+            bg = bg,
+            targetBtnBg = targetBtnBg,
+            targetBtnTxt = targetBtnTxt,
+            doneBtnBg = doneBtnBg,
+            doneBtnTxt = doneBtnTxt,
+            lvlTxt = lvlTxt,
+            nameTxt = nameTxt,
+            rewardTxt = rewardTxt,
+            readyTxt = readyTxt
+        }
+    end
+
+    -- 5B. ARTEFACTS VIEW LAYER
     local artLayerH = 26 + (MAX_ARTEFACT_ROWS * ROW_HEIGHT)
     local artLayer = ui.Layer.new(container)
     artLayer.clickthrough = true
@@ -1504,6 +1739,80 @@ function Window:onHoverSyncBadge(badgeKind)
     end
 end
 
+function Window:onToggleCollectionTarget(rowIdx)
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if item and item.data and item.data.name then
+        self.tracker:toggleCollectionTargeted(item.data.name)
+        self:refresh()
+    end
+end
+
+function Window:onToggleCollectionDone(rowIdx)
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if item and item.data and item.data.name then
+        self.tracker:toggleCollectionCompleted(item.data.name)
+        self:refresh()
+    end
+end
+
+function Window:onHoverCollectionRow(rowIdx)
+    if self._isResizing then return end
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if not item or not item.data then
+        self:hideRowTooltip()
+        return
+    end
+
+    local col = item.data
+    local prog = item.progress
+
+    local title = string.format("%s (Level %d)", col.name, col.level)
+    local statusStr = prog.isReady and "Ready to Turn In!" or string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
+    if prog.isCompleted then
+        statusStr = statusStr .. " [Completed]"
+    end
+    local sub = string.format("Collector: %s | %s", col.collector, statusStr)
+
+    local details = {}
+    if col.specialBenefit and col.specialBenefit ~= "" then
+        table.insert(details, string.format("Power/Benefit: %s", col.specialBenefit))
+    end
+    if col.oneTimeReward and col.oneTimeReward ~= "" then
+        table.insert(details, string.format("One-Time: %s", col.oneTimeReward))
+    end
+    if col.recurringReward and col.recurringReward ~= "" then
+        table.insert(details, string.format("Recurring: %s", col.recurringReward))
+    end
+    if col.chronotes and col.chronotes ~= "" then
+        table.insert(details, string.format("Chronotes: %s", col.chronotes))
+    end
+
+    table.insert(details, "")
+    table.insert(details, string.format("Required Artefacts (%d):", prog.totalCount))
+
+    for _, a in ipairs(prog.artefacts or {}) do
+        if a.isReady then
+            table.insert(details, string.format("  [✓] %s: Ready (%d in Bag/Bank)", a.name, a.restoredCount))
+        elseif a.damagedCount > 0 then
+            table.insert(details, string.format("  [-] %s: Damaged (%d in Bag/Bank)", a.name, a.damagedCount))
+        else
+            table.insert(details, string.format("  [x] %s: Missing", a.name))
+        end
+    end
+
+    local detailText = table.concat(details, "\n")
+    local titleCol = COL_GOLD
+    if col.benefitType == "relic" then
+        titleCol = COL_CYAN
+    elseif col.benefitType == "weapon" then
+        titleCol = COL_GOLD
+    elseif col.benefitType == "mystery" then
+        titleCol = COL_AMBER
+    end
+
+    self:showRowTooltip(title, sub, detailText, titleCol, 49429)
+end
+
 function Window:onHoverArtefactRow(rowIdx)
     if self._isResizing then return end
     local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
@@ -1526,6 +1835,9 @@ function Window:onHoverArtefactRow(rowIdx)
         table.insert(reqParts, string.format("%s (%s/%s)", req.name, formatInt(owned), formatInt(needed)))
     end
     local detail = string.format("Materials (%dx): %s", mult, table.concat(reqParts, ", "))
+    if item.colNames and #item.colNames > 0 then
+        detail = string.format("Targeted by: %s\n%s", table.concat(item.colNames, ", "), detail)
+    end
     self:showRowTooltip(title, sub, detail, COL_GOLD, objId)
 end
 
@@ -1576,8 +1888,12 @@ function Window:updateToolbarLayout(forceReflow)
     end
 
     local availW = self:getAvailableContentWidth()
+    local isColTab = (self.activeTab == "collections")
     local isArtTab = (self.activeTab == "artefacts")
-    if not forceReflow and self._lastAvailW == availW and self._lastTabLayout == isArtTab then
+    local isMatTab = (self.activeTab == "materials")
+    local tabKey = self.activeTab
+
+    if not forceReflow and self._lastAvailW == availW and self._lastTabLayout == tabKey then
         return
     end
 
@@ -1593,22 +1909,25 @@ function Window:updateToolbarLayout(forceReflow)
         self:reflowDynamicContent(availW, true)
     end
 
-    if forceReflow or self._lastAvailW ~= availW or self._lastTabLayout ~= isArtTab then
+    if forceReflow or self._lastAvailW ~= availW or self._lastTabLayout ~= tabKey then
         self._lastAvailW = availW
-        self._lastTabLayout = isArtTab
+        self._lastTabLayout = tabKey
         local gap = 6
 
-        -- Row 1: Top View Tabs (Artefacts | Materials) at y = 6
-        local tabW = math.floor((availW - gap) * 0.5)
-        self.btnTabArtefacts.setBounds(8, 6, tabW, 26)
-        self.btnTabMaterials.setBounds(8 + tabW + gap, 6, availW - tabW - gap, 26)
+        -- Row 1: Top View Tabs (Collections | Artefacts | Materials) at y = 6
+        local tabW = math.floor((availW - (gap * 2)) / 3)
+        self.btnTabCollections.setBounds(8, 6, tabW, 26)
+        self.btnTabArtefacts.setBounds(8 + tabW + gap, 6, tabW, 26)
+        self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 6, availW - (tabW * 2) - (gap * 2), 26)
 
-        -- Row 2: Contextual 3-Button Control Toolbar + 2 Sync Status Badges at y = 36
+        -- Row 2: Contextual Control Toolbar + 2 Sync Status Badges at y = 36
+        self.btnColFilter.setHidden(not isColTab)
+        self.btnClearTargets.setHidden(not isColTab)
         self.btnPin.setHidden(not isArtTab)
         self.btnDupes.setHidden(not isArtTab)
-        self.btnFilter.setHidden(isArtTab)
+        self.btnFilter.setHidden(not isMatTab)
         if self.btnSpots then
-            self.btnSpots.setHidden(isArtTab)
+            self.btnSpots.setHidden(not isMatTab)
         end
 
         local badgesTotalW = BADGE_W * 2 + gap
@@ -1625,7 +1944,10 @@ function Window:updateToolbarLayout(forceReflow)
         local xBank = xStor + BADGE_W + gap
 
         self.btnSource.setBounds(x1, 36, w1, 26)
-        if isArtTab then
+        if isColTab then
+            self.btnColFilter.setBounds(x2, 36, w2, 26)
+            self.btnClearTargets.setBounds(x3, 36, w3, 26)
+        elseif isArtTab then
             self.btnDupes.setBounds(x2, 36, w2, 26)
             self.btnPin.setBounds(x3, 36, w3, 26)
         else
@@ -1678,14 +2000,23 @@ function Window:reflowDynamicContent(availW, forceReflow)
         self.deficitSummary:SetPos(14, summaryY + 4 + hSumTitle + 3)
         self.deficitSummary:SetSize(-28, hDeficit, 1.0, 0)
 
+        if self.collectionsTableLayer then
+            self.collectionsTableLayer:SetPos(0, tableHeaderY)
+        end
         self.artefactTableLayer:SetPos(0, tableHeaderY)
         self.tableLayer:SetPos(0, tableHeaderY)
     end
 
     -- Update Scrollable Content Height for the active tab only when it changes
     -- (an empty table is hidden entirely, so it contributes no height)
-    local isArt = (self.activeTab == "artefacts")
-    local activeRows = isArt and (self.visibleArtRowCount or 0) or (self.visibleRowCount or 0)
+    local activeRows = 0
+    if self.activeTab == "collections" then
+        activeRows = self.visibleColRowCount or 0
+    elseif self.activeTab == "artefacts" then
+        activeRows = self.visibleArtRowCount or 0
+    else
+        activeRows = self.visibleRowCount or 0
+    end
     local totalContentHeight
     if activeRows <= 0 then
         totalContentHeight = tableHeaderY + 4
@@ -1817,16 +2148,34 @@ function Window:refresh()
         self.win:SetTitle(winTitle)
     end
 
+    local isColTab = (self.activeTab == "collections")
     local isArtTab = (self.activeTab == "artefacts")
+    local isMatTab = (self.activeTab == "materials")
+
+    local colFilterMode = COL_FILTER_MODES[self.colFilterIndex] and COL_FILTER_MODES[self.colFilterIndex].id or "all"
+    local colList, totalCols, completedCols, targetedCols, readyCols = t:getCollectionsForDisplay(colFilterMode)
+    self.currentCollections = colList
+
+    self.btnTabCollections.setLabel(string.format("Collections (%d)", #colList))
+    self.btnTabCollections.setActive(isColTab)
     self.btnTabArtefacts.setLabel(string.format("Artefacts (%d)", #artList))
     self.btnTabArtefacts.setActive(isArtTab)
     self.btnTabMaterials.setLabel(string.format("Materials (%d)", #matList))
-    self.btnTabMaterials.setActive(not isArtTab)
+    self.btnTabMaterials.setActive(isMatTab)
 
+    self.collectionsTableLayer.hidden = (not isColTab) or (#colList == 0)
     self.artefactTableLayer.hidden = (not isArtTab) or (#artList == 0)
-    self.tableLayer.hidden = isArtTab or (#matList == 0)
+    self.tableLayer.hidden = (not isMatTab) or (#matList == 0)
 
     self.btnSource.setLabel(mode.shortLabel)
+    if self.btnColFilter then
+        self.btnColFilter.setLabel(COL_FILTER_MODES[self.colFilterIndex].label)
+        self.btnColFilter.setActive(self.colFilterIndex > 1)
+    end
+    if self.btnClearTargets then
+        self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Targets: 0")
+        self.btnClearTargets.setActive(targetedCols > 0)
+    end
     if t.hasCustomCounts and t:hasCustomCounts() then
         self.btnDupes.setLabel("Dupes: Custom")
     else
@@ -1859,7 +2208,29 @@ function Window:refresh()
     end
 
     -- 3. Update Artefact & Deficit Summary Card
-    if #artList == 0 then
+    if isColTab then
+        self.summaryTitle.content = string.format(
+            "Collections: %d / %d Completed  |  %d Targeted",
+            completedCols,
+            totalCols,
+            targetedCols
+        )
+        self.summaryTitle.colour = COL_GOLD
+        if readyCols > 0 then
+            self.deficitSummary.content = string.format(
+                "%d Collection(s) Ready to Turn In!  (Filter: %s)",
+                readyCols,
+                COL_FILTER_MODES[self.colFilterIndex].label
+            )
+            self.deficitSummary.colour = COL_GREEN
+        else
+            self.deficitSummary.content = string.format(
+                "Target collections to automatically set required artefacts & materials.  (Filter: %s)",
+                COL_FILTER_MODES[self.colFilterIndex].label
+            )
+            self.deficitSummary.colour = COL_CREAM
+        end
+    elseif #artList == 0 then
         local noArtsMsg = "No Damaged Artefacts Found in " .. ((mode.id == "BAG_ONLY") and "Backpack" or "Backpack or Bank")
         self.summaryTitle.content = t.isPinned
             and "No Pinned Artefacts"
@@ -1903,7 +2274,102 @@ function Window:refresh()
         end
     end
 
-    -- 4A. Populate Scrollable Artefact Rows
+    -- 4A. Populate Scrollable Collection Rows
+    local totalColsInList = #colList
+    local visibleColRowCount = math.min(MAX_COLLECTION_ROWS, totalColsInList)
+    local maxTouchColIdx = math.max(visibleColRowCount, self._prevVisibleColRowCount or 1)
+    self._prevVisibleColRowCount = visibleColRowCount
+    self.visibleColRowCount = visibleColRowCount
+
+    for slotIdx = 1, maxTouchColIdx do
+        local rowUI = self.collectionRows[slotIdx]
+        if rowUI then
+            if slotIdx <= visibleColRowCount then
+                local item = colList[slotIdx]
+                local col = item.data
+                local prog = item.progress
+
+                rowUI.bg.hidden = false
+                rowUI.bg.colour = (slotIdx % 2 == 1) and COL_BG_ROW or COL_BG_ALT
+
+                -- Target button
+                rowUI.targetBtnBg.hidden = false
+                rowUI.targetBtnTxt.hidden = false
+                if prog.isTargeted then
+                    rowUI.targetBtnBg.colour = COL_GOLD
+                    rowUI.targetBtnTxt.colour = makeColour(0.08, 0.08, 0.08, 1.0)
+                    rowUI.targetBtnTxt.content = "Targeted"
+                else
+                    rowUI.targetBtnBg.colour = COL_BTN_STEP
+                    rowUI.targetBtnTxt.colour = COL_MUTED
+                    rowUI.targetBtnTxt.content = "Target"
+                end
+
+                -- Done button
+                rowUI.doneBtnBg.hidden = false
+                rowUI.doneBtnTxt.hidden = false
+                if prog.isCompleted then
+                    rowUI.doneBtnBg.colour = makeColour(0.12, 0.35, 0.16, 0.9)
+                    rowUI.doneBtnTxt.colour = COL_GREEN
+                    rowUI.doneBtnTxt.content = "✓ Done"
+                else
+                    rowUI.doneBtnBg.colour = COL_BTN_STEP
+                    rowUI.doneBtnTxt.colour = COL_MUTED
+                    rowUI.doneBtnTxt.content = "O Inc"
+                end
+
+                -- Level
+                rowUI.lvlTxt.hidden = false
+                rowUI.lvlTxt.content = tostring(col.level)
+
+                -- Name
+                rowUI.nameTxt.hidden = false
+                rowUI.nameTxt.content = col.name
+
+                -- Reward / Power text (highlighting relics / powers / weapons / tetracompass!)
+                rowUI.rewardTxt.hidden = false
+                if col.benefitType == "relic" then
+                    rowUI.rewardTxt.colour = COL_CYAN
+                    rowUI.rewardTxt.content = "⚡ " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                elseif col.benefitType == "weapon" then
+                    rowUI.rewardTxt.colour = COL_GOLD
+                    rowUI.rewardTxt.content = "⚔ " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                elseif col.benefitType == "mystery" then
+                    rowUI.rewardTxt.colour = COL_AMBER
+                    rowUI.rewardTxt.content = "⭐ " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                elseif col.benefitType == "tetra" then
+                    rowUI.rewardTxt.colour = COL_CREAM
+                    rowUI.rewardTxt.content = "🧩 " .. (col.recurringReward ~= "" and col.recurringReward or "Tetracompass piece")
+                else
+                    rowUI.rewardTxt.colour = COL_MUTED
+                    local rew = col.chronotes ~= "" and col.chronotes or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
+                    rowUI.rewardTxt.content = rew
+                end
+
+                -- Ready count / status
+                rowUI.readyTxt.hidden = false
+                if prog.isReady then
+                    rowUI.readyTxt.colour = COL_GREEN
+                    rowUI.readyTxt.content = "✓ Ready!"
+                else
+                    rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_MUTED
+                    rowUI.readyTxt.content = string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
+                end
+            else
+                rowUI.bg.hidden = true
+                rowUI.targetBtnBg.hidden = true
+                rowUI.targetBtnTxt.hidden = true
+                rowUI.doneBtnBg.hidden = true
+                rowUI.doneBtnTxt.hidden = true
+                rowUI.lvlTxt.hidden = true
+                rowUI.nameTxt.hidden = true
+                rowUI.rewardTxt.hidden = true
+                rowUI.readyTxt.hidden = true
+            end
+        end
+    end
+
+    -- 4B. Populate Scrollable Artefact Rows
     local totalArts = #artList
     local visibleArtRowCount = math.min(MAX_ARTEFACT_ROWS, totalArts)
     local maxTouchArtIdx = math.max(visibleArtRowCount, self._prevVisibleArtRowCount or 1)
@@ -1948,6 +2414,8 @@ function Window:refresh()
                 rowUI.ownedTxt.content = string.format("%d (Bag)", item.inBag)
             elseif item.inBank > 0 then
                 rowUI.ownedTxt.content = string.format("%d (Bank)", item.inBank)
+            elseif item.colTarget and item.colTarget > 0 then
+                rowUI.ownedTxt.content = string.format("%d (Col)", item.colTarget)
             else
                 rowUI.ownedTxt.content = string.format("%d (Pin)", item.rawCount)
             end

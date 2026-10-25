@@ -9,18 +9,33 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 ---
 
 ## Features (v0.2.0)
-- **Complete RS3 Artefact & Material Database**: Includes all 231 damaged artefacts (levels 1–120, including unpowered Tetracompass and Spear of Annihilation) and all 47 Archaeology materials + 22 secondary restoration items.
-- **Two Dedicated Views (Tabs)**:
-  - **Artefacts Tab**:
-    - Scans damaged artefacts across your **Backpack** and **Bank**.
+- **Complete RS3 Artefact, Material & Collection Database**: Includes all 231 damaged artefacts (levels 1–120), all 47 Archaeology materials + 22 secondary items, and all 79 collector Collections.
+- **Three Dedicated Views (Tabs)**:
+  - **Collections Tab (First)**:
+    - Lists all 79 RS3 Archaeology collections with required levels, collector NPCs, and required artefacts.
+    - **Account Benefits & Relic Powers Obvious**: Highlights critical unlocks with visual tags and distinct styling:
+      - ⚡ **Relic / Monolith Powers** (e.g. `Font of Life (+500 Max LP)`, `Pouch Protector`, `Death Ward`, `Inspire Genius`, `Inspire Love`, `Inspire Effort`, `Inspire Awe`, `Nexus Mod`).
+      - ⚔ **T97 Weapon Components** (e.g. `Inquisitor staff piece`).
+      - ⭐ **Mystery & Blueprint Unlocks** (e.g. `Howl's Thinking Cap`, `Koschei's needle`).
+      - 🧩 **Repeatable Tetracompass Farming** (e.g. Green Gobbo Goodies, Red Rum Relics, Zarosian, Guthixian).
+    - **Completion Tracking**: Clickable `Done` toggle button (`✓ Done` vs `O Inc`) to track one-off collection achievement status across sessions (persisted in `PersistentDB`).
+    - **Turn-In Readiness**: Live scan of restored artefacts across your Backpack and Bank displaying `✓ Ready!` in bright green when all required restored artefacts are owned, or `X / Y Ready`.
+    - **Multi-Collection Targeting ("Collection-Level Pinning")**:
+      - Click `Target` on any collection to target it; target multiple collections simultaneously.
+      - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab.
+      - Displays targeted collection tags on artefacts in the Artefacts tab.
+    - **Rich Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete checklist of every required artefact with its live status (`[✓] Ready`, `[-] Damaged`, `[x] Missing`).
+    - **Filter & Management**: Toolbar filter button (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`) and `Clear Targets` button.
+  - **Artefacts Tab (Second)**:
+    - Scans damaged artefacts across your **Backpack** and **Bank**, including artefacts targeted by collections.
     - Displays in-game item icons alongside artefact names.
-    - Hovering any row displays a rich floating tooltip with an enlarged (32×32) in-game item sprite, restoration XP, Chronotes, and the complete materials recipe with live `owned / required` quantities scaled to your target count.
+    - Hovering any row displays a rich floating tooltip with an enlarged (32×32) in-game item sprite, restoration XP, Chronotes, targeted collection sources, and the complete materials recipe with live `owned / required` quantities scaled to your target count.
     - Direct **Include** quantity controls (**`+` / `-`** steppers, with `0` cleanly excluding an artefact from material calculations).
-    - Displays artefact level, owned quantities (`Bag`, `Bank`, or combined), and live repair status (`Ready`, `X / Y Ready`, `Short (N mats)`, or `Excluded`).
+    - Displays artefact level, owned quantities (`Bag`, `Bank`, or `Col` for collection targets), and live repair status (`Ready`, `X / Y Ready`, `Short (N mats)`, or `Excluded`).
     - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
     - **Pin / Lock** button (`Pin` / `Unpin`) to lock your chosen artefact targets so you can bank them and farm materials without losing your plan.
-  - **Materials Tab**:
-    - Calculates exact restoration materials required based on tracked artefacts.
+  - **Materials Tab (Third)**:
+    - Calculates exact restoration materials required based on tracked artefacts and targeted collections.
     - Displays in-game item icons alongside material names.
     - Hovering any row displays a rich floating tooltip with an enlarged (32×32) in-game item sprite, exact container breakdown (`Bag`, `Storage`, `Bank`), total deficit, and all known excavation cache / dig site locations.
     - Displays required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
@@ -35,10 +50,10 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 - **Native `PrettyUI` Movable, Resizable & Scrollable Window**:
   - Uses `prettyui.Window` (`6398181`) with smooth scrolling, edge/corner resizing, and automatic geometry and visibility persistence in `PersistentDB`.
   - Integrates with the **RS3 Ribbon Bar** (`hasRibbonIcon: true`) so you can show/hide the window anytime from the plugin hub.
-  - Clean responsive reflow: expanding the window allocates 100% of extra width to the `Location` column.
+  - Clean responsive reflow: expanding the window allocates 100% of extra width to the `Location` column (Materials) and `Reward / Account Power` column (Collections).
   - **Full Mouse Wheel Table Scrolling**: Scrolling anywhere over table rows, buttons, steppers, headers, summary card, or the scrollbar scrolls smoothly without getting blocked, and active tooltips dismiss immediately upon scrolling.
 - **Sync Status Badges with In-Game Icons & Rich Tooltips**:
-  - Compact icon badges in the toolbar for **Material Storage** (Archaeology Journal icon `49429`) and **Bank** (Coins pile icon).
+  - Compact icon badges in the toolbar for **Material Storage** (Archaeology Journal icon `49429`) and **Bank** (Coins pile icon) visible across all tabs.
   - Inspecting damaged artefacts or previewing restoration recipes never corrupts Material Storage or mutates the storage badge icon.
   - Hovering displays an enlarged (32×32) item icon and sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, or opening your Bank).
   - Status dot indicator and borders:

@@ -79,6 +79,7 @@ $runtimeFiles = @(
     "data\materials.lua",
     "data\artefacts.lua",
     "data\hotspots.lua",
+    "data\collections.lua",
     "ui\window.lua",
     "ui\overlay.lua"
 )

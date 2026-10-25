@@ -578,4 +578,180 @@ foreach ($nameKey in $sortedHotNames) {
 $hotPath = Join-Path $OutputDir "hotspots.lua"
 [System.IO.File]::WriteAllText($hotPath, $sbHot.ToString(), $utf8NoBom)
 Write-Host "Wrote $hotPath ($($hotspotsMap.Count) excavation hotspots)" -ForegroundColor Cyan
+
+# 4. Fetch & Parse Collections
+Write-Host "Fetching Collections data..." -ForegroundColor Cyan
+$CollectionsUrl = "https://runescape.wiki/w/Collections"
+$colHtml = Invoke-WikiFetch -Url $CollectionsUrl
+
+$tableMatch = [regex]::Match($colHtml, '(?s)<table[^>]+data-tableid="Achievements list"[^>]*>(.*?)</table>')
+$overview = @{}
+
+if ($tableMatch.Success) {
+    $rows = [regex]::Matches($tableMatch.Groups[1].Value, '(?s)<tr[^>]*>(.*?)</tr>')
+    foreach ($r in $rows) {
+        $cells = [regex]::Matches($r.Groups[1].Value, '(?s)<td[^>]*>(.*?)</td>')
+        if ($cells.Count -ge 8) {
+            $lvl = [int]($cells[0].Groups[1].Value -replace '<[^>]+>', '').Trim()
+            $colName = [System.Net.WebUtility]::HtmlDecode(($cells[1].Groups[1].Value -replace '<[^>]+>', '').Trim())
+            $collector = [System.Net.WebUtility]::HtmlDecode(($cells[2].Groups[1].Value -replace '<[^>]+>', '').Trim())
+            $oneTime = [System.Net.WebUtility]::HtmlDecode(($cells[3].Groups[1].Value -replace '<[^>]+>', '').Trim())
+            if ($oneTime -eq "N/A") { $oneTime = "" }
+            $recurring = [System.Net.WebUtility]::HtmlDecode(($cells[4].Groups[1].Value -replace '<[^>]+>', '').Trim())
+            if ($recurring -eq "N/A") { $recurring = "" }
+            $chronotes = [System.Net.WebUtility]::HtmlDecode(($cells[5].Groups[1].Value -replace '<[^>]+>', '').Trim())
+            $isRepeatable = ($cells[6].Groups[1].Value -replace '<[^>]+>', '').Trim() -eq "Yes"
+            $artCount = [int]($cells[7].Groups[1].Value -replace '<[^>]+>', '').Trim()
+
+            $overview[$colName] = @{
+                Level = $lvl
+                Name = $colName
+                Collector = $collector
+                OneTimeReward = $oneTime
+                RecurringReward = $recurring
+                Chronotes = $chronotes
+                IsRepeatable = $isRepeatable
+                ExpectedCount = $artCount
+            }
+        }
+    }
+}
+
+$sections = [regex]::Split($colHtml, '(?=<table[^>]+data-tableid="Archaeology Collection - )')
+$collectionsList = New-Object System.Collections.Generic.List[object]
+
+for ($i = 1; $i -lt $sections.Count; $i++) {
+    $sec = $sections[$i]
+    $mName = [regex]::Match($sec, 'data-tableid="Archaeology Collection - ([^"]+)"')
+    if ($mName.Success) {
+        $cName = [System.Net.WebUtility]::HtmlDecode($mName.Groups[1].Value.Trim())
+        $artRows = [regex]::Matches($sec, '(?s)<tr data-rowid="([^"]+)">\s*<td>\s*(\d+)\s*</td>')
+        $artefacts = New-Object System.Collections.Generic.List[string]
+        foreach ($ar in $artRows) {
+            $artName = [System.Net.WebUtility]::HtmlDecode($ar.Groups[1].Value.Trim())
+            if (-not $artefacts.Contains($artName)) {
+                $artefacts.Add($artName)
+            }
+        }
+
+        $info = $overview[$cName]
+        $lvl = if ($info) { $info.Level } else { 0 }
+        $collector = if ($info) { $info.Collector } else { "Unknown" }
+        $oneTime = if ($info) { $info.OneTimeReward } else { "" }
+        $recurring = if ($info) { $info.RecurringReward } else { "" }
+        $chronotes = if ($info) { $info.Chronotes } else { "" }
+        $isRepeatable = if ($info) { $info.IsRepeatable } else { $true }
+
+        $benefitType = ""
+        $specialBenefit = ""
+
+        if ($oneTime -like "*Seal of the Praefectus Praetorio*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Font of Life (+500 Max LP)"
+        } elseif ($oneTime -like "*Abyssal thread*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Pouch Protector (Pouches never degrade)"
+        } elseif ($oneTime -like "*Lock of hair*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Inspire Genius (+2% Artisan XP)"
+        } elseif ($oneTime -like "*Guardian's tear*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Inspire Love (+2% Gathering XP)"
+        } elseif ($oneTime -like "*Oo'glog Wellspring*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Permanent Salt-water Thermal Buff"
+        } elseif ($oneTime -like "*King Oberon's moonshroom spores*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Inspire Effort (+2% Support XP)"
+        } elseif ($oneTime -like "*Ariadne's Diadem*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Inspire Awe (+2% Combat XP)"
+        } elseif ($oneTime -like "*Petasos*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Nexus Mod (Abyssal Nexus buff)"
+        } elseif ($oneTime -like "*Helm of Terror*") {
+            $benefitType = "relic"
+            $specialBenefit = "Relic: Death Ward Piece (-10% damage at low HP)"
+        } elseif ($oneTime -like "*Inquisitor staff piece*") {
+            $benefitType = "weapon"
+            $specialBenefit = "T97 Weapon: Inquisitor Staff Piece"
+        } elseif ($oneTime -like "*Howl's Thinking Cap*") {
+            $benefitType = "mystery"
+            $specialBenefit = "Mystery: Howl's Workshop Blueprint Access"
+        } elseif ($oneTime -like "*Koschei's needle*") {
+            $benefitType = "mystery"
+            $specialBenefit = "Mystery: Blessing of Koschei / Monolith"
+        } elseif ($oneTime -like "*The Mortal Cup*" -or $oneTime -like "*Kaladanda*" -or $oneTime -like "*Amascut's Enchanted Gem*" -or $oneTime -like "*Cosmic pyramid*" -or $oneTime -like "*Pastkeeper's tapestry*") {
+            $benefitType = "mystery"
+            $specialBenefit = "Mystery Unlock: $oneTime"
+        } elseif ($recurring -like "*Tetracompass piece*") {
+            $benefitType = "tetra"
+            $specialBenefit = "Tetracompass Piece Farm"
+        }
+
+        $collectionsList.Add([PSCustomObject]@{
+            Name            = $cName
+            Level           = $lvl
+            Collector       = $collector
+            OneTimeReward   = $oneTime
+            RecurringReward = $recurring
+            Chronotes       = $chronotes
+            IsRepeatable    = $isRepeatable
+            BenefitType     = $benefitType
+            SpecialBenefit  = $specialBenefit
+            Artefacts       = $artefacts
+        })
+    }
+}
+
+$sbCol = New-Object System.Text.StringBuilder
+[void]$sbCol.AppendLine("-- data/collections.lua")
+[void]$sbCol.AppendLine("-- Auto-generated by scripts/Update-WikiData.ps1 from official RuneScape Wiki data")
+[void]$sbCol.AppendLine("-- Contains all 79 RS3 Archaeology collections, collectors, levels, rewards, and required artefacts.")
+[void]$sbCol.AppendLine("")
+[void]$sbCol.AppendLine("local Collections = {}")
+[void]$sbCol.AppendLine("")
+[void]$sbCol.AppendLine("Collections.LIST = {")
+
+$sortedCols = $collectionsList | Sort-Object { $_.Level }, { $_.Name }
+foreach ($c in $sortedCols) {
+    $escName = Escape-LuaString $c.Name
+    $escCollector = Escape-LuaString $c.Collector
+    $escOneTime = Escape-LuaString $c.OneTimeReward
+    $escRecurring = Escape-LuaString $c.RecurringReward
+    $escChronotes = Escape-LuaString $c.Chronotes
+    $escBenefit = Escape-LuaString $c.SpecialBenefit
+    $escType = Escape-LuaString $c.BenefitType
+    $isRep = if ($c.IsRepeatable) { "true" } else { "false" }
+    
+    $artLines = ($c.Artefacts | ForEach-Object { '            "' + (Escape-LuaString $_) + '"' }) -join ",`n"
+
+    [void]$sbCol.AppendLine("    {")
+    [void]$sbCol.AppendLine("        name = `"$escName`",")
+    [void]$sbCol.AppendLine("        level = $($c.Level),")
+    [void]$sbCol.AppendLine("        collector = `"$escCollector`",")
+    [void]$sbCol.AppendLine("        oneTimeReward = `"$escOneTime`",")
+    [void]$sbCol.AppendLine("        recurringReward = `"$escRecurring`",")
+    [void]$sbCol.AppendLine("        chronotes = `"$escChronotes`",")
+    [void]$sbCol.AppendLine("        isRepeatable = $isRep,")
+    [void]$sbCol.AppendLine("        benefitType = `"$escType`",")
+    [void]$sbCol.AppendLine("        specialBenefit = `"$escBenefit`",")
+    [void]$sbCol.AppendLine("        artefacts = {")
+    [void]$sbCol.AppendLine($artLines)
+    [void]$sbCol.AppendLine("        }")
+    [void]$sbCol.AppendLine("    },")
+}
+
+[void]$sbCol.AppendLine("}")
+[void]$sbCol.AppendLine("")
+[void]$sbCol.AppendLine("Collections.BY_NAME = {}")
+[void]$sbCol.AppendLine("for _, col in ipairs(Collections.LIST) do")
+[void]$sbCol.AppendLine("    Collections.BY_NAME[col.name] = col")
+[void]$sbCol.AppendLine("end")
+[void]$sbCol.AppendLine("")
+[void]$sbCol.AppendLine("return Collections")
+
+$colPath = Join-Path $OutputDir "collections.lua"
+[System.IO.File]::WriteAllText($colPath, $sbCol.ToString(), $utf8NoBom)
+Write-Host "Wrote $colPath ($($collectionsList.Count) collections)" -ForegroundColor Cyan
 Write-Host "Wiki data update complete!" -ForegroundColor Green
