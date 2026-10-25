@@ -1282,28 +1282,10 @@ function Window:buildContentComponents(container)
         statusTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         statusTxt.colour = COL_WHITE
         statusTxt.maxLines = 1
-        statusTxt.clickthrough = false
+        statusTxt.clickthrough = true
         statusTxt:SetPos(-158, rowY + 2, 1.0, 0)
         statusTxt:SetSize(150, ROW_HEIGHT - 2, 0, 0)
         statusTxt.hidden = (i > 1)
-        statusTxt:Subscribe(ui.Hook.ONCLICK, function()
-            local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
-            if item and item.artefact and item.colNames and #item.colNames > 0 then
-                local toggled = false
-                for _, colName in ipairs(item.colNames) do
-                    local col = Collections and Collections.BY_NAME and Collections.BY_NAME[colName]
-                    if col and col.isRepeatable then
-                        self.tracker:toggleArtefactSubmitted(colName, item.artefact.name)
-                        toggled = true
-                    end
-                end
-                if toggled then
-                    self:refresh()
-                    self:onHoverArtefactRow(rowIdx)
-                end
-            end
-            return false
-        end)
 
         self.artefactRows[i] = {
             bg = bg,
@@ -1888,6 +1870,10 @@ function Window:onHoverCollectionRow(rowIdx)
     local statusStr
     if prog.isReady then
         statusStr = "Ready to Turn In!"
+    elseif (prog.submittedCount or 0) > 0 and (prog.damagedCount or 0) > 0 then
+        statusStr = string.format("%d Handed In, %d Restored, %d Damaged (%d req)", prog.submittedCount, prog.readyCount - prog.submittedCount, prog.damagedCount, prog.totalCount)
+    elseif (prog.submittedCount or 0) > 0 then
+        statusStr = string.format("%d Handed In, %d Restored (%d req)", prog.submittedCount, prog.readyCount - prog.submittedCount, prog.totalCount)
     elseif (prog.damagedCount or 0) > 0 then
         statusStr = string.format("%d Restored, %d Damaged (%d req)", prog.readyCount, prog.damagedCount, prog.totalCount)
     else
@@ -1917,7 +1903,7 @@ function Window:onHoverCollectionRow(rowIdx)
 
     for _, a in ipairs(prog.artefacts or {}) do
         if a.isSubmitted then
-            table.insert(details, string.format("  %s: Handed in", a.name))
+            table.insert(details, string.format("  %s: Handed in to collector", a.name))
         elseif a.isReady then
             table.insert(details, string.format("  %s: Restored (%d)", a.name, a.restoredCount))
         elseif a.damagedCount > 0 then
@@ -1966,16 +1952,7 @@ function Window:onHoverArtefactRow(rowIdx)
     end
     local detail = string.format("Materials (%dx): %s", mult, table.concat(reqParts, ", "))
     if item.colNames and #item.colNames > 0 then
-        local hasRepeatable = false
-        for _, cName in ipairs(item.colNames) do
-            local col = Collections and Collections.BY_NAME and Collections.BY_NAME[cName]
-            if col and col.isRepeatable then
-                hasRepeatable = true
-                break
-            end
-        end
-        local tip = hasRepeatable and "\nTip: Click Status column to toggle 'Handed in'." or ""
-        detail = string.format("Status: %s\nTargeted by: %s%s\n%s", statusStr, table.concat(item.colNames, ", "), tip, detail)
+        detail = string.format("Status: %s\nTargeted by: %s\n%s", statusStr, table.concat(item.colNames, ", "), detail)
     else
         detail = string.format("Status: %s\n%s", statusStr, detail)
     end
@@ -2564,6 +2541,12 @@ function Window:refresh()
                 if prog.isReady then
                     rowUI.readyTxt.colour = COL_GREEN
                     rowUI.readyTxt.content = "Ready!"
+                elseif (prog.submittedCount or 0) > 0 and (prog.damagedCount or 0) > 0 then
+                    rowUI.readyTxt.colour = COL_CREAM
+                    rowUI.readyTxt.content = string.format("%d/%d (%d In, %d Dmg)", prog.readyCount, prog.totalCount, prog.submittedCount, prog.damagedCount)
+                elseif (prog.submittedCount or 0) > 0 then
+                    rowUI.readyTxt.colour = COL_CREAM
+                    rowUI.readyTxt.content = string.format("%d/%d (%d In)", prog.readyCount, prog.totalCount, prog.submittedCount)
                 elseif (prog.damagedCount or 0) > 0 then
                     rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_AMBER
                     rowUI.readyTxt.content = string.format("%d/%d (%d Dmg)", prog.readyCount, prog.totalCount, prog.damagedCount)
@@ -2640,24 +2623,7 @@ function Window:refresh()
 
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
 
-            local isAllSubmitted = false
-            if item.colNames and #item.colNames > 0 then
-                isAllSubmitted = true
-                for _, cName in ipairs(item.colNames) do
-                    if not self.tracker:isArtefactSubmitted(cName, item.artefact.name) then
-                        isAllSubmitted = false
-                        break
-                    end
-                end
-            end
-
-            if isAllSubmitted then
-                rowUI.statusTxt.content = "Handed in"
-                rowUI.statusTxt.colour = COL_CYAN
-                rowUI.nameTxt.colour = COL_MUTED
-                rowUI.lvlTxt.colour = COL_MUTED
-                rowUI.qtyTxt.colour = COL_MUTED
-            elseif item.excluded or item.effectiveCount == 0 then
+            if item.excluded or item.effectiveCount == 0 then
                 rowUI.nameTxt.colour = COL_MUTED
                 rowUI.lvlTxt.colour = COL_MUTED
                 rowUI.qtyTxt.colour = COL_MUTED

@@ -132,6 +132,7 @@ local function onMiniMenuSelected(event)
         local verb = event.entry.verbText or ""
         local full = event.entry.fullText or ""
         tracker:onMiniMenuAction(verb, full)
+        if window then window:refresh() end
     end, function(e)
         recordError("onMiniMenuSelected", e)
     end)
@@ -139,6 +140,14 @@ end
 
 if Event and Event.MiniMenuEntrySelected and Event.MiniMenuEntrySelected.Subscribe then
     Event.MiniMenuEntrySelected.Subscribe("arch_assistant_minimenu", onMiniMenuSelected)
+end
+
+if Event and Event.Logic and Event.Logic.Subscribe then
+    Event.Logic.Subscribe("arch_assistant_collector_scan", function()
+        if tracker and tracker:onLogicTick() then
+            if window then window:refresh() end
+        end
+    end)
 end
 
 -- Global shutdown hook called automatically by the RS3 client when disabling or closing
@@ -157,6 +166,9 @@ function PluginShutdown()
     end
     if Event and Event.MiniMenuEntrySelected and Event.MiniMenuEntrySelected.Unsubscribe then
         pcall(function() Event.MiniMenuEntrySelected.Unsubscribe("arch_assistant_minimenu") end)
+    end
+    if Event and Event.Logic and Event.Logic.Unsubscribe then
+        pcall(function() Event.Logic.Unsubscribe("arch_assistant_collector_scan") end)
     end
     if window and window.shutdown then
         pcall(function() window:shutdown() end)

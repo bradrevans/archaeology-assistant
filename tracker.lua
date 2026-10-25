@@ -1127,21 +1127,46 @@ end
 
 -- Scans any currently open Collector Information or Archaeology journal interface components
 function Tracker:scanCollectorInterface()
-    if not ui or not ui.Interfaces then return false end
+    if not ui or not ui.Interfaces or not id or not id.Component then return false end
     local detected = false
 
     local function inspectComp(comp, depth)
-        if not comp or depth > 6 then return end
+        if not comp or depth > 8 then return end
         local txt = nil
-        pcall(function() txt = comp.content or comp.text or (comp.GetText and comp:GetText()) end)
+        pcall(function() txt = comp.content or comp.text end)
         if txt and type(txt) == "string" and txt ~= "" then
             local txtLower = string.lower(txt)
             for artName, _ in pairs(Artefacts.ALL or {}) do
                 local artLower = string.lower(artName)
                 if string.find(txtLower, artLower, 1, true) then
+                    local isDone = false
                     if string.find(txtLower, "1/1") or string.find(txtLower, "handed in")
-                        or string.find(txtLower, "submitted") or string.find(txtLower, "complete")
-                        or string.find(txtLower, "contributed") or string.find(txtLower, "done") then
+                        or string.find(txtLower, "turned in") or string.find(txtLower, "submitted")
+                        or string.find(txtLower, "complete") or string.find(txtLower, "contributed")
+                        or string.find(txtLower, "done") or string.find(txtLower, "yes") then
+                        isDone = true
+                    end
+
+                    -- Check green text colour (indicates turned-in / complete in RS3 UI)
+                    if not isDone and comp.colour then
+                        pcall(function()
+                            local colVal = comp.colour
+                            if type(colVal) == "table" and colVal.y and colVal.x and colVal.z then
+                                if colVal.y > 0.6 and colVal.y > colVal.x and colVal.y > colVal.z then
+                                    isDone = true
+                                end
+                            elseif type(colVal) == "number" then
+                                local r = math.floor(colVal / 16777216) % 256
+                                local g = math.floor(colVal / 65536) % 256
+                                local b = math.floor(colVal / 256) % 256
+                                if g > 150 and g > (r + 40) and g > (b + 40) then
+                                    isDone = true
+                                end
+                            end
+                        end)
+                    end
+
+                    if isDone then
                         for _, col in ipairs(Collections.LIST or {}) do
                             if col.artefacts then
                                 for _, colArt in ipairs(col.artefacts) do
@@ -1160,27 +1185,49 @@ function Tracker:scanCollectorInterface()
             end
         end
 
-        local children = nil
-        pcall(function() children = comp:GetChildren() end)
-        if not children then pcall(function() children = comp.children end) end
-        if children and type(children) == "table" then
-            for _, child in ipairs(children) do
+        if comp.IterateStaticComponents then
+            pcall(comp.IterateStaticComponents, comp, function(child, visible)
                 inspectComp(child, depth + 1)
-            end
+            end)
+        end
+        if comp.IterateDynamicComponents then
+            pcall(comp.IterateDynamicComponents, comp, function(child, visible)
+                inspectComp(child, depth + 1)
+            end)
         end
     end
 
     pcall(function()
-        if id and id.Component and id.Component.TOPLEVEL_V2__GAME_AREA then
-            local root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
-            if root then inspectComp(root, 1) end
+        local root = nil
+        if id.Component.TOPLEVEL_V2__ROOT then
+            root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__ROOT)
+        end
+        if not root and id.Component.TOPLEVEL_V2__GAME_AREA then
+            root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
+        end
+        if root then
+            inspectComp(root, 1)
         end
     end)
 
     if detected then
+        self.boardSyncedLive = true
+        self.boardHasCache = true
         safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+        self:recalculate()
     end
     return detected
+end
+
+function Tracker:onLogicTick()
+    if self.scanTicksRemaining and self.scanTicksRemaining > 0 then
+        self.scanTicksRemaining = self.scanTicksRemaining - 1
+        if self:scanCollectorInterface() then
+            self.scanTicksRemaining = 0
+            return true
+        end
+    end
+    return false
 end
 
 -- Synchronizes completed collections and submitted artefacts from in-game achievements
@@ -1324,6 +1371,7 @@ function Tracker:onMiniMenuAction(verb, full)
         or string.find(fLower, "journal") or string.find(fLower, "collection")
         or string.find(vLower, "collector") or string.find(fLower, "contribute")
         or string.find(vLower, "contribute") then
+        self.scanTicksRemaining = 40
         self:syncCollectorBoard()
     end
 end
