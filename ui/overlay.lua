@@ -13,7 +13,7 @@ Overlay.__index = Overlay
 
 local MAX_INDICATORS = 12
 local MAX_SLOTS_PER_INDICATOR = 6
-local SCAN_INTERVAL_TICKS = 60 -- ~1.0s to 1.2s between background LocList scans (at 50-60Hz logic rate)
+local SCAN_INTERVAL_TICKS = 10 -- Background world spot entity search interval
 local DEFAULT_PILL_W = 110
 local ROW_H = 22
 local PILL_H = 30
@@ -278,12 +278,6 @@ end
 
 -- Periodically scans active world location entities near the player
 function Overlay:onLogic()
-    self.scanCooldown = self.scanCooldown + 1
-    if self.scanCooldown < SCAN_INTERVAL_TICKS then
-        return
-    end
-    self.scanCooldown = 0
-
     if not self.enabled then
         if #self.activeSpots > 0 then
             self.activeSpots = {}
@@ -291,13 +285,55 @@ function Overlay:onLogic()
         return
     end
 
+    -- Fast-path live update for currently visible active spots (runs every 2 ticks: ~0.002ms)
+    self.fastUpdateTicks = (self.fastUpdateTicks or 0) + 1
+    if self.fastUpdateTicks >= 2 then
+        self.fastUpdateTicks = 0
+        if #self.activeSpots > 0 then
+            self:updateActiveSpotCounts()
+        end
+    end
+
+    self.scanCooldown = (self.scanCooldown or 0) + 1
+    if self.scanCooldown < SCAN_INTERVAL_TICKS then
+        return
+    end
+    self.scanCooldown = 0
+
     self:scanWorldSpots()
+end
+
+function Overlay:updateActiveSpotCounts()
+    if #self.activeSpots == 0 then return end
+
+    local deficits = {}
+    if self.tracker and self.tracker.lastResult and self.tracker.lastResult.materials then
+        for _, row in ipairs(self.tracker.lastResult.materials) do
+            if row.short and row.short > 0 then
+                deficits[string.lower(row.name)] = {
+                    name = row.name,
+                    short = row.short,
+                    id = row.material and row.material.id,
+                    isArtefact = false
+                }
+            end
+        end
+    end
+
+    local spotArtsMap = getHotspotArtefactsMap()
+    local kept = {}
+    for _, spot in ipairs(self.activeSpots) do
+        if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+            table.insert(kept, spot)
+        end
+    end
+    self.activeSpots = kept
 end
 
 function Overlay:triggerScan()
     if not self.enabled then return end
     self.scanCooldown = SCAN_INTERVAL_TICKS
-    self:scanWorldSpots()
+    self:scanWorldSpots(true)
 end
 
 local function iterateEntities(list, callback)
@@ -315,7 +351,71 @@ local function iterateEntities(list, callback)
     end
 end
 
-function Overlay:scanWorldSpots()
+-- Fast in-place updater for an existing active spot's display items and counts (takes <0.002ms)
+local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
+    if not isEntityAlive(spot.entity) then
+        return false
+    end
+
+    if spot.isCache then
+        local def = deficits[string.lower(spot.displayName)]
+        if def and def.short > 0 then
+            spot.materials = { def }
+            return true
+        else
+            return false -- Cache satisfied!
+        end
+    else
+        local neededMats = {}
+        local hotspotDef = spot.hotspotDef or Hotspots.findMatch(spot.displayName)
+        if hotspotDef then
+            for _, matName in ipairs(hotspotDef.materials or {}) do
+                local def = deficits[string.lower(matName)]
+                if def and def.short > 0 then
+                    table.insert(neededMats, def)
+                end
+            end
+        end
+
+        local neededArts = {}
+        local hKey = string.lower(spot.displayName)
+        local spotArts = spotArtsMap[hKey]
+        if (not spotArts) and hotspotDef and hotspotDef.name then
+            spotArts = spotArtsMap[string.lower(hotspotDef.name)]
+        end
+        if spotArts and tracker and tracker.getArtefactNeededCount then
+            for _, art in ipairs(spotArts) do
+                local neededQty = tracker:getArtefactNeededCount(art.damagedName, art.name)
+                if neededQty > 0 then
+                    table.insert(neededArts, {
+                        isArtefact = true,
+                        name = art.name,
+                        id = art.id,
+                        short = neededQty
+                    })
+                end
+            end
+        end
+
+        if #neededMats == 0 and #neededArts == 0 then
+            return false -- All items from this hotspot satisfied!
+        end
+
+        local displayItems = {}
+        for _, artItem in ipairs(neededArts) do
+            table.insert(displayItems, artItem)
+        end
+        for _, matItem in ipairs(neededMats) do
+            table.insert(displayItems, matItem)
+        end
+
+        spot.materials = displayItems
+        spot.hasArtefacts = (#neededArts > 0)
+        return true
+    end
+end
+
+function Overlay:scanWorldSpots(force)
     -- 1. Extract all currently short/deficit materials from Tracker
     local deficits = {}
     local anyShort = false
@@ -337,7 +437,19 @@ function Overlay:scanWorldSpots()
         end
     end
 
-    local anyArts = self.tracker and self.tracker.hasAnyNeededArtefacts and self.tracker:hasAnyNeededArtefacts()
+    local spotArtsMap = getHotspotArtefactsMap()
+    local neededArtCount = 0
+    if self.tracker and self.tracker.getArtefactNeededCount then
+        for _, artList in pairs(spotArtsMap or {}) do
+            for _, art in ipairs(artList) do
+                local n = self.tracker:getArtefactNeededCount(art.damagedName, art.name)
+                if n > 0 then
+                    neededArtCount = neededArtCount + n
+                end
+            end
+        end
+    end
+    local anyArts = (neededArtCount > 0)
 
     -- If neither materials nor artefacts are needed, all indicators are dismissed immediately ("until they're gone")
     if not anyShort and not anyArts then
@@ -346,7 +458,19 @@ function Overlay:scanWorldSpots()
         return
     end
 
-    -- 2. Query active location entities near the player
+    -- 2. LIVE IN-PLACE UPDATE FOR EXISTING ACTIVE SPOTS
+    -- Immediately updates exact live counts and prunes satisfied artefacts/materials in real time
+    if #self.activeSpots > 0 then
+        local kept = {}
+        for _, spot in ipairs(self.activeSpots) do
+            if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+                table.insert(kept, spot)
+            end
+        end
+        self.activeSpots = kept
+    end
+
+    -- 3. Query active location entities near the player
     local pCoord = nil
     pcall(function()
         local p = (Player and Player.GetEntity and Player.GetEntity())
@@ -358,31 +482,22 @@ function Overlay:scanWorldSpots()
         return
     end
 
-    -- Fast-path stationary cache: if the player hasn't moved and deficit state is unchanged,
-    -- reuse existing active spots (verifying entities are still valid) without re-querying LocList!
+    -- Fast-path stationary cache: if the player hasn't moved and force is false,
+    -- reuse the live-updated active spots without running an expensive 32-tile LocList entity search!
     local isStationary = false
-    if self._lastScanCoord and pCoord.x == self._lastScanCoord.x and pCoord.z == self._lastScanCoord.z then
-        if self._lastDeficitCount == deficitCount and self._lastAnyArts == anyArts then
+    if not force and self._lastScanCoord and pCoord.x == self._lastScanCoord.x and pCoord.z == self._lastScanCoord.z then
+        if self._lastDeficitCount == deficitCount and self._lastNeededArtCount == neededArtCount then
             isStationary = true
         end
     end
 
     if isStationary and #self.activeSpots > 0 then
-        local allAlive = true
-        for _, spot in ipairs(self.activeSpots) do
-            if not isEntityAlive(spot.entity) then
-                allAlive = false
-                break
-            end
-        end
-        if allAlive then
-            return
-        end
+        return
     end
 
     self._lastScanCoord = { x = pCoord.x, z = pCoord.z, level = pCoord.level }
     self._lastDeficitCount = deficitCount
-    self._lastAnyArts = anyArts
+    self._lastNeededArtCount = neededArtCount
 
     local locs = nil
     if pCoord and LocList and LocList.ByDistance then
@@ -460,6 +575,9 @@ function Overlay:scanWorldSpots()
                                 local neededArts = {}
                                 local hKey = string.lower(matchedName or clean)
                                 local spotArts = spotArtsMap[hKey]
+                                if (not spotArts) and hotspotDef and hotspotDef.name then
+                                    spotArts = spotArtsMap[string.lower(hotspotDef.name)]
+                                end
                                 if spotArts and self.tracker and self.tracker.getArtefactNeededCount then
                                     for _, art in ipairs(spotArts) do
                                         local neededQty = self.tracker:getArtefactNeededCount(art.damagedName, art.name)
@@ -491,6 +609,7 @@ function Overlay:scanWorldSpots()
                                         coordGrid = loc.coordGrid,
                                         displayName = matchedName or clean,
                                         isCache = false,
+                                        hotspotDef = hotspotDef,
                                         hasArtefacts = (#neededArts > 0),
                                         totalPossible = totalPossible,
                                         materials = displayItems

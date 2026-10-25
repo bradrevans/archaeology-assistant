@@ -425,8 +425,13 @@ end
 
 function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
     if not damagedName then return self.lastResult end
+    local colTargets = self:getTargetedArtefactRequirements()
+    local minTarget = (colTargets and colTargets[damagedName] and colTargets[damagedName].count) or 0
+
     local defaultQty
-    if self.includeMode == "ZERO" then
+    if minTarget > 0 then
+        defaultQty = minTarget
+    elseif self.includeMode == "ZERO" then
         defaultQty = 0
     elseif self.includeMode == "ONE" or not self.includeDuplicates then
         defaultQty = 1
@@ -795,14 +800,38 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
     if not damagedName then return 0 end
     artName = artName or string.gsub(damagedName, "%s*%(damaged%)", "")
 
-    local targetQty = 0
-    local colTargets = self:getTargetedArtefactRequirements()
-    local targetInfo = colTargets[damagedName]
-    if targetInfo and targetInfo.count then
-        targetQty = targetInfo.count
+    -- 1. Excluded check
+    if self.excludedArtefacts and self.excludedArtefacts[damagedName] then
+        return 0
     end
 
-    if targetQty == 0 and self.lastResult and self.lastResult.artefacts then
+    -- 2. Determine target quantity
+    local targetQty = nil
+
+    -- A. User customized count for this artefact (from [+] / [-] buttons in Artefacts tab)
+    if self.customArtefactCounts and self.customArtefactCounts[damagedName] ~= nil then
+        targetQty = tonumber(self.customArtefactCounts[damagedName]) or 0
+    end
+
+    -- B. Pinned artefact target count
+    if (not targetQty) and self.isPinned and self.pinnedArtefactCounts then
+        local pCount = self.pinnedArtefactCounts[damagedName] or self.pinnedArtefactCounts[artName]
+        if pCount ~= nil then
+            targetQty = tonumber(pCount) or 0
+        end
+    end
+
+    -- C. Targeted collections requirement
+    if not targetQty then
+        local colTargets = self:getTargetedArtefactRequirements()
+        local targetInfo = colTargets and colTargets[damagedName]
+        if targetInfo and targetInfo.count then
+            targetQty = targetInfo.count
+        end
+    end
+
+    -- D. Check effective count from last recalculate result if still unassigned
+    if (not targetQty) and self.lastResult and self.lastResult.artefacts then
         for _, item in ipairs(self.lastResult.artefacts) do
             if item.artefact and item.artefact.damagedName == damagedName then
                 if not item.excluded and (item.effectiveCount or 0) > 0 then
@@ -813,14 +842,15 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
         end
     end
 
+    targetQty = targetQty or 0
     if targetQty <= 0 then
         return 0
     end
 
-    local inBagDamaged = self.backpackArtefacts[damagedName] or 0
-    local inBankDamaged = self.bankArtefacts[damagedName] or 0
-    local inBagRestored = self.backpackRestored[artName] or 0
-    local inBankRestored = self.bankRestored[artName] or 0
+    local inBagDamaged = (self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0
+    local inBankDamaged = (self.bankArtefacts and self.bankArtefacts[damagedName]) or 0
+    local inBagRestored = (self.backpackRestored and self.backpackRestored[artName]) or 0
+    local inBankRestored = (self.bankRestored and self.bankRestored[artName]) or 0
     local totalOwned = inBagDamaged + inBankDamaged + inBagRestored + inBankRestored
 
     return math.max(0, targetQty - totalOwned)
@@ -1769,26 +1799,72 @@ function Tracker:checkBackpackChanged()
     local bagInv = findInventory(config.Inv.INV)
     if not bagInv then return false end
 
-    local _, _, _, _, bagRestored = self:extractMaterialsFromInv(bagInv)
+    local bagMats, _, _, bagArts, bagRestored = self:extractMaterialsFromInv(bagInv)
 
     local changed = false
-    if self.backpackRestored then
-        for artName, count in pairs(self.backpackRestored) do
-            if (bagRestored[artName] or 0) ~= count then
+
+    -- Check damaged artefacts
+    if self.backpackArtefacts then
+        for artName, count in pairs(self.backpackArtefacts) do
+            if (bagArts[artName] or 0) ~= count then
                 changed = true
                 break
             end
         end
         if not changed then
-            for artName, count in pairs(bagRestored or {}) do
-                if (self.backpackRestored[artName] or 0) ~= count then
+            for artName, count in pairs(bagArts or {}) do
+                if (self.backpackArtefacts[artName] or 0) ~= count then
                     changed = true
                     break
                 end
             end
         end
     else
-        changed = true
+        if next(bagArts or {}) ~= nil then changed = true end
+    end
+
+    -- Check restored artefacts
+    if not changed then
+        if self.backpackRestored then
+            for artName, count in pairs(self.backpackRestored) do
+                if (bagRestored[artName] or 0) ~= count then
+                    changed = true
+                    break
+                end
+            end
+            if not changed then
+                for artName, count in pairs(bagRestored or {}) do
+                    if (self.backpackRestored[artName] or 0) ~= count then
+                        changed = true
+                        break
+                    end
+                end
+            end
+        else
+            if next(bagRestored or {}) ~= nil then changed = true end
+        end
+    end
+
+    -- Check materials in backpack
+    if not changed then
+        if self.backpackMaterials then
+            for matName, count in pairs(self.backpackMaterials) do
+                if (bagMats[matName] or 0) ~= count then
+                    changed = true
+                    break
+                end
+            end
+            if not changed then
+                for matName, count in pairs(bagMats or {}) do
+                    if (self.backpackMaterials[matName] or 0) ~= count then
+                        changed = true
+                        break
+                    end
+                end
+            end
+        else
+            if next(bagMats or {}) ~= nil then changed = true end
+        end
     end
 
     if changed then
@@ -1801,18 +1877,21 @@ end
 function Tracker:onLogicTick()
     self._logicTicks = (self._logicTicks or 0) + 1
 
+    local updated = false
+
+    -- Frequent backpack check (~every 2 logic ticks: <0.005ms) to catch damaged artefacts or collector hand-ins instantly
+    if (self._logicTicks % 2) == 0 then
+        if self:checkBackpackChanged() then
+            updated = true
+        end
+    end
+
     -- Throttle noticeboard checks: every 20 logic frames (~350ms) if closed, every 8 frames (~130ms) if open
     local isNoticeboardOpen = (self.noticeboardOpenTicks and self.noticeboardOpenTicks > 0)
     local checkInterval = isNoticeboardOpen and 8 or 20
     if (self._logicTicks % checkInterval) ~= 0 then
-        return false
+        return updated
     end
-
-    local updated = false
-
-    -- Check if backpack contents (restored artefacts) have changed (e.g. handed in to collector dialogue)
-    if self:checkBackpackChanged() then
-        updated = true
     end
 
     local ok2, c2 = pcall(function() return ui.Interfaces:GetComponent(657, 2) end)
@@ -2131,6 +2210,15 @@ function Tracker:onChatMessage(text)
             return true
         end
     end
+
+    -- Match excavation discoveries of damaged artefacts:
+    -- e.g. "You find a damaged ...", "You have discovered an artefact: ... (damaged)"
+    if (string.find(lower, "find") or string.find(lower, "found") or string.find(lower, "discover") or string.find(lower, "excavat"))
+        and (string.find(lower, "damaged") or string.find(lower, "artefact") or string.find(lower, "artifact")) then
+        self:recalculate(config and config.Inv and config.Inv.INV)
+        return true
+    end
+
     return false
 end
 
