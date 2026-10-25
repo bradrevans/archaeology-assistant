@@ -1093,24 +1093,24 @@ function Window:buildContentComponents(container)
     colArtOwned.colour = COL_GOLD
     colArtOwned.content = "Owned"
     colArtOwned.maxLines = 1
-    colArtOwned:SetPos(-236, 2, 1.0, 0)
-    colArtOwned:SetSize(74, 20, 0, 0)
+    colArtOwned:SetPos(-246, 2, 1.0, 0)
+    colArtOwned:SetSize(54, 20, 0, 0)
 
     local colArtQty = ui.Text.new(artLayer)
     colArtQty.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtQty.colour = COL_GOLD
     colArtQty.content = "Include"
     colArtQty.maxLines = 1
-    colArtQty:SetPos(-158, 2, 1.0, 0)
-    colArtQty:SetSize(76, 20, 0, 0)
+    colArtQty:SetPos(-188, 2, 1.0, 0)
+    colArtQty:SetSize(64, 20, 0, 0)
 
     local colArtStatus = ui.Text.new(artLayer)
     colArtStatus.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtStatus.colour = COL_GOLD
     colArtStatus.content = "Status"
     colArtStatus.maxLines = 1
-    colArtStatus:SetPos(-78, 2, 1.0, 0)
-    colArtStatus:SetSize(70, 20, 0, 0)
+    colArtStatus:SetPos(-118, 2, 1.0, 0)
+    colArtStatus:SetSize(110, 20, 0, 0)
 
     local startY = 24
     for i = 1, MAX_ARTEFACT_ROWS do
@@ -1158,7 +1158,7 @@ function Window:buildContentComponents(container)
         locTxt.maxLines = 1
         locTxt.clickthrough = true
         locTxt:SetPos(202, rowY + 2, 0, 0)
-        locTxt:SetSize(-442, ROW_HEIGHT - 2, 1.0, 0)
+        locTxt:SetSize(-452, ROW_HEIGHT - 2, 1.0, 0)
         locTxt.hidden = (i > 1)
 
         local ownedTxt = ui.Text.new(artLayer)
@@ -1166,8 +1166,8 @@ function Window:buildContentComponents(container)
         ownedTxt.colour = COL_MUTED
         ownedTxt.maxLines = 1
         ownedTxt.clickthrough = true
-        ownedTxt:SetPos(-236, rowY + 2, 1.0, 0)
-        ownedTxt:SetSize(74, ROW_HEIGHT - 2, 0, 0)
+        ownedTxt:SetPos(-246, rowY + 2, 1.0, 0)
+        ownedTxt:SetSize(54, ROW_HEIGHT - 2, 0, 0)
         ownedTxt.hidden = (i > 1)
 
         -- [-] Stepper Button
@@ -1175,8 +1175,8 @@ function Window:buildContentComponents(container)
         minusBg.colour = COL_BTN_STEP
         minusBg.fill = true
         minusBg.clickthrough = false
-        minusBg:SetPos(-158, rowY + 2, 1.0, 0)
-        minusBg:SetSize(20, ROW_HEIGHT - 6, 0, 0)
+        minusBg:SetPos(-188, rowY + 2, 1.0, 0)
+        minusBg:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         minusBg.hidden = true
         minusBg:Subscribe(ui.Hook.ONCLICK, function()
             local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
@@ -1203,8 +1203,8 @@ function Window:buildContentComponents(container)
                 minusTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        minusTxt:SetPos(-158, rowY + 2, 1.0, 0)
-        minusTxt:SetSize(20, ROW_HEIGHT - 6, 0, 0)
+        minusTxt:SetPos(-188, rowY + 2, 1.0, 0)
+        minusTxt:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         minusTxt.hidden = true
 
         local qtyTxt = ui.Text.new(artLayer)
@@ -1218,8 +1218,8 @@ function Window:buildContentComponents(container)
                 qtyTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        qtyTxt:SetPos(-136, rowY + 2, 1.0, 0)
-        qtyTxt:SetSize(32, ROW_HEIGHT - 2, 0, 0)
+        qtyTxt:SetPos(-168, rowY + 2, 1.0, 0)
+        qtyTxt:SetSize(24, ROW_HEIGHT - 2, 0, 0)
         qtyTxt.hidden = (i > 1)
 
         -- [+] Stepper Button
@@ -1227,8 +1227,8 @@ function Window:buildContentComponents(container)
         plusBg.colour = COL_BTN_STEP
         plusBg.fill = true
         plusBg.clickthrough = false
-        plusBg:SetPos(-102, rowY + 2, 1.0, 0)
-        plusBg:SetSize(20, ROW_HEIGHT - 6, 0, 0)
+        plusBg:SetPos(-142, rowY + 2, 1.0, 0)
+        plusBg:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         plusBg:Subscribe(ui.Hook.ONCLICK, function()
             local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
             if item and item.artefact then
@@ -1255,8 +1255,8 @@ function Window:buildContentComponents(container)
                 plusTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        plusTxt:SetPos(-102, rowY + 2, 1.0, 0)
-        plusTxt:SetSize(20, ROW_HEIGHT - 6, 0, 0)
+        plusTxt:SetPos(-142, rowY + 2, 1.0, 0)
+        plusTxt:SetSize(18, ROW_HEIGHT - 6, 0, 0)
         plusTxt.hidden = true
 
         local statusTxt = ui.Text.new(artLayer)
@@ -1264,8 +1264,8 @@ function Window:buildContentComponents(container)
         statusTxt.colour = COL_WHITE
         statusTxt.maxLines = 1
         statusTxt.clickthrough = true
-        statusTxt:SetPos(-78, rowY + 2, 1.0, 0)
-        statusTxt:SetSize(70, ROW_HEIGHT - 2, 0, 0)
+        statusTxt:SetPos(-118, rowY + 2, 1.0, 0)
+        statusTxt:SetSize(110, ROW_HEIGHT - 2, 0, 0)
         statusTxt.hidden = (i > 1)
 
         self.artefactRows[i] = {
@@ -1879,7 +1879,9 @@ function Window:onHoverCollectionRow(rowIdx)
     table.insert(details, string.format("Required Artefacts (%d):", prog.totalCount))
 
     for _, a in ipairs(prog.artefacts or {}) do
-        if a.isReady then
+        if a.isSubmitted then
+            table.insert(details, string.format("  %s: Submitted to collector", a.name))
+        elseif a.isReady then
             table.insert(details, string.format("  %s: Restored (%d in Bag/Bank)", a.name, a.restoredCount))
         elseif a.damagedCount > 0 then
             table.insert(details, string.format("  %s: Damaged to restore (%d in Bag/Bank)", a.name, a.damagedCount))

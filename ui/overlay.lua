@@ -6,12 +6,13 @@
 
 local Hotspots = require("data/hotspots")
 local Materials = require("data/materials")
+local Artefacts = require("data/artefacts")
 
 local Overlay = {}
 Overlay.__index = Overlay
 
 local MAX_INDICATORS = 12
-local MAX_SLOTS_PER_INDICATOR = 5
+local MAX_SLOTS_PER_INDICATOR = 6
 local SCAN_INTERVAL_TICKS = 2 -- ~1.2s between background LocList scans
 local DEFAULT_PILL_W = 110
 local ROW_H = 22
@@ -25,10 +26,40 @@ local function makeColour(r, g, b, a)
 end
 
 local COL_GOLD         = makeColour(1.00, 0.82, 0.28, 1.0)
+local COL_CYAN         = makeColour(0.25, 0.90, 1.0, 1.0)
 local COL_GREEN        = makeColour(0.30, 0.92, 0.45, 1.0)
 local COL_WHITE        = makeColour(0.95, 0.95, 0.95, 1.0)
 local COL_CREAM        = makeColour(0.91, 0.84, 0.69, 1.0)
 local COL_BG_PILL      = makeColour(0.06, 0.09, 0.14, 0.90)
+
+-- Fast index mapping lowercase hotspot names to yielded artefacts
+local hotspotArtefacts = nil
+local function getHotspotArtefactsMap()
+    if hotspotArtefacts then return hotspotArtefacts end
+    local map = {}
+    if Artefacts and Artefacts.LIST then
+        for _, art in ipairs(Artefacts.LIST) do
+            if art.location and art.location ~= "" then
+                local locClean = string.gsub(art.location, "<[^>]+>", "")
+                local def, matchedName = Hotspots.findMatch(locClean)
+                local baseName = matchedName
+                if not baseName then
+                    baseName = string.match(locClean, "^(.-)%s*%b()") or locClean
+                    baseName = string.match(baseName, "^%s*(.-)%s*$")
+                end
+                if baseName and baseName ~= "" then
+                    local lowerKey = string.lower(baseName)
+                    if not map[lowerKey] then
+                        map[lowerKey] = {}
+                    end
+                    table.insert(map[lowerKey], art)
+                end
+            end
+        end
+    end
+    hotspotArtefacts = map
+    return map
+end
 
 local function safeDbGet(key, defaultVal)
     if PersistentDB then
@@ -296,15 +327,18 @@ function Overlay:scanWorldSpots()
                 deficits[lowerName] = {
                     name = row.name,
                     short = row.short,
-                    id = row.material and row.material.id
+                    id = row.material and row.material.id,
+                    isArtefact = false
                 }
                 anyShort = true
             end
         end
     end
 
-    -- If no materials are needed, all indicators are dismissed immediately ("until they're gone")
-    if not anyShort then
+    local anyArts = self.tracker and self.tracker.hasAnyNeededArtefacts and self.tracker:hasAnyNeededArtefacts()
+
+    -- If neither materials nor artefacts are needed, all indicators are dismissed immediately ("until they're gone")
+    if not anyShort and not anyArts then
         self.activeSpots = {}
         return
     end
@@ -335,6 +369,7 @@ function Overlay:scanWorldSpots()
     -- 3. Match active entities against Material Caches & Excavation Hotspots
     local matched = {}
     local seenCoords = {}
+    local spotArtsMap = getHotspotArtefactsMap()
 
     iterateEntities(locs, function(loc)
         if isEntityAlive(loc) and loc.coordGrid then
@@ -371,6 +406,7 @@ function Overlay:scanWorldSpots()
                                     coordGrid = loc.coordGrid,
                                     displayName = def.name,
                                     isCache = true,
+                                    hasArtefacts = false,
                                     totalPossible = 1,
                                     materials = { def }
                                 })
@@ -378,24 +414,53 @@ function Overlay:scanWorldSpots()
                         else
                             -- B. Check if Excavation Hotspot: "Administratum debris", "Venator remains", etc.
                             local hotspotDef, matchedName = Hotspots.findMatch(clean)
-                            if hotspotDef and hotspotDef.materials then
-                                local needed = {}
-                                for _, matName in ipairs(hotspotDef.materials) do
+                            if hotspotDef then
+                                local neededMats = {}
+                                for _, matName in ipairs(hotspotDef.materials or {}) do
                                     local def = deficits[string.lower(matName)]
                                     if def then
-                                        table.insert(needed, def)
+                                        table.insert(neededMats, def)
                                     end
                                 end
-                                if #needed > 0 then
+
+                                -- Check for needed artefacts yielded by this hotspot
+                                local neededArts = {}
+                                local hKey = string.lower(matchedName or clean)
+                                local spotArts = spotArtsMap[hKey]
+                                if spotArts and self.tracker and self.tracker.getArtefactNeededCount then
+                                    for _, art in ipairs(spotArts) do
+                                        local neededQty = self.tracker:getArtefactNeededCount(art.damagedName, art.name)
+                                        if neededQty > 0 then
+                                            table.insert(neededArts, {
+                                                isArtefact = true,
+                                                name = art.name,
+                                                id = art.id,
+                                                short = neededQty
+                                            })
+                                        end
+                                    end
+                                end
+
+                                if #neededMats > 0 or #neededArts > 0 then
                                     seenCoords[coordKey] = true
-                                    local totalPossible = (#hotspotDef.materials > 0) and #hotspotDef.materials or 1
+                                    local totalPossible = (#(hotspotDef.materials or {}) > 0) and #hotspotDef.materials or 1
+
+                                    local displayItems = {}
+                                    for _, artItem in ipairs(neededArts) do
+                                        table.insert(displayItems, artItem)
+                                    end
+                                    for _, matItem in ipairs(neededMats) do
+                                        table.insert(displayItems, matItem)
+                                    end
+
                                     table.insert(matched, {
                                         entity = loc,
                                         coordGrid = loc.coordGrid,
                                         displayName = matchedName or clean,
                                         isCache = false,
+                                        hasArtefacts = (#neededArts > 0),
                                         totalPossible = totalPossible,
-                                        materials = needed
+                                        materials = displayItems
                                     })
                                 end
                             end
@@ -486,16 +551,24 @@ function Overlay:onDraw()
                     local totalPossible = spot.totalPossible or 1
                     local pct = math.floor((100 / totalPossible) + 0.5)
 
-                    local numMats = math.min(#spot.materials, MAX_SLOTS_PER_INDICATOR)
-                    local pillH = math.max(28, (numMats * ROW_H) + 6)
+                    local hasArts = (spot.hasArtefacts == true)
+                    local numItems = math.min(#spot.materials, MAX_SLOTS_PER_INDICATOR)
+                    local pillH = math.max(28, (numItems * ROW_H) + 6)
                     local maxTextW = 60
 
                     for s = 1, MAX_SLOTS_PER_INDICATOR do
                         local slot = widget.slots[s]
-                        local m = spot.materials[s]
+                        local item = spot.materials[s]
 
-                        if m then
-                            local str = string.format("x%d (%d%%)", m.short, pct)
+                        if item then
+                            local str
+                            if item.isArtefact then
+                                str = string.format("x%d (Art)", item.short)
+                                slot.text.colour = COL_CYAN
+                            else
+                                str = string.format("x%d (%d%%)", item.short, pct)
+                                slot.text.colour = COL_GOLD
+                            end
                             slot.text.content = str
 
                             local textW = measureTextWidth(str, slot.text.font, 8.0)
@@ -505,11 +578,11 @@ function Overlay:onDraw()
                             slot.icon:SetPos(6, rowY + 1)
                             slot.text:SetPos(30, rowY + 2)
 
-                            if m.id and m.id > 0 and slot.currentObjId ~= m.id then
+                            if item.id and item.id > 0 and slot.currentObjId ~= item.id then
                                 pcall(function()
-                                    slot.icon:SetAssociatedObject(m.id)
+                                    slot.icon:SetAssociatedObject(item.id)
                                 end)
-                                slot.currentObjId = m.id
+                                slot.currentObjId = item.id
                             end
 
                             slot.icon.hidden = false
@@ -522,7 +595,7 @@ function Overlay:onDraw()
 
                     local pillW = math.max(105, math.min(150, maxTextW + 36))
 
-                    for s = 1, numMats do
+                    for s = 1, numItems do
                         widget.slots[s].text:SetSize(pillW - 32, 18)
                     end
 
@@ -533,6 +606,14 @@ function Overlay:onDraw()
                         widget.pillBorder:SetSize(pillW, pillH)
                         widget.pillBg:SetSize(pillW - 2, pillH - 2)
                     end
+
+                    -- Distinctive border & pointer styling: Cyan if spot yields needed artefact, Gold for materials
+                    local accentCol = hasArts and COL_CYAN or COL_GOLD
+                    widget.pillBorder.colour = accentCol
+                    widget.pinP1.colour = accentCol
+                    widget.pinP2.colour = accentCol
+                    widget.pinP3.colour = accentCol
+                    widget.pinP4.colour = accentCol
 
                     -- Position Pill above the Spot
                     local pillX = math.floor(sx - (pillW / 2))

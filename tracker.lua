@@ -85,6 +85,33 @@ local function deserializeCountMap(serialized)
     return map
 end
 
+local function serializeSubmittedMap(map)
+    if not map then return "" end
+    local parts = {}
+    for colName, arts in pairs(map) do
+        for artName, v in pairs(arts) do
+            if v then
+                table.insert(parts, string.format("%s::%s", colName, artName))
+            end
+        end
+    end
+    table.sort(parts)
+    return table.concat(parts, "|")
+end
+
+local function parseSubmittedMap(str)
+    local map = {}
+    if not str or str == "" then return map end
+    for entry in string.gmatch(str, "[^|]+") do
+        local colName, artName = string.match(entry, "^(.-)::(.+)$")
+        if colName and artName then
+            if not map[colName] then map[colName] = {} end
+            map[colName][artName] = true
+        end
+    end
+    return map
+end
+
 local function safeDbGet(key, defaultVal)
     if PersistentDB then
         local ok, val = pcall(function() return PersistentDB:Get(key) end)
@@ -170,6 +197,7 @@ function Tracker.new()
     -- Collections tracking
     self.completedCollections = deserializeCountMap(safeDbGet("arch_completed_collections", ""))
     self.targetedCollections = deserializeCountMap(safeDbGet("arch_targeted_collections", ""))
+    self.submittedArtefacts = parseSubmittedMap(safeDbGet("arch_submitted_artefacts", ""))
 
     -- Cached material counts by canonical material name
     self.backpackMaterials = {}
@@ -515,6 +543,35 @@ function Tracker:hasTargetedCollections()
     return self:getTargetedCount() > 0
 end
 
+function Tracker:isArtefactSubmitted(colName, artName)
+    if not colName or not artName then return false end
+    if self.submittedArtefacts and self.submittedArtefacts[colName] and self.submittedArtefacts[colName][artName] then
+        return true
+    end
+    if self:isCollectionCompleted(colName) then
+        local col = Collections and Collections.BY_NAME and Collections.BY_NAME[colName]
+        if col and not col.isRepeatable then
+            return true
+        end
+    end
+    return false
+end
+
+function Tracker:toggleArtefactSubmitted(colName, artName)
+    if not colName or not artName then return self.lastResult end
+    if not self.submittedArtefacts then self.submittedArtefacts = {} end
+    if not self.submittedArtefacts[colName] then
+        self.submittedArtefacts[colName] = {}
+    end
+    if self.submittedArtefacts[colName][artName] then
+        self.submittedArtefacts[colName][artName] = nil
+    else
+        self.submittedArtefacts[colName][artName] = true
+    end
+    safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+    return self:recalculate()
+end
+
 function Tracker:getCollectionProgress(col)
     if not col or not col.artefacts then
         return { readyCount = 0, damagedCount = 0, totalCount = 0, isReady = false, isCompleted = false, isTargeted = false, artefacts = {} }
@@ -529,6 +586,7 @@ function Tracker:getCollectionProgress(col)
     local artStatuses = {}
 
     for _, artName in ipairs(col.artefacts) do
+        local isSubmitted = self:isArtefactSubmitted(col.name, artName)
         local bagRestored = self.backpackRestored[artName] or 0
         local bankRestored = includeBank and (self.bankRestored[artName] or 0) or 0
         local totalRestored = bagRestored + bankRestored
@@ -538,8 +596,8 @@ function Tracker:getCollectionProgress(col)
         local bankDamaged = includeBank and (self.bankArtefacts[damagedName] or 0) or 0
         local totalDamaged = bagDamaged + bankDamaged
 
-        local isRestored = (totalRestored > 0)
-        if isRestored then
+        local isReady = isSubmitted or (totalRestored > 0)
+        if isReady then
             readyCount = readyCount + 1
         elseif totalDamaged > 0 then
             damagedCount = damagedCount + 1
@@ -547,9 +605,10 @@ function Tracker:getCollectionProgress(col)
 
         table.insert(artStatuses, {
             name = artName,
+            isSubmitted = isSubmitted,
             restoredCount = totalRestored,
             damagedCount = totalDamaged,
-            isReady = isRestored
+            isReady = isReady
         })
     end
 
@@ -581,17 +640,22 @@ function Tracker:getTargetedArtefactRequirements()
             local col = Collections.BY_NAME[colName]
             if col and col.artefacts then
                 for _, artName in ipairs(col.artefacts) do
-                    local damagedName = artName .. " (damaged)"
-                    if not requirements[damagedName] then
-                        requirements[damagedName] = {
-                            artName = artName,
-                            damagedName = damagedName,
-                            count = 1,
-                            collections = { col.name }
-                        }
-                    else
-                        requirements[damagedName].count = requirements[damagedName].count + 1
-                        table.insert(requirements[damagedName].collections, col.name)
+                    -- If the artefact has already been submitted to the collector,
+                    -- it does NOT need to be excavated or restored for this collection!
+                    local isSubmitted = self:isArtefactSubmitted(col.name, artName)
+                    if not isSubmitted then
+                        local damagedName = artName .. " (damaged)"
+                        if not requirements[damagedName] then
+                            requirements[damagedName] = {
+                                artName = artName,
+                                damagedName = damagedName,
+                                count = 1,
+                                collections = { col.name }
+                            }
+                        else
+                            requirements[damagedName].count = requirements[damagedName].count + 1
+                            table.insert(requirements[damagedName].collections, col.name)
+                        end
                     end
                 end
             end
@@ -607,6 +671,61 @@ function Tracker:getTargetedArtefactRequirements()
     end
 
     return requirements
+end
+
+-- Returns how many copies of an artefact are still needed to be collected from excavation spots
+function Tracker:getArtefactNeededCount(damagedName, artName)
+    if not damagedName then return 0 end
+    artName = artName or string.gsub(damagedName, "%s*%(damaged%)", "")
+
+    local targetQty = 0
+    local colTargets = self:getTargetedArtefactRequirements()
+    local targetInfo = colTargets[damagedName]
+    if targetInfo and targetInfo.count then
+        targetQty = targetInfo.count
+    end
+
+    if targetQty == 0 and self.lastResult and self.lastResult.artefacts then
+        for _, item in ipairs(self.lastResult.artefacts) do
+            if item.artefact and item.artefact.damagedName == damagedName then
+                if not item.excluded and (item.effectiveCount or 0) > 0 then
+                    targetQty = item.effectiveCount
+                end
+                break
+            end
+        end
+    end
+
+    if targetQty <= 0 then
+        return 0
+    end
+
+    local inBagDamaged = self.backpackArtefacts[damagedName] or 0
+    local inBankDamaged = self.bankArtefacts[damagedName] or 0
+    local inBagRestored = self.backpackRestored[artName] or 0
+    local inBankRestored = self.bankRestored[artName] or 0
+    local totalOwned = inBagDamaged + inBankDamaged + inBagRestored + inBankRestored
+
+    return math.max(0, targetQty - totalOwned)
+end
+
+function Tracker:hasAnyNeededArtefacts()
+    local colTargets = self:getTargetedArtefactRequirements()
+    for damagedName, targetInfo in pairs(colTargets) do
+        if self:getArtefactNeededCount(damagedName, targetInfo.artName) > 0 then
+            return true
+        end
+    end
+    if self.lastResult and self.lastResult.artefacts then
+        for _, item in ipairs(self.lastResult.artefacts) do
+            if not item.excluded and (item.effectiveCount or 0) > 0 then
+                if self:getArtefactNeededCount(item.artefact.damagedName, item.artefact.name) > 0 then
+                    return true
+                end
+            end
+        end
+    end
+    return false
 end
 
 function Tracker:getCollectionsForDisplay(filterMode)
@@ -664,6 +783,7 @@ function Tracker:savePersistentState()
     safeDbSet("arch_bank_restored", serializeCountMap(self.bankRestored))
     safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
     safeDbSet("arch_targeted_collections", serializeCountMap(self.targetedCollections))
+    safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
     safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
     safeDbSet("arch_bank_materials", serializeCountMap(self.bankMaterials))
     safeDbSet("arch_storage_synced", self.storageSyncedLive and 1 or 0)
@@ -954,12 +1074,14 @@ function Tracker:scanAllInventories(triggerInvType)
     end
 end
 
--- Synchronizes completed collections from in-game achievements and collector noticeboard
+-- Synchronizes completed collections and submitted artefacts from in-game achievements
 function Tracker:syncCollectionsDoneStatus()
     local syncedCount = 0
     if not Collections or not Collections.LIST then return 0 end
 
     local hasValidAchievementData = false
+    local submittedChanged = false
+
     for _, col in ipairs(Collections.LIST) do
         local achId = col.achievementId
         if achId and achId > 0 then
@@ -973,6 +1095,72 @@ function Tracker:syncCollectionsDoneStatus()
                             self.completedCollections[col.name] = 1
                             syncedCount = syncedCount + 1
                         end
+                        -- Fully completed collection: mark all artefacts as submitted
+                        if not self.submittedArtefacts[col.name] then
+                            self.submittedArtefacts[col.name] = {}
+                        end
+                        if col.artefacts then
+                            for _, artName in ipairs(col.artefacts) do
+                                if not self.submittedArtefacts[col.name][artName] then
+                                    self.submittedArtefacts[col.name][artName] = true
+                                    submittedChanged = true
+                                end
+                            end
+                        end
+                    else
+                        -- In-progress collection: check sub-requirements for individual submitted items
+                        local reqs = nil
+                        pcall(function() reqs = ach.requirements end)
+                        if not reqs and type(ach.GetRequirements) == "function" then
+                            pcall(function() reqs = ach:GetRequirements() end)
+                        end
+
+                        if reqs then
+                            local reqCount = 0
+                            pcall(function() reqCount = #reqs end)
+                            if reqCount and reqCount > 0 then
+                                if not self.submittedArtefacts[col.name] then
+                                    self.submittedArtefacts[col.name] = {}
+                                end
+                                for idx = 1, reqCount do
+                                    local test = reqs[idx]
+                                    if test then
+                                        local isDone = false
+                                        pcall(function()
+                                            if type(test.isComplete) == "boolean" then
+                                                isDone = test.isComplete
+                                            elseif type(test.isComplete) == "function" then
+                                                isDone = test:isComplete()
+                                            elseif type(test.progress) == "number" then
+                                                isDone = (test.progress == -2 or (test.targetValue and test.progress >= test.targetValue))
+                                            end
+                                        end)
+
+                                        if isDone then
+                                            local matchedName = nil
+                                            local desc = nil
+                                            pcall(function() desc = test.description or test.name or test.desc end)
+                                            if desc and type(desc) == "string" and col.artefacts then
+                                                local descLower = string.lower(desc)
+                                                for _, artName in ipairs(col.artefacts) do
+                                                    if string.find(descLower, string.lower(artName), 1, true) then
+                                                        matchedName = artName
+                                                        break
+                                                    end
+                                                end
+                                            end
+                                            if not matchedName and col.artefacts and col.artefacts[idx] then
+                                                matchedName = col.artefacts[idx]
+                                            end
+                                            if matchedName and not self.submittedArtefacts[col.name][matchedName] then
+                                                self.submittedArtefacts[col.name][matchedName] = true
+                                                submittedChanged = true
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             end
@@ -984,8 +1172,14 @@ function Tracker:syncCollectionsDoneStatus()
         self.boardHasCache = true
     end
 
-    if syncedCount > 0 then
-        safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+    if submittedChanged then
+        safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
+    end
+
+    if syncedCount > 0 or submittedChanged then
+        if syncedCount > 0 then
+            safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+        end
         self:recalculate()
     end
     return syncedCount

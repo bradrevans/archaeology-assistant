@@ -20,16 +20,17 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - **Repeatable Tetracompass Farming** in Cream (e.g. Green Gobbo Goodies, Red Rum Relics, Zarosian, Guthixian).
     - **Automatic Achievement Syncing**: Collection completion (`Done` in green vs `-` in muted) is read-only and automatically queried from in-game client achievements on startup and in real time without requiring opening any noticeboard. Permanent completion progress is preserved even when clearing temporary inventory caches.
     - **Dynamic Collection Resizing**: 100% of window resize width expansion is allocated to the **Collection** column so collection names are never truncated.
-    - **Turn-In & Damaged vs Restored Distinction**: Live scan of artefacts across your Backpack and Bank distinguishes between restored artefacts ready for turn-in and damaged artefacts waiting to be restored (e.g. `Ready!`, `2/3 (1 Dmg)`, or `0/3 (2 Dmg)`).
+    - **Turn-In, Submitted & Damaged vs Restored Distinction**: Live scan of artefacts across your Backpack and Bank distinguishes between items already submitted to collectors, restored artefacts ready for turn-in, and damaged artefacts waiting to be restored (e.g. `Ready!`, `2/3 (1 Dmg)`, or `0/3 (2 Dmg)`). Previously submitted items are taken into account so they never block completion progress or generate unnecessary restoration requirements.
     - **Multi-Collection Tracking ("Collection-Level Pinning")**:
       - Click `Track` on any collection to track it; track multiple collections simultaneously.
-      - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab.
+      - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab (excluding any artefacts already submitted to collectors).
       - Displays tracked collection tags on artefacts in the Artefacts tab.
-    - **Clean Multiline Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete syntax-highlighted checklist of every required artefact with its live status (`Restored`, `Damaged to restore`, `Missing`) with zero unprintable newline glyphs.
+    - **Clean Multiline Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete syntax-highlighted checklist of every required artefact with its live status (`Submitted to collector`, `Restored`, `Damaged to restore`, `Missing`) with zero unprintable newline glyphs.
     - **Filter & Management**: Toolbar filter button (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`) and `Clear Tracked` button.
   - **Artefacts Tab (Second)**:
     - Scans damaged artefacts across your **Backpack** and **Bank**, including uncollected artefacts targeted by collections.
     - **Artefact Ownership Required for Ready Status**: An artefact requires actual damaged artefact ownership to be marked "Ready". If an artefact is required for a tracked collection but not yet excavated (`Owned: 0`), its status clearly displays `Need Art` (when materials are satisfied) or `Short (Art+Mats)` (when materials are also missing).
+    - **Wider Status Column (110px)**: Completely expanded to comfortably fit all detailed statuses (`Short (Art+Mats)`, `Need Art`, `Ready (X/Y)`, `0 (Can Repair)`, `Short (N mats)`) without clipping.
     - **Uncollected Artefact Display & Recipe Deficits**: When collections are tracked, uncollected artefacts are displayed alongside owned artefacts, and their complete restoration materials are added to the Materials tab deficit calculations.
     - **Location Column**: Displays the excavation hotspot and dig site for every artefact (e.g. `Venator remains (Kharid-et)`), with dynamic width expansion on resize.
     - **Artefact Source Filtering**: Dedicated toolbar filter button (`Show: All`, `Show: Tracked`, `Show: Owned`) to instantly isolate artefacts needed for your tracked collections.
@@ -47,11 +48,12 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
     - Displays required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
     - **Show Filter** toggle (`Show: All` vs. `Short Only`) to focus exclusively on missing items.
     - **Excavation Spot Highlighter** toggle (`Spots: On` vs. `Spots: Off`) to highlight world spots in 3D space.
-- **In-Game Excavation Spot Highlighting & Overhead Deficit Indicators**:
-  - Scans nearby active world objects (`LocList`) for **Material Caches** (`Material cache (...)`) and all 103 **Excavation Hotspots** yielding materials you are currently short on.
-  - Projects an overhead floating deficit indicator badge with a downward pointer directly above the spot in 3D screen space (`ScreenConvert.CoordGridToScreen`).
+- **In-Game Excavation Spot Highlighting & Overhead Deficit Indicators (Artefacts & Materials)**:
+  - Scans nearby active world objects (`LocList`) for **Material Caches** (`Material cache (...)`) and all 103 **Excavation Hotspots** yielding materials or artefacts you currently need.
+  - **Shows Needed Artefacts Overhead**: If an excavation hotspot yields an artefact required for your tracked collections or inclusion plan, and you do not already have enough damaged or repaired copies, the artefact appears directly on the overhead badge with its in-game item icon and cyan `x1 (Art)` label.
+  - **Visually Unique Styling**: Hotspots yielding needed artefacts feature a distinct, vibrant **Cyan** border and downward pointer chevron so you can identify needed artefact spots across the dig site at a glance.
   - Overhead indicators display each obtainable needed material with its in-game item sprite, live deficit quantity, and percentage likelihood based on the spot's material pool (e.g. `100%` for material caches, `25%` for 4-material hotspots).
-  - **Dynamic Real-Time Dismissal ("until they're gone")**: As you collect materials (via inventory updates or Sign of the Porter cart transfers), required counts decrease in real time; once all needed materials from a spot are satisfied (`short <= 0`), the indicator and highlight vanish automatically.
+  - **Dynamic Real-Time Dismissal ("until they're gone")**: As you collect materials (via inventory updates or Sign of the Porter cart transfers) or excavate damaged artefacts, required counts decrease in real time; once all needed items from a spot are satisfied, the indicator and highlight vanish automatically.
   - Fully click-through: does not block interaction with the world or the excavation spot.
 - **Native `PrettyUI` Movable, Resizable & Scrollable Window**:
   - Uses `prettyui.Window` (`6398181`) with smooth scrolling, edge/corner resizing, and automatic geometry and visibility persistence in `PersistentDB`.
