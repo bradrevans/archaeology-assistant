@@ -827,7 +827,7 @@ function Tracker:scanAllInventories(triggerInvType)
         if not isBag and not isBank and not isWorn then
             local customInv = findInventory(triggerInvType)
             if customInv and customInv ~= bagInv and customInv ~= bankInv then
-                local mats, archKinds, nonMatSlots, _, totalSlots = self:extractMaterialsFromInv(customInv)
+                local mats, archKinds, nonMatSlots, _, _, totalSlots = self:extractMaterialsFromInv(customInv)
                 local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(mats, archKinds)
                 -- Material Storage holds exclusively Archaeology materials and has large capacity (>= 20 slots)
                 local isStorage = (self.lastAction == "storage" or totalSlots >= 20)
@@ -847,7 +847,37 @@ function Tracker:scanAllInventories(triggerInvType)
     end
 end
 
--- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart) from in-game MiniMenu clicks
+-- Synchronizes completed collections from in-game achievements and collector noticeboard
+function Tracker:syncCollectionsDoneStatus()
+    local syncedCount = 0
+    if not Collections or not Collections.LIST then return 0 end
+
+    for _, col in ipairs(Collections.LIST) do
+        local achId = col.achievementId
+        if achId and achId > 0 then
+            if config and config.Achievement and config.Achievement.FromID then
+                local ok, ach = pcall(config.Achievement.FromID, achId)
+                if ok and ach then
+                    -- AchievementProgressType.COMPLETE is -2 (or 1 in some boolean states)
+                    if ach.progress == -2 or ach.progress == 1 then
+                        if not self.completedCollections[col.name] then
+                            self.completedCollections[col.name] = 1
+                            syncedCount = syncedCount + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if syncedCount > 0 then
+        safeDbSet("arch_completed_collections", serializeCountMap(self.completedCollections))
+        self:recalculate()
+    end
+    return syncedCount
+end
+
+-- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart vs Checking Noticeboard) from in-game MiniMenu clicks
 function Tracker:onMiniMenuAction(verb, full)
     local vLower = string.lower(verb or "")
     local fLower = string.lower(full or "")
@@ -859,6 +889,10 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "storage"
     elseif string.find(fLower, "deposit") then
         self.lastAction = "storage"
+    end
+
+    if string.find(fLower, "collector") or string.find(fLower, "noticeboard") or string.find(fLower, "journal") or string.find(fLower, "collection") or string.find(vLower, "collector") then
+        self:syncCollectionsDoneStatus()
     end
 end
 

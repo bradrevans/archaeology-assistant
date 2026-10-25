@@ -613,6 +613,17 @@ function Window:buildContentComponents(container)
         end
     )
 
+    self.btnSyncBoard = self:createToolbarButton(
+        container,
+        "Sync Board",
+        "Sync completed collections from the Collector Information noticeboard or in-game achievements.",
+        false,
+        function()
+            self.tracker:syncCollectionsDoneStatus()
+            self:refresh()
+        end
+    )
+
     self.btnDupes = self:createToolbarButton(
         container,
         "Dupes: All",
@@ -851,6 +862,12 @@ function Window:buildContentComponents(container)
     summaryBg:SetSize(-16, 46, 1.0, 0)
     self.summaryBg = summaryBg
     forwardScrollWheel(summaryBg)
+    summaryBg:Subscribe(ui.Hook.ONCLICK, function()
+        if self.activeTab == "collections" then
+            self.tracker:syncCollectionsDoneStatus()
+            self:refresh()
+        end
+    end)
 
     self.summaryTitle   = createWrappingText(container, COL_GOLD, 14, 71)
     self.deficitSummary = createWrappingText(container, COL_AMBER, 14, 91)
@@ -1606,14 +1623,20 @@ function Window:buildSharedRowTooltip(parent)
     self.tooltipIcon = tipIcon
     self.tooltipTitle = makeTipText(COL_GOLD, 6)
     self.tooltipSub = makeTipText(COL_WHITE, 26)
-    self.tooltipDetail = makeTipText(COL_CREAM, 48)
+
+    self.tooltipLines = {}
+    for i = 1, 28 do
+        local txt = makeTipText(COL_CREAM, 48)
+        txt.hidden = true
+        self.tooltipLines[i] = txt
+    end
 end
 
 function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
     if not self.tooltipRoot or not self.isVisible then
         return
     end
-    local tipW = 400
+    local tipW = 420
     local hasIcon = false
     objId = tonumber(objId)
     if objId and objId > 0 and self.tooltipIcon then
@@ -1638,7 +1661,6 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
     local availTxtW = tipW - textX - 8
     local hTitle  = measureWrappedTextHeight(titleText, availTxtW)
     local hSub    = measureWrappedTextHeight(subText, availTxtW)
-    local hDetail = measureWrappedTextHeight(detailText, availTxtW)
 
     self.tooltipBorder.colour = titleCol or COL_GOLD
     self.tooltipTitle.colour = titleCol or COL_GOLD
@@ -1651,13 +1673,57 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
     self.tooltipSub:SetPos(textX, subY)
     self.tooltipSub:SetSize(- (textX + 8), hSub, 1.0, 0)
 
-    local detailY = subY + hSub + 3
-    self.tooltipDetail.content = detailText
-    self.tooltipDetail:SetPos(textX, detailY)
-    self.tooltipDetail:SetSize(- (textX + 8), hDetail, 1.0, 0)
+    local currentY = subY + hSub + 4
+    local lines = {}
+    if type(detailText) == "table" then
+        lines = detailText
+    else
+        for line in string.gmatch((detailText or "") .. "\n", "(.-)[\r\n]") do
+            table.insert(lines, line)
+        end
+    end
+
+    for i = 1, #self.tooltipLines do
+        local lineTxt = self.tooltipLines[i]
+        local text = lines[i]
+        if text ~= nil and text ~= "" then
+            lineTxt.hidden = false
+            lineTxt.content = text
+
+            if string.find(text, "^⚡") or string.find(text, "Power/Benefit") then
+                lineTxt.colour = COL_CYAN
+            elseif string.find(text, "^⚔") or string.find(text, "Weapon") then
+                lineTxt.colour = COL_GOLD
+            elseif string.find(text, "^⭐") or string.find(text, "Mystery") then
+                lineTxt.colour = COL_AMBER
+            elseif string.find(text, "^🧩") or string.find(text, "Tetracompass") then
+                lineTxt.colour = COL_CREAM
+            elseif string.find(text, "%[✓%]") then
+                lineTxt.colour = COL_GREEN
+            elseif string.find(text, "%[%-%]") then
+                lineTxt.colour = COL_AMBER
+            elseif string.find(text, "%[x%]") then
+                lineTxt.colour = COL_RED
+            elseif string.find(text, "Required Artefacts") then
+                lineTxt.colour = COL_GOLD
+            else
+                lineTxt.colour = COL_CREAM
+            end
+
+            local hLine = measureWrappedTextHeight(text, availTxtW)
+            lineTxt:SetPos(textX, currentY)
+            lineTxt:SetSize(- (textX + 8), hLine, 1.0, 0)
+            currentY = currentY + hLine + 2
+        elseif text == "" then
+            lineTxt.hidden = true
+            currentY = currentY + 4
+        else
+            lineTxt.hidden = true
+        end
+    end
 
     local minH = hasIcon and 48 or 36
-    local tipH = math.max(minH, detailY + hDetail + 6)
+    local tipH = math.max(minH, currentY + 6)
 
     local mx, my = getScaledMousePos((self.root and self.root.x or 100) + 120, (self.root and self.root.y or 100) + 120)
     local tx = math.floor(mx + 16)
@@ -1684,6 +1750,11 @@ function Window:hideRowTooltip()
     end
     if self.tooltipIcon and not self.tooltipIcon.hidden then
         self.tooltipIcon.hidden = true
+    end
+    if self.tooltipLines then
+        for _, line in ipairs(self.tooltipLines) do
+            line.hidden = true
+        end
     end
 end
 
@@ -1922,7 +1993,11 @@ function Window:updateToolbarLayout(forceReflow)
 
         -- Row 2: Contextual Control Toolbar + 2 Sync Status Badges at y = 36
         self.btnColFilter.setHidden(not isColTab)
-        self.btnClearTargets.setHidden(not isColTab)
+        local hasTargets = self.tracker and self.tracker.hasTargetedCollections and self.tracker:hasTargetedCollections()
+        self.btnClearTargets.setHidden(not isColTab or not hasTargets)
+        if self.btnSyncBoard then
+            self.btnSyncBoard.setHidden(not isColTab or hasTargets)
+        end
         self.btnPin.setHidden(not isArtTab)
         self.btnDupes.setHidden(not isArtTab)
         self.btnFilter.setHidden(not isMatTab)
@@ -1946,7 +2021,11 @@ function Window:updateToolbarLayout(forceReflow)
         self.btnSource.setBounds(x1, 36, w1, 26)
         if isColTab then
             self.btnColFilter.setBounds(x2, 36, w2, 26)
-            self.btnClearTargets.setBounds(x3, 36, w3, 26)
+            if hasTargets then
+                self.btnClearTargets.setBounds(x3, 36, w3, 26)
+            elseif self.btnSyncBoard then
+                self.btnSyncBoard.setBounds(x3, 36, w3, 26)
+            end
         elseif isArtTab then
             self.btnDupes.setBounds(x2, 36, w2, 26)
             self.btnPin.setBounds(x3, 36, w3, 26)

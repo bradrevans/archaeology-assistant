@@ -430,17 +430,28 @@ function Artefacts.findByName(rawName)
     local norm = normalizeName(rawName)
     local exact = Artefacts.BY_DAMAGED_LOWER[norm]
     if exact then
-        return exact
+        return exact, true
     end
 
     local base, isDamagedSuffix = extractDamagedBaseName(rawName)
     if isDamagedSuffix then
         local byBase = Artefacts.BY_BASE_LOWER[base]
         if byBase then
-            return byBase
+            return byBase, true
+        end
+    else
+        local byRestored = Artefacts.BY_BASE_LOWER[base]
+        if byRestored then
+            return byRestored, false
         end
     end
     return nil
+end
+
+function Artefacts.findRestoredByName(rawName)
+    if not rawName or rawName == "" then return nil end
+    local norm = normalizeName(rawName)
+    return Artefacts.BY_BASE_LOWER[norm]
 end
 
 function Artefacts.findByObj(obj)
@@ -590,6 +601,11 @@ $overview = @{}
 if ($tableMatch.Success) {
     $rows = [regex]::Matches($tableMatch.Groups[1].Value, '(?s)<tr[^>]*>(.*?)</tr>')
     foreach ($r in $rows) {
+        $mRowId = [regex]::Match($r.Value, 'data-rowid="([^"]+)"')
+        $rawAchId = if ($mRowId.Success) { [System.Net.WebUtility]::HtmlDecode($mRowId.Groups[1].Value) } else { "" }
+        $achNum = 0
+        $achId = if ([int]::TryParse($rawAchId, [ref]$achNum)) { $achNum } else { 0 }
+
         $cells = [regex]::Matches($r.Groups[1].Value, '(?s)<td[^>]*>(.*?)</td>')
         if ($cells.Count -ge 8) {
             $lvl = [int]($cells[0].Groups[1].Value -replace '<[^>]+>', '').Trim()
@@ -612,6 +628,7 @@ if ($tableMatch.Success) {
                 Chronotes = $chronotes
                 IsRepeatable = $isRepeatable
                 ExpectedCount = $artCount
+                AchievementId = $achId
             }
         }
     }
@@ -641,6 +658,7 @@ for ($i = 1; $i -lt $sections.Count; $i++) {
         $recurring = if ($info) { $info.RecurringReward } else { "" }
         $chronotes = if ($info) { $info.Chronotes } else { "" }
         $isRepeatable = if ($info) { $info.IsRepeatable } else { $true }
+        $achId = if ($info) { $info.AchievementId } else { 0 }
 
         $benefitType = ""
         $specialBenefit = ""
@@ -699,6 +717,7 @@ for ($i = 1; $i -lt $sections.Count; $i++) {
             IsRepeatable    = $isRepeatable
             BenefitType     = $benefitType
             SpecialBenefit  = $specialBenefit
+            AchievementId   = $achId
             Artefacts       = $artefacts
         })
     }
@@ -734,6 +753,7 @@ foreach ($c in $sortedCols) {
     [void]$sbCol.AppendLine("        recurringReward = `"$escRecurring`",")
     [void]$sbCol.AppendLine("        chronotes = `"$escChronotes`",")
     [void]$sbCol.AppendLine("        isRepeatable = $isRep,")
+    [void]$sbCol.AppendLine("        achievementId = $($c.AchievementId),")
     [void]$sbCol.AppendLine("        benefitType = `"$escType`",")
     [void]$sbCol.AppendLine("        specialBenefit = `"$escBenefit`",")
     [void]$sbCol.AppendLine("        artefacts = {")

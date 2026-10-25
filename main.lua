@@ -42,6 +42,7 @@ end
 
 if tracker and window then
     xpcall(function()
+        tracker:syncCollectionsDoneStatus()
         tracker:recalculate()
         window:refresh()
         if PersistentDB then

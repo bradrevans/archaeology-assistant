@@ -18,14 +18,14 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - ⚔ **T97 Weapon Components** (e.g. `Inquisitor staff piece`).
       - ⭐ **Mystery & Blueprint Unlocks** (e.g. `Howl's Thinking Cap`, `Koschei's needle`).
       - 🧩 **Repeatable Tetracompass Farming** (e.g. Green Gobbo Goodies, Red Rum Relics, Zarosian, Guthixian).
-    - **Completion Tracking**: Clickable `Done` toggle button (`✓ Done` vs `O Inc`) to track one-off collection achievement status across sessions (persisted in `PersistentDB`).
+    - **Completion & Noticeboard Syncing**: Clickable `Done` toggle button (`✓ Done` vs `O Inc`) to track one-off collection achievement status across sessions (persisted in `PersistentDB`). Interacting with the **Collector Information Noticeboard** at the Archaeology Guild or selecting "Collector information" on your Archaeology Journal automatically queries in-game achievements and syncs all completed collections! You can also click the `Sync Board` button on the toolbar or click the Collections summary banner at any time.
     - **Turn-In Readiness**: Live scan of restored artefacts across your Backpack and Bank displaying `✓ Ready!` in bright green when all required restored artefacts are owned, or `X / Y Ready`.
     - **Multi-Collection Targeting ("Collection-Level Pinning")**:
       - Click `Target` on any collection to target it; target multiple collections simultaneously.
       - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab.
       - Displays targeted collection tags on artefacts in the Artefacts tab.
-    - **Rich Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete checklist of every required artefact with its live status (`[✓] Ready`, `[-] Damaged`, `[x] Missing`).
-    - **Filter & Management**: Toolbar filter button (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`) and `Clear Targets` button.
+    - **Clean Multiline Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete syntax-highlighted checklist of every required artefact with its live status (`[✓] Ready` in green, `[-] Damaged` in amber, `[x] Missing` in red) with zero unprintable newline glyphs.
+    - **Filter & Management**: Toolbar filter button (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`), `Sync Board` button, and `Clear Targets` button.
   - **Artefacts Tab (Second)**:
     - Scans damaged artefacts across your **Backpack** and **Bank**, including artefacts targeted by collections.
     - Displays in-game item icons alongside artefact names.
