@@ -121,7 +121,6 @@ function Window.new(tracker)
     self.mounted = false
     self.activeTab = safeDbGet("arch_active_tab", "collections")
     self.colFilterIndex = 1
-    self.isSettingsOpen = false
     self.collectionRows = {}
     self.currentCollections = {}
     self.materialRows = {}
@@ -317,17 +316,6 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self.win = win
     self.root = win.root
     self.contentParent = win.content
-
-    local btnSet = ui.Button.new(win.root)
-    btnSet.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnSet:SetPos(-56, 4, 1.0, 0)
-    btnSet:SetSize(26, 20, 0, 0)
-    btnSet.label = "Set"
-    btnSet:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
-        self.isSettingsOpen = not self.isSettingsOpen
-        self:refresh()
-    end)
-    self.btnTitleSettings = btnSet
 
     self:buildContentComponents(win.content)
     self:buildSharedRowTooltip(parent)
@@ -533,7 +521,6 @@ function Window:switchTab(tabName)
         return
     end
     self:hideRowTooltip()
-    self.isSettingsOpen = false
     local changed = (self.activeTab ~= tabName)
     self.activeTab = tabName
     safeDbSet("arch_active_tab", tabName)
@@ -853,10 +840,6 @@ function Window:buildContentComponents(container)
 
     self.badgeBank = createSyncBadge("Bank", BANK_ICON_OBJ_ID, function()
         self:onHoverSyncBadge("bank")
-    end)
-
-    self.badgeBoard = createSyncBadge("Board", 49429, function()
-        self:onHoverSyncBadge("board")
     end)
 
     -- Helper to configure a wrapping multi-line text label
@@ -1444,73 +1427,6 @@ function Window:buildContentComponents(container)
         }
     end
     self._prevVisibleRowCount = 1
-
-    -- 5D. SETTINGS OVERLAY LAYER
-    local setLayer = ui.Layer.new(container)
-    setLayer.clickthrough = false
-    setLayer.hidden = true
-    setLayer:SetPos(12, 68)
-    setLayer:SetSize(-24, 200, 1.0, 0)
-
-    local setBg = ui.Rectangle.new(setLayer)
-    setBg.colour = makeColour(0.06, 0.09, 0.14, 0.98)
-    setBg.fill = true
-    setBg.clickthrough = false
-    setBg:SetPos(0, 0)
-    setBg:SetSize(0, 0, 1.0, 1.0)
-
-    local setBorder = ui.Rectangle.new(setLayer)
-    setBorder.colour = COL_GOLD
-    setBorder.fill = false
-    setBorder.clickthrough = true
-    setBorder:SetPos(0, 0)
-    setBorder:SetSize(0, 0, 1.0, 1.0)
-
-    local setTitle = ui.Text.new(setLayer)
-    setTitle.font = id.Font.MUSEO_SANS_15PT_REGULAR
-    setTitle.colour = COL_GOLD
-    setTitle.content = "Settings & Cache Management"
-    setTitle:SetPos(16, 12)
-    setTitle:SetSize(-32, 22, 1.0, 0)
-
-    local setDesc = ui.Text.new(setLayer)
-    setDesc.font = id.Font.MUSEO_SANS_15PT_REGULAR
-    setDesc.colour = COL_MUTED
-    setDesc.content = "Wipe cached storage, bank, completions, and custom quantities back to fresh."
-    setDesc:SetPos(16, 36)
-    setDesc:SetSize(-32, 20, 1.0, 0)
-
-    local btnClearCache = ui.Button.new(setLayer)
-    btnClearCache.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnClearCache:SetPos(16, 64)
-    btnClearCache:SetSize(-32, 30, 1.0, 0)
-    btnClearCache.label = "Clear All Cache & Saved Data"
-    btnClearCache:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
-        self.tracker:clearAllCache()
-        self.isSettingsOpen = false
-        self:refresh()
-    end)
-
-    local btnResetGeom = ui.Button.new(setLayer)
-    btnResetGeom.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnResetGeom:SetPos(16, 102)
-    btnResetGeom:SetSize(-32, 30, 1.0, 0)
-    btnResetGeom.label = "Reset Window Position & Size"
-    btnResetGeom:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
-        self:resetWindowGeometry()
-    end)
-
-    local btnCloseSettings = ui.Button.new(setLayer)
-    btnCloseSettings.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnCloseSettings:SetPos(16, 146)
-    btnCloseSettings:SetSize(-32, 30, 1.0, 0)
-    btnCloseSettings.label = "Close Settings"
-    btnCloseSettings:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
-        self.isSettingsOpen = false
-        self:refresh()
-    end)
-
-    self.settingsLayer = setLayer
 end
 
 local cachedBodyFont = nil
@@ -1932,7 +1848,14 @@ function Window:onHoverCollectionRow(rowIdx)
     local prog = item.progress
 
     local title = string.format("%s (Level %d)", col.name, col.level)
-    local statusStr = prog.isReady and "Ready to Turn In!" or string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
+    local statusStr
+    if prog.isReady then
+        statusStr = "Ready to Turn In!"
+    elseif (prog.damagedCount or 0) > 0 then
+        statusStr = string.format("%d Restored, %d Damaged (%d req)", prog.readyCount, prog.damagedCount, prog.totalCount)
+    else
+        statusStr = string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
+    end
     if prog.isCompleted then
         statusStr = statusStr .. " [Completed]"
     end
@@ -1957,11 +1880,11 @@ function Window:onHoverCollectionRow(rowIdx)
 
     for _, a in ipairs(prog.artefacts or {}) do
         if a.isReady then
-            table.insert(details, string.format("  %s: Ready (%d in Bag/Bank)", a.name, a.restoredCount))
+            table.insert(details, string.format("  %s: Restored (%d in Bag/Bank)", a.name, a.restoredCount))
         elseif a.damagedCount > 0 then
-            table.insert(details, string.format("  %s: Damaged (%d in Bag/Bank)", a.name, a.damagedCount))
+            table.insert(details, string.format("  %s: Damaged to restore (%d in Bag/Bank)", a.name, a.damagedCount))
         else
-            table.insert(details, string.format("  %s: Missing", a.name))
+            table.insert(details, string.format("  %s: Missing (Need to excavate)", a.name))
         end
     end
 
@@ -1989,9 +1912,10 @@ function Window:onHoverArtefactRow(rowIdx)
     local objId = art and art.id
     local title = string.format("%s (Lv %d) | %s XP | %s Chronotes", art.name, art.level or 1, formatInt(art.xp), formatInt(art.chronotes))
     local locStr = art.location or "Archaeology"
+    local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0))
     local sub = string.format(
-        "Location: %s | Owned: %d (Bag: %d, Bank: %d) | Included: %d",
-        locStr, item.rawCount, item.inBag, item.inBank, item.effectiveCount
+        "Location: %s | Owned Damaged: %d (Bag: %d, Bank: %d) | Included: %d",
+        locStr, ownedDamaged, item.inBag or 0, item.inBank or 0, item.effectiveCount
     )
     local reqParts = {}
     local mult = math.max(1, item.effectiveCount > 0 and item.effectiveCount or 1)
@@ -2086,7 +2010,7 @@ function Window:updateToolbarLayout(forceReflow)
         self.btnTabArtefacts.setBounds(8 + tabW + gap, 6, tabW, 26)
         self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 6, availW - (tabW * 2) - (gap * 2), 26)
 
-        -- Row 2: Contextual Control Toolbar + 3 Sync Status Badges at y = 36
+        -- Row 2: Contextual Control Toolbar + 2 Sync Status Badges at y = 36
         self.btnColFilter.setHidden(not isColTab)
         local hasTargets = self.tracker and self.tracker.hasTargetedCollections and self.tracker:hasTargetedCollections()
         self.btnClearTargets.setHidden(not isColTab or not hasTargets)
@@ -2098,7 +2022,7 @@ function Window:updateToolbarLayout(forceReflow)
             self.btnSpots.setHidden(not isMatTab)
         end
 
-        local badgesTotalW = BADGE_W * 3 + (gap * 2)
+        local badgesTotalW = BADGE_W * 2 + gap
         local totalBtnsW = math.max(180, availW - badgesTotalW - (gap * 3))
 
         if isColTab then
@@ -2142,16 +2066,12 @@ function Window:updateToolbarLayout(forceReflow)
 
         local xStor = 8 + totalBtnsW + gap
         local xBank = xStor + BADGE_W + gap
-        local xBoard = xBank + BADGE_W + gap
 
         if self.badgeStorage then
             self.badgeStorage.setBounds(xStor, 36, BADGE_W, 26)
         end
         if self.badgeBank then
             self.badgeBank.setBounds(xBank, 36, BADGE_W, 26)
-        end
-        if self.badgeBoard then
-            self.badgeBoard.setBounds(xBoard, 36, BADGE_W, 26)
         end
 
     end
@@ -2307,18 +2227,9 @@ function Window:populateRibbonHub(parent)
     end)
     self.hubToggleBtn = btn
 
-    local btnReset = ui.Button.new(parent)
-    btnReset.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnReset:SetPos(12, 48)
-    btnReset:SetSize(-24, 30, 1.0, 0)
-    btnReset.label = "Reset Window Position"
-    btnReset:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
-        self:resetWindowGeometry()
-    end)
-
     local btnClear = ui.Button.new(parent)
     btnClear.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnClear:SetPos(12, 84)
+    btnClear:SetPos(12, 48)
     btnClear:SetSize(-24, 30, 1.0, 0)
     btnClear.label = "Clear All Cache & Saved Data"
     btnClear:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
@@ -2372,16 +2283,9 @@ function Window:refresh()
     self.btnTabMaterials.setLabel(string.format("Materials (%d)", #matList))
     self.btnTabMaterials.setActive(isMatTab)
 
-    self.collectionsTableLayer.hidden = (not isColTab) or (#colList == 0) or (self.isSettingsOpen == true)
-    self.artefactTableLayer.hidden = (not isArtTab) or (#artList == 0) or (self.isSettingsOpen == true)
-    self.tableLayer.hidden = (not isMatTab) or (#matList == 0) or (self.isSettingsOpen == true)
-
-    if self.settingsLayer then
-        self.settingsLayer.hidden = not (self.isSettingsOpen == true)
-        if self.isSettingsOpen then
-            self.settingsLayer:MoveToFront()
-        end
-    end
+    self.collectionsTableLayer.hidden = (not isColTab) or (#colList == 0)
+    self.artefactTableLayer.hidden = (not isArtTab) or (#artList == 0)
+    self.tableLayer.hidden = (not isMatTab) or (#matList == 0)
 
     self.btnSource.setLabel(mode.shortLabel)
     if self.btnColFilter then
@@ -2423,10 +2327,6 @@ function Window:refresh()
     if self.badgeBank then
         self.badgeBank.setState(getBadgeState(syncStatus.bank))
         self.badgeBank.setIcon(BANK_ICON_OBJ_ID)
-    end
-    if self.badgeBoard then
-        self.badgeBoard.setState(getBadgeState(syncStatus.board))
-        self.badgeBoard.setIcon(49429)
     end
 
     -- 3. Update Artefact & Deficit Summary Card
@@ -2570,6 +2470,9 @@ function Window:refresh()
                 if prog.isReady then
                     rowUI.readyTxt.colour = COL_GREEN
                     rowUI.readyTxt.content = "Ready!"
+                elseif (prog.damagedCount or 0) > 0 then
+                    rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_AMBER
+                    rowUI.readyTxt.content = string.format("%d/%d (%d Dmg)", prog.readyCount, prog.totalCount, prog.damagedCount)
                 else
                     rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_MUTED
                     rowUI.readyTxt.content = string.format("%d / %d Ready", prog.readyCount, prog.totalCount)
@@ -2629,18 +2532,17 @@ function Window:refresh()
             rowUI.locTxt.content = item.artefact.location or "Archaeology"
             rowUI.locTxt.colour = COL_MUTED
 
+            local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0))
             if item.inBag > 0 and item.inBank > 0 then
-                rowUI.ownedTxt.content = string.format("%d (%d/%d)", item.rawCount, item.inBag, item.inBank)
+                rowUI.ownedTxt.content = string.format("%d (%d/%d)", ownedDamaged, item.inBag, item.inBank)
             elseif item.inBag > 0 then
                 rowUI.ownedTxt.content = string.format("%d (Bag)", item.inBag)
             elseif item.inBank > 0 then
                 rowUI.ownedTxt.content = string.format("%d (Bank)", item.inBank)
-            elseif item.colTarget and item.colTarget > 0 then
-                rowUI.ownedTxt.content = string.format("%d (Col)", item.colTarget)
             else
-                rowUI.ownedTxt.content = string.format("%d (Pin)", item.rawCount)
+                rowUI.ownedTxt.content = "0"
             end
-            rowUI.ownedTxt.colour = COL_MUTED
+            rowUI.ownedTxt.colour = (ownedDamaged > 0) and COL_WHITE or COL_MUTED
 
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
 
@@ -2658,7 +2560,18 @@ function Window:refresh()
             else
                 rowUI.qtyTxt.colour = COL_WHITE
 
-                if item.maxPossibleNow >= item.effectiveCount then
+                if ownedDamaged == 0 then
+                    -- Player has not excavated this artefact yet (e.g. required for a tracked collection)
+                    if (item.missingMatTypes or 0) == 0 then
+                        rowUI.statusTxt.content = "Need Art"
+                        rowUI.statusTxt.colour = COL_AMBER
+                    else
+                        rowUI.statusTxt.content = "Short (Art+Mats)"
+                        rowUI.statusTxt.colour = COL_RED
+                    end
+                    rowUI.nameTxt.colour = COL_WHITE
+                    rowUI.lvlTxt.colour = COL_CREAM
+                elseif item.maxPossibleNow >= item.effectiveCount then
                     if item.effectiveCount > 1 then
                         rowUI.statusTxt.content = string.format("Ready (%d/%d)", item.effectiveCount, item.effectiveCount)
                     else

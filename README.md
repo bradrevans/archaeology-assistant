@@ -18,24 +18,26 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - **T97 Weapon Components** in Gold (e.g. `Inquisitor staff piece`).
       - **Mystery & Blueprint Unlocks** in Amber (e.g. `Howl's Thinking Cap`, `Koschei's needle`).
       - **Repeatable Tetracompass Farming** in Cream (e.g. Green Gobbo Goodies, Red Rum Relics, Zarosian, Guthixian).
-    - **Completion & Noticeboard Syncing**: Read-only `Done` status (`Done` in green vs `-` in muted) driven purely by game achievements and collector board status. Interacting with the **Collector Information Noticeboard** at the Archaeology Guild, selecting "Collector information" on your Archaeology Journal, or speaking to collector NPCs automatically queries in-game achievements and syncs all completed collections! The toolbar features a dedicated `Board` sync badge matching `Stor` and `Bank`.
+    - **Automatic Achievement Syncing**: Collection completion (`Done` in green vs `-` in muted) is read-only and automatically queried from in-game client achievements on startup and in real time without requiring opening any noticeboard. Permanent completion progress is preserved even when clearing temporary inventory caches.
     - **Dynamic Collection Resizing**: 100% of window resize width expansion is allocated to the **Collection** column so collection names are never truncated.
-    - **Turn-In Readiness**: Live scan of restored artefacts across your Backpack and Bank displaying `Ready!` in bright green when all required restored artefacts are owned, or `X / Y Ready`.
+    - **Turn-In & Damaged vs Restored Distinction**: Live scan of artefacts across your Backpack and Bank distinguishes between restored artefacts ready for turn-in and damaged artefacts waiting to be restored (e.g. `Ready!`, `2/3 (1 Dmg)`, or `0/3 (2 Dmg)`).
     - **Multi-Collection Tracking ("Collection-Level Pinning")**:
       - Click `Track` on any collection to track it; track multiple collections simultaneously.
       - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab.
       - Displays tracked collection tags on artefacts in the Artefacts tab.
-    - **Clean Multiline Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete syntax-highlighted checklist of every required artefact with its live status (`Ready` in green, `Damaged` in amber, `Missing` in red) with zero unprintable newline glyphs.
+    - **Clean Multiline Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a complete syntax-highlighted checklist of every required artefact with its live status (`Restored`, `Damaged to restore`, `Missing`) with zero unprintable newline glyphs.
     - **Filter & Management**: Toolbar filter button (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`) and `Clear Tracked` button.
   - **Artefacts Tab (Second)**:
-    - Scans damaged artefacts across your **Backpack** and **Bank**, including artefacts targeted by collections.
+    - Scans damaged artefacts across your **Backpack** and **Bank**, including uncollected artefacts targeted by collections.
+    - **Artefact Ownership Required for Ready Status**: An artefact requires actual damaged artefact ownership to be marked "Ready". If an artefact is required for a tracked collection but not yet excavated (`Owned: 0`), its status clearly displays `Need Art` (when materials are satisfied) or `Short (Art+Mats)` (when materials are also missing).
+    - **Uncollected Artefact Display & Recipe Deficits**: When collections are tracked, uncollected artefacts are displayed alongside owned artefacts, and their complete restoration materials are added to the Materials tab deficit calculations.
     - **Location Column**: Displays the excavation hotspot and dig site for every artefact (e.g. `Venator remains (Kharid-et)`), with dynamic width expansion on resize.
     - **Artefact Source Filtering**: Dedicated toolbar filter button (`Show: All`, `Show: Tracked`, `Show: Owned`) to instantly isolate artefacts needed for your tracked collections.
     - Displays in-game item icons alongside artefact names.
     - Hovering any row displays a rich floating tooltip with an enlarged (32x32) in-game item sprite, location, restoration XP, Chronotes, targeted collection sources, and the complete materials recipe with live `owned / required` quantities scaled to your target count.
     - Direct **Include** quantity controls (**`+` / `-`** steppers, with `0` cleanly excluding an artefact from material calculations).
     - **Flexible Inclusion Modes (`Dupes` button)**: Cycle between **Dupes: All**, **Dupes: 1x**, and **Include: 0** (sets all includes to 0 across the board for selective single-artefact repairs). Switching back to `All` or `1x` cleanly re-includes previously excluded artefacts.
-    - Displays artefact level, owned quantities (`Bag`, `Bank`, or `Col` for collection targets), and live repair status (`Ready`, `X / Y Ready`, `Short (N mats)`, or `Excluded`).
+    - Displays artefact level, owned quantities (`Bag`, `Bank`, or `0` for uncollected collection targets), and live repair status (`Ready`, `X / Y Ready`, `Need Art`, `Short (Art+Mats)`, or `Excluded`).
     - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
     - **Pin / Lock** button (`Pin` / `Unpin`) to lock your chosen artefact targets so you can bank them and farm materials without losing your plan.
   - **Materials Tab (Third)**:
@@ -56,18 +58,17 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - Integrates with the **RS3 Ribbon Bar** (`hasRibbonIcon: true`) so you can show/hide the window anytime from the plugin hub.
   - Clean responsive reflow: expanding the window allocates 100% of extra width to the `Location` column (Materials & Artefacts) and `Collection` column (Collections).
   - **Full Mouse Wheel Table Scrolling**: Scrolling anywhere over table rows, buttons, steppers, headers, summary card, or the scrollbar scrolls smoothly without getting blocked, and active tooltips dismiss immediately upon scrolling.
-- **Settings & Cache Management (`Set` button & Ribbon Bar Hub)**:
-  - Accessible via the `Set` button in the window title bar or the Ribbon Bar hub panel.
-  - **Clear All Cache & Saved Data**: Completely wipes cached Material Storage, Bank contents, completed collections, tracked targets, and custom quantity overrides back to a pristine state.
-  - **Reset Window Position & Size**: Instantly recenters the window to default geometry.
+- **Cache Management (Ribbon Bar Hub)**:
+  - Accessible via the Ribbon Bar hub panel.
+  - **Clear All Cache & Saved Data**: Completely wipes cached Material Storage and Bank contents, tracked targets, and custom quantity overrides while preserving permanent account achievement completions.
 - **Sync Status Badges with In-Game Icons & Rich Tooltips**:
-  - Compact icon badges in the toolbar for **Material Storage** (`Stor`, Archaeology Journal icon), **Bank** (`Bank`, Coins pile icon), and **Collector Board** (`Board`, Archaeology Journal icon) visible across all tabs.
+  - Compact icon badges in the toolbar for **Material Storage** (`Stor`, Archaeology Journal icon) and **Bank** (`Bank`, Coins pile icon) visible across all tabs.
   - Inspecting damaged artefacts or previewing restoration recipes never corrupts Material Storage or mutates the storage badge icon.
-  - Hovering displays an enlarged (32x32) item icon and sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, opening your Bank, or checking the Collector Information board).
+  - Hovering displays an enlarged (32x32) item icon and sync instructions (e.g. opening a workbench, checking Material storage information in your Archaeology journal, or opening your Bank).
   - Status dot indicator and borders:
     - **Synced (Green)**: Verified live in the current game session.
     - **Cached (Amber)**: Loaded from previous session cache (resync recommended in case items changed on another device).
-    - **Not Synced (Red)**: Container or noticeboard not yet opened / no data.
+    - **Not Synced (Red)**: Container not yet opened / no data.
     - **Ignored (Grey)**: Container excluded by the current `Src` filter mode.
 - **Multi-Source Material Tracking (`Src` button)**:
   - Cycle container counting: **Src: All** *(default: Bag + Storage + Bank)*, **Src: Bag+Stor**, **Src: Storage**, **Src: Bag Only**, and **Src: Bag+Bank**.

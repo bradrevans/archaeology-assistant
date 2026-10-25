@@ -246,13 +246,12 @@ function Tracker:getSourceMode()
     return Tracker.SOURCE_MODES[self.sourceModeIndex] or Tracker.SOURCE_MODES[1]
 end
 
--- Returns structured sync status for Material Storage, Bank, and Collector Board icon badges/tooltips
+-- Returns structured sync status for Material Storage and Bank icon badges/tooltips
 function Tracker:getSyncStatus()
     local mode = self:getSourceMode()
     local storEntries = countMapEntries(self.storageMaterials)
     local bankMatEntries = countMapEntries(self.bankMaterials)
     local bankArtEntries = countMapEntries(self.bankArtefacts)
-    local boardEntries = countMapEntries(self.completedCollections)
 
     return {
         storage = {
@@ -267,12 +266,6 @@ function Tracker:getSyncStatus()
             enabled = (mode.useBank == true) or (mode.id ~= "BAG_ONLY"),
             matTypes = bankMatEntries,
             artTypes = bankArtEntries
-        },
-        board = {
-            synced = self.boardSyncedLive == true,
-            cached = (not self.boardSyncedLive) and (self.boardHasCache or boardEntries > 0),
-            enabled = true,
-            completedCount = boardEntries
         }
     }
 end
@@ -413,13 +406,13 @@ function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
     return self:recalculate()
 end
 
--- Completely wipes all persistent storage caches, completions, and custom settings back to pristine state
+-- Completely wipes all persistent storage caches, custom counts, exclusions, and pins back to pristine state
+-- Note: Completed collections (achievements) are permanent account milestones and preserved.
 function Tracker:clearAllCache()
     self.storageMaterials = {}
     self.bankMaterials = {}
     self.bankArtefacts = {}
     self.bankRestored = {}
-    self.completedCollections = {}
     self.targetedCollections = {}
     self.excludedArtefacts = {}
     self.customArtefactCounts = {}
@@ -427,10 +420,8 @@ function Tracker:clearAllCache()
     self.isPinned = false
     self.storageSyncedLive = false
     self.bankSyncedLive = false
-    self.boardSyncedLive = false
     self.storageHasCache = false
     self.bankHasCache = false
-    self.boardHasCache = false
 
     safeDbSet("arch_storage_materials", "")
     safeDbSet("arch_storage_synced", 0)
@@ -439,7 +430,6 @@ function Tracker:clearAllCache()
     safeDbSet("arch_bank_artefacts", "")
     safeDbSet("arch_bank_restored", "")
     safeDbSet("arch_bank_inv_id", -1)
-    safeDbSet("arch_completed_collections", "")
     safeDbSet("arch_targeted_collections", "")
     safeDbSet("arch_excluded_artefacts", "")
     safeDbSet("arch_custom_art_counts", "")
@@ -527,7 +517,7 @@ end
 
 function Tracker:getCollectionProgress(col)
     if not col or not col.artefacts then
-        return { readyCount = 0, totalCount = 0, isReady = false, isCompleted = false, isTargeted = false, artefacts = {} }
+        return { readyCount = 0, damagedCount = 0, totalCount = 0, isReady = false, isCompleted = false, isTargeted = false, artefacts = {} }
     end
 
     local mode = self:getSourceMode()
@@ -535,6 +525,7 @@ function Tracker:getCollectionProgress(col)
 
     local total = #col.artefacts
     local readyCount = 0
+    local damagedCount = 0
     local artStatuses = {}
 
     for _, artName in ipairs(col.artefacts) do
@@ -550,6 +541,8 @@ function Tracker:getCollectionProgress(col)
         local isRestored = (totalRestored > 0)
         if isRestored then
             readyCount = readyCount + 1
+        elseif totalDamaged > 0 then
+            damagedCount = damagedCount + 1
         end
 
         table.insert(artStatuses, {
@@ -565,6 +558,7 @@ function Tracker:getCollectionProgress(col)
 
     return {
         readyCount = readyCount,
+        damagedCount = damagedCount,
         totalCount = total,
         isReady = (readyCount >= total and total > 0),
         isCompleted = isCompleted,
@@ -1166,15 +1160,14 @@ function Tracker:recalculate(triggerInvType)
                 uniqueArtefacts = uniqueArtefacts + 1
                 local isExcluded = (self.excludedArtefacts[art.damagedName] ~= nil)
                 local defaultQty
-                if self.includeMode == "ZERO" then
+                if minTarget > 0 then
+                    defaultQty = minTarget
+                elseif self.includeMode == "ZERO" then
                     defaultQty = 0
                 elseif self.includeMode == "ONE" or not self.includeDuplicates then
                     defaultQty = 1
                 else
                     defaultQty = math.max(1, rawCount)
-                end
-                if self.includeMode ~= "ZERO" and minTarget > defaultQty then
-                    defaultQty = minTarget
                 end
                 local targetCount = self.customArtefactCounts[art.damagedName] or defaultQty
                 local effectiveCount = isExcluded and 0 or targetCount
@@ -1184,7 +1177,9 @@ function Tracker:recalculate(triggerInvType)
                 totalChronotes = totalChronotes + (art.chronotes * effectiveCount)
 
                 -- Check how many of this specific artefact could be repaired right now
-                local maxPossibleNow = 999999
+                -- (Bounded by owned damaged artefacts: you cannot repair an artefact you don't own!)
+                local ownedDamaged = (info.inBag or 0) + (info.inBank or 0)
+                local matPossibleNow = 999999
                 local missingMatTypes = 0
                 for _, req in ipairs(art.materials) do
                     if effectiveCount > 0 then
@@ -1192,24 +1187,27 @@ function Tracker:recalculate(triggerInvType)
                     end
                     local ownedMat = self:getOwnedMaterialCount(req.name, mode)
                     local copiesForMat = (req.count > 0) and math.floor(ownedMat / req.count) or 999999
-                    if copiesForMat < maxPossibleNow then
-                        maxPossibleNow = copiesForMat
+                    if copiesForMat < matPossibleNow then
+                        matPossibleNow = copiesForMat
                     end
                     if ownedMat < req.count then
                         missingMatTypes = missingMatTypes + 1
                     end
                 end
-                if maxPossibleNow == 999999 then maxPossibleNow = 0 end
+                if matPossibleNow == 999999 then matPossibleNow = 0 end
+                local maxPossibleNow = math.min(ownedDamaged, matPossibleNow)
 
                 table.insert(artefactsList, {
                     artefact = art,
                     inBag = info.inBag or 0,
                     inBank = info.inBank or 0,
+                    ownedDamaged = ownedDamaged,
                     rawCount = rawCount,
                     targetCount = targetCount,
                     effectiveCount = effectiveCount,
                     excluded = isExcluded,
                     maxPossibleNow = maxPossibleNow,
+                    matPossibleNow = matPossibleNow,
                     missingMatTypes = missingMatTypes,
                     colTarget = info.colTarget or 0,
                     colNames = info.colNames,
@@ -1303,7 +1301,8 @@ function Tracker:recalculate(triggerInvType)
     for _, item in ipairs(artefactsList) do
         if not item.excluded and item.effectiveCount > 0 then
             local canMake = 0
-            for _ = 1, item.effectiveCount do
+            local maxCanMake = math.min(item.effectiveCount, item.ownedDamaged or 0)
+            for _ = 1, maxCanMake do
                 local enough = true
                 for _, req in ipairs(item.artefact.materials) do
                     if (pool[req.name] or 0) < req.count then
