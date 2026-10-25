@@ -13,7 +13,7 @@ Overlay.__index = Overlay
 
 local MAX_INDICATORS = 12
 local MAX_SLOTS_PER_INDICATOR = 6
-local SCAN_INTERVAL_TICKS = 10 -- Background world spot entity search interval
+local SCAN_INTERVAL_TICKS = 30 -- ~1.2s between background spot checks
 local DEFAULT_PILL_W = 110
 local ROW_H = 22
 local PILL_H = 30
@@ -276,8 +276,14 @@ function Overlay:tryMount()
     return true
 end
 
--- Periodically scans active world location entities near the player
+-- Periodically scans active world location entities near the player (~1.2s cadence)
 function Overlay:onLogic()
+    self.scanCooldown = (self.scanCooldown or 0) + 1
+    if self.scanCooldown < SCAN_INTERVAL_TICKS then
+        return
+    end
+    self.scanCooldown = 0
+
     if not self.enabled then
         if #self.activeSpots > 0 then
             self.activeSpots = {}
@@ -285,49 +291,7 @@ function Overlay:onLogic()
         return
     end
 
-    -- Fast-path live update for currently visible active spots (runs every 2 ticks: ~0.002ms)
-    self.fastUpdateTicks = (self.fastUpdateTicks or 0) + 1
-    if self.fastUpdateTicks >= 2 then
-        self.fastUpdateTicks = 0
-        if #self.activeSpots > 0 then
-            self:updateActiveSpotCounts()
-        end
-    end
-
-    self.scanCooldown = (self.scanCooldown or 0) + 1
-    if self.scanCooldown < SCAN_INTERVAL_TICKS then
-        return
-    end
-    self.scanCooldown = 0
-
     self:scanWorldSpots()
-end
-
-function Overlay:updateActiveSpotCounts()
-    if #self.activeSpots == 0 then return end
-
-    local deficits = {}
-    if self.tracker and self.tracker.lastResult and self.tracker.lastResult.materials then
-        for _, row in ipairs(self.tracker.lastResult.materials) do
-            if row.short and row.short > 0 then
-                deficits[string.lower(row.name)] = {
-                    name = row.name,
-                    short = row.short,
-                    id = row.material and row.material.id,
-                    isArtefact = false
-                }
-            end
-        end
-    end
-
-    local spotArtsMap = getHotspotArtefactsMap()
-    local kept = {}
-    for _, spot in ipairs(self.activeSpots) do
-        if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
-            table.insert(kept, spot)
-        end
-    end
-    self.activeSpots = kept
 end
 
 function Overlay:triggerScan()

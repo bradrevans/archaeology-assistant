@@ -1879,8 +1879,10 @@ function Tracker:onLogicTick()
 
     local updated = false
 
-    -- Frequent backpack check (~every 2 logic ticks: <0.005ms) to catch damaged artefacts or collector hand-ins instantly
-    if (self._logicTicks % 2) == 0 then
+    -- Periodic backpack check (every ~1.2s: ~25 logic ticks) as a fallback if Event.InventoryUpdated is delayed
+    self._bagCheckTicks = (self._bagCheckTicks or 0) + 1
+    if self._bagCheckTicks >= 25 then
+        self._bagCheckTicks = 0
         if self:checkBackpackChanged() then
             updated = true
         end
@@ -1891,7 +1893,6 @@ function Tracker:onLogicTick()
     local checkInterval = isNoticeboardOpen and 8 or 20
     if (self._logicTicks % checkInterval) ~= 0 then
         return updated
-    end
     end
 
     local ok2, c2 = pcall(function() return ui.Interfaces:GetComponent(657, 2) end)
