@@ -1128,44 +1128,35 @@ end
 -- Scans any currently open Collector Information or Archaeology journal interface components
 function Tracker:scanCollectorInterface(forceLog)
     if not ui or not ui.Interfaces or not id or not id.Component then return false end
+
+    local function printBoth(msg)
+        print(msg)
+        if log then pcall(log, msg) end
+    end
+
+    if forceLog then
+        printBoth("[Archaeology Assistant] === Collector Board Scan Triggered ===")
+    end
+
+    local root = nil
+    if id.Component.TOPLEVEL_V2__ROOT then
+        root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__ROOT)
+    end
+    if not root and id.Component.TOPLEVEL_V2__GAME_AREA then
+        root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
+    end
+
+    if not root then
+        if forceLog then
+            printBoth("[Archaeology Assistant] ERROR: No root component (TOPLEVEL_V2__ROOT) found.")
+        end
+        return false
+    end
+
     local detected = false
     local visitedCount = 0
     local maxDepth = 0
     local artsFound = 0
-    local debugLogs = {}
-
-    local function logDbg(fmt, ...)
-        local msg = string.format(fmt, ...)
-        table.insert(debugLogs, msg)
-        if forceLog then
-            print("[Archaeology Assistant] " .. msg)
-        end
-    end
-
-    -- Collect all possible candidate root components
-    local candidateRoots = {}
-    local seenRootIds = {}
-    local function addRootId(compId, tag)
-        if compId and type(compId) == "number" and not seenRootIds[compId] then
-            seenRootIds[compId] = true
-            table.insert(candidateRoots, { id = compId, tag = tag })
-        end
-    end
-
-    if id.Component.TOPLEVEL_V2__ROOT then addRootId(id.Component.TOPLEVEL_V2__ROOT, "TOPLEVEL_V2__ROOT") end
-    if id.Component.TOPLEVEL_V2__GAME_AREA then addRootId(id.Component.TOPLEVEL_V2__GAME_AREA, "TOPLEVEL_V2__GAME_AREA") end
-
-    for compName, compId in pairs(id.Component) do
-        if type(compId) == "number" and type(compName) == "string" then
-            local upper = string.upper(compName)
-            if string.find(upper, "MODAL") or string.find(upper, "POPUP")
-                or string.find(upper, "DIALOG") or string.find(upper, "NOTICE")
-                or string.find(upper, "COLLECT") or string.find(upper, "JOURNAL")
-                or string.find(upper, "ARCH") or string.find(upper, "CENTRAL") then
-                addRootId(compId, compName)
-            end
-        end
-    end
 
     local function getCompText(c)
         if not c then return nil end
@@ -1178,18 +1169,17 @@ function Tracker:scanCollectorInterface(forceLog)
     end
 
     local function inspectComp(comp, depth)
-        if not comp or depth > 32 or visitedCount >= 12000 then return end
+        if not comp or depth > 24 or visitedCount >= 2500 then return end
         visitedCount = visitedCount + 1
         if depth > maxDepth then maxDepth = depth end
 
         local rawTxt = getCompText(comp)
         local cleanTxt = rawTxt and string.gsub(rawTxt, "<[^>]+>", "") or nil
 
-        -- Check if text matches collection or collector keyword
         if cleanTxt and #cleanTxt >= 3 and forceLog then
             local cleanLower = string.lower(cleanTxt)
             if string.find(cleanLower, "smoky", 1, true) or string.find(cleanLower, "tess", 1, true) or string.find(cleanLower, "fing", 1, true) then
-                logDbg("Found section label at depth %d: '%s'", depth, cleanTxt)
+                printBoth(string.format("[Archaeology Assistant] Section label at depth %d: '%s'", depth, cleanTxt))
             end
         end
 
@@ -1226,12 +1216,10 @@ function Tracker:scanCollectorInterface(forceLog)
                     isDone = true
                 end
 
-                -- Strikethrough tag
                 if not isDone and (string.find(rawLower, "<str>") or string.find(rawLower, "<s>")) then
                     isDone = true
                 end
 
-                -- Green BBCode colour tag: <col=00ff00> etc.
                 if not isDone then
                     for hex in string.gmatch(rawTxt, "<col=([0-9a-fA-F]+)>") do
                         if #hex >= 6 then
@@ -1271,7 +1259,7 @@ function Tracker:scanCollectorInterface(forceLog)
                 end
             end
 
-            -- 3. Check sibling components under comp.parent (e.g. adjacent [1/1] text or checkmark sprite)
+            -- 3. Check sibling components under comp.parent
             local siblingSummary = ""
             if comp.parent then
                 local function checkSibling(sib)
@@ -1298,9 +1286,10 @@ function Tracker:scanCollectorInterface(forceLog)
                 end
             end
 
-            logDbg("Artefact '%s' (depth %d, type %s, objId %s): raw='%s', isDone=%s, sibs=%s",
-                matchedArtName, depth, tostring(comp.type), tostring(comp.associatedObjectID),
-                rawTxt or "(nil)", tostring(isDone), siblingSummary ~= "" and siblingSummary or "(none)")
+            if forceLog then
+                printBoth(string.format("[Archaeology Assistant] Artefact '%s' (depth %d): raw='%s', isDone=%s, sibs=%s",
+                    matchedArtName, depth, rawTxt or "(nil)", tostring(isDone), siblingSummary ~= "" and siblingSummary or "(none)"))
+            end
 
             if isDone then
                 for _, col in ipairs(Collections.LIST or {}) do
@@ -1311,7 +1300,7 @@ function Tracker:scanCollectorInterface(forceLog)
                                 if not self.submittedArtefacts[col.name][matchedArtName] then
                                     self.submittedArtefacts[col.name][matchedArtName] = true
                                     detected = true
-                                    logDbg("--> RECORDED SUBMISSION: '%s' in collection '%s'", matchedArtName, col.name)
+                                    printBoth(string.format("[Archaeology Assistant] --> SUBMISSION DETECTED: '%s' for '%s'", matchedArtName, col.name))
                                 end
                             end
                         end
@@ -1334,20 +1323,9 @@ function Tracker:scanCollectorInterface(forceLog)
         end
     end
 
-    for _, rInfo in ipairs(candidateRoots) do
-        pcall(function()
-            local rootComp = ui.Interfaces:GetComponent(rInfo.id)
-            if rootComp then
-                inspectComp(rootComp, 1)
-            end
-        end)
-    end
-
-    logDbg("Scan finished: %d nodes (max depth %d). Arts seen: %d. New submissions: %s",
-        visitedCount, maxDepth, artsFound, tostring(detected))
+    inspectComp(root, 1)
 
     self.lastCollectorScanSummary = string.format("%d nodes (depth %d), %d arts on screen", visitedCount, maxDepth, artsFound)
-    self.lastCollectorScanLog = table.concat(debugLogs, "\n")
 
     if detected then
         self.boardSyncedLive = true
@@ -1355,14 +1333,15 @@ function Tracker:scanCollectorInterface(forceLog)
         safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
         self:recalculate()
     elseif artsFound > 0 then
-        -- Even if no *new* submissions were detected, seeing artefacts on screen confirms the board is open!
         self.boardSyncedLive = true
         self.boardHasCache = true
     end
 
     if forceLog or detected or artsFound > 0 then
-        for _, logLine in ipairs(debugLogs) do
-            print("[Archaeology Assistant] " .. logLine)
+        printBoth(string.format("[Archaeology Assistant] Scan complete: %d nodes inspected (depth %d). Arts seen: %d. New submissions: %s",
+            visitedCount, maxDepth, artsFound, tostring(detected)))
+        if artsFound == 0 and forceLog then
+            printBoth("[Archaeology Assistant] 0 artefacts found on screen. Ensure the Collector Information noticeboard or journal collection details pane is open.")
         end
     end
 
@@ -1372,9 +1351,15 @@ end
 function Tracker:onLogicTick()
     if self.scanTicksRemaining and self.scanTicksRemaining > 0 then
         self.scanTicksRemaining = self.scanTicksRemaining - 1
-        if self:scanCollectorInterface() then
-            self.scanTicksRemaining = 0
-            return true
+        if self.scanDelay and self.scanDelay > 0 then
+            self.scanDelay = self.scanDelay - 1
+            return false
+        end
+        if self.scanTicksRemaining % 3 == 0 then
+            if self:scanCollectorInterface(false) then
+                self.scanTicksRemaining = 0
+                return true
+            end
         end
     end
     return false
@@ -1522,8 +1507,8 @@ function Tracker:onMiniMenuAction(verb, full)
         or string.find(fLower, "journal") or string.find(fLower, "collection")
         or string.find(vLower, "collector") or string.find(fLower, "contribute")
         or string.find(vLower, "contribute") then
-        self.scanTicksRemaining = 40
-        self:syncCollectorBoard()
+        self.scanTicksRemaining = 12
+        self.scanDelay = 3
     end
 end
 

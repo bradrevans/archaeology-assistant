@@ -35,7 +35,7 @@ local COL_FILTER_MODES = {
 local BADGE_W = 42
 local BANK_ICON_OBJ_ID = 995
 local STORAGE_ICON_OBJ_ID = 49429
-local BOARD_ICON_OBJ_ID = 49423
+local BOARD_ICON_OBJ_ID = 49430
 
 
 local HUB_EVENT_ID = "arch_assistant_hub"
@@ -605,12 +605,15 @@ function Window:buildContentComponents(container)
 
     self.btnClearTargets = self:createToolbarButton(
         container,
-        "Clear Tracked",
+        "Clear",
         "Clear all tracked collections (resets collection-level pinning).",
         false,
         function()
-            self.tracker:clearTargetedCollections()
-            self:refresh()
+            self:hideRowTooltip()
+            if self.tracker and self.tracker.hasTargetedCollections and self.tracker:hasTargetedCollections() then
+                self.tracker:clearTargetedCollections()
+                self:refresh()
+            end
         end
     )
 
@@ -2057,8 +2060,7 @@ function Window:updateToolbarLayout(forceReflow)
 
         -- Row 2: Contextual Control Toolbar + 2 Sync Status Badges at y = 36
         self.btnColFilter.setHidden(not isColTab)
-        local hasTargets = self.tracker and self.tracker.hasTargetedCollections and self.tracker:hasTargetedCollections()
-        self.btnClearTargets.setHidden(not isColTab or not hasTargets)
+        self.btnClearTargets.setHidden(not isColTab)
         self.btnArtFilter.setHidden(not isArtTab)
         self.btnDupes.setHidden(not isArtTab)
         self.btnPin.setHidden(not isArtTab)
@@ -2073,20 +2075,12 @@ function Window:updateToolbarLayout(forceReflow)
         local totalBtnsW = math.max(160, xBoard - 8 - gap)
 
         if isColTab then
-            local isTwoBtns = not hasTargets
-            if isTwoBtns then
-                local w1 = math.floor((totalBtnsW - gap) * 0.5)
-                local w2 = totalBtnsW - gap - w1
-                self.btnSource.setBounds(8, 36, w1, 26)
-                self.btnColFilter.setBounds(8 + w1 + gap, 36, w2, 26)
-            else
-                local w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
-                local w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
-                local w3 = totalBtnsW - (gap * 2) - (w1 + w2)
-                self.btnSource.setBounds(8, 36, w1, 26)
-                self.btnColFilter.setBounds(8 + w1 + gap, 36, w2, 26)
-                self.btnClearTargets.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
-            end
+            local w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
+            local w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
+            local w3 = totalBtnsW - (gap * 2) - (w1 + w2)
+            self.btnSource.setBounds(8, 36, w1, 26)
+            self.btnColFilter.setBounds(8 + w1 + gap, 36, w2, 26)
+            self.btnClearTargets.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
         elseif isArtTab then
             local w1 = math.floor((totalBtnsW - (gap * 3)) * 0.25)
             local w2 = math.floor((totalBtnsW - (gap * 3)) * 0.27)
@@ -2377,7 +2371,7 @@ function Window:refresh()
         self.btnColFilter.setActive(self.colFilterIndex > 1)
     end
     if self.btnClearTargets then
-        self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Tracked: 0")
+        self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Clear")
         self.btnClearTargets.setActive(targetedCols > 0)
     end
     if self.btnArtFilter then
