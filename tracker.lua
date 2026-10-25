@@ -1131,7 +1131,6 @@ function Tracker:scanCollectorInterface(forceLog)
 
     local function printBoth(msg)
         print(msg)
-        if log then pcall(log, msg) end
     end
 
     if forceLog then
@@ -1486,7 +1485,6 @@ end
 function Tracker:syncCollectorBoard(forceLog)
     local isForce = (forceLog ~= false)
     print(string.format("[Archaeology Assistant] Manual Collector Board sync triggered (forceLog=%s)", tostring(isForce)))
-    if log then pcall(log, "[Archaeology Assistant] Manual Collector Board sync triggered") end
     self:syncCollectionsDoneStatus(isForce)
     self:scanCollectorInterface(isForce)
     return self:recalculate()

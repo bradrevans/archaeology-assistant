@@ -4,7 +4,6 @@
 -- and subscribes to client inventory & chat events for real-time updates.
 
 print("[Archaeology Assistant] Initializing plugin v0.2.0...")
-if log then pcall(log, "[Archaeology Assistant] Initializing plugin v0.2.0...") end
 
 local function recordError(context, err)
     local msg = string.format("[%s] %s", tostring(context), tostring(err))
@@ -52,7 +51,6 @@ if tracker and window then
             pcall(function() PersistentDB:Set("arch_last_error", "NONE") end)
         end
         print("[Archaeology Assistant] Plugin ready!")
-        if log then pcall(log, "[Archaeology Assistant] Plugin ready!") end
     end, function(e)
         recordError("Initial recalculate/refresh", e)
     end)
