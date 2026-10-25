@@ -723,6 +723,7 @@ function Window:buildContentComponents(container)
     --   red = never synced, grey = ignored by the current Src mode.
     local function createSyncBadge(fallbackLabel, iconObjId, onHoverFn, onClickFn)
         local root = ui.Layer.new(container)
+        root.enabled = true
         root.clickthrough = false
         root:SetPos(0, 36)
         root:SetSize(BADGE_W, 26)
@@ -737,6 +738,7 @@ function Window:buildContentComponents(container)
         local bg = ui.Rectangle.new(root)
         bg.colour = COL_SYNC_MISSING
         bg.fill = true
+        bg.enabled = true
         bg.clickthrough = (onClickFn == nil)
         bg:SetPos(2, 2)
         bg:SetSize(-4, -4, 1.0, 1.0)

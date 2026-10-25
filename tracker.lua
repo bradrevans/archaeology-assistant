@@ -1484,8 +1484,11 @@ end
 
 -- Forces a live sync of the Collector noticeboard, journal, and active collector interfaces
 function Tracker:syncCollectorBoard(forceLog)
-    self:syncCollectionsDoneStatus(forceLog)
-    self:scanCollectorInterface(forceLog)
+    local isForce = (forceLog ~= false)
+    print(string.format("[Archaeology Assistant] Manual Collector Board sync triggered (forceLog=%s)", tostring(isForce)))
+    if log then pcall(log, "[Archaeology Assistant] Manual Collector Board sync triggered") end
+    self:syncCollectionsDoneStatus(isForce)
+    self:scanCollectorInterface(isForce)
     return self:recalculate()
 end
 
