@@ -544,7 +544,7 @@ function Window:switchTab(tabName)
 end
 
 function Window:buildContentComponents(container)
-    -- 1. Top View Tabs (y = 6, height = 26) — Collections first, Artefacts second, Materials third
+    -- 1. Top View Tabs (y = 6, height = 26) - Collections first, Artefacts second, Materials third
     self.btnTabCollections = self:createToolbarButton(
         container,
         "Collections",
@@ -609,17 +609,6 @@ function Window:buildContentComponents(container)
         false,
         function()
             self.tracker:clearTargetedCollections()
-            self:refresh()
-        end
-    )
-
-    self.btnSyncBoard = self:createToolbarButton(
-        container,
-        "Sync Board",
-        "Sync completed collections from the Collector Information noticeboard or in-game achievements.",
-        false,
-        function()
-            self.tracker:syncCollectionsDoneStatus()
             self:refresh()
         end
     )
@@ -836,6 +825,10 @@ function Window:buildContentComponents(container)
         self:onHoverSyncBadge("bank")
     end)
 
+    self.badgeBoard = createSyncBadge("Board", 49429, function()
+        self:onHoverSyncBadge("board")
+    end)
+
     -- Helper to configure a wrapping multi-line text label
     local function createWrappingText(parent, colour, x, y)
         local txt = ui.Text.new(parent)
@@ -925,7 +918,7 @@ function Window:buildContentComponents(container)
     local colHReward = ui.Text.new(colLayer)
     colHReward.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHReward.colour = COL_GOLD
-    colHReward.content = "Reward / Account Power"
+    colHReward.content = "Reward"
     colHReward.maxLines = 1
     colHReward:SetPos(294, 2, 0, 0)
     colHReward:SetSize(-390, 20, 1.0, 0)
@@ -991,7 +984,7 @@ function Window:buildContentComponents(container)
         local doneBtnTxt = ui.Text.new(colLayer)
         doneBtnTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         doneBtnTxt.colour = COL_MUTED
-        doneBtnTxt.content = "O Inc"
+        doneBtnTxt.content = "Todo"
         doneBtnTxt.maxLines = 1
         doneBtnTxt.clickthrough = true
         doneBtnTxt:SetPos(66, rowY + 2)
@@ -1690,15 +1683,15 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
             lineTxt.hidden = false
             lineTxt.content = text
 
-            if string.find(text, "^⚡") or string.find(text, "Power/Benefit") then
+            if string.find(text, "%[Relic%]") or string.find(text, "Power/Benefit") then
                 lineTxt.colour = COL_CYAN
-            elseif string.find(text, "^⚔") or string.find(text, "Weapon") then
+            elseif string.find(text, "%[Weapon%]") or string.find(text, "Weapon") then
                 lineTxt.colour = COL_GOLD
-            elseif string.find(text, "^⭐") or string.find(text, "Mystery") then
+            elseif string.find(text, "%[Mystery%]") or string.find(text, "Mystery") then
                 lineTxt.colour = COL_AMBER
-            elseif string.find(text, "^🧩") or string.find(text, "Tetracompass") then
+            elseif string.find(text, "%[Tetra%]") or string.find(text, "Tetracompass") then
                 lineTxt.colour = COL_CREAM
-            elseif string.find(text, "%[✓%]") then
+            elseif string.find(text, "%[%+%]") then
                 lineTxt.colour = COL_GREEN
             elseif string.find(text, "%[%-%]") then
                 lineTxt.colour = COL_AMBER
@@ -1763,17 +1756,23 @@ function Window:onHoverSyncBadge(badgeKind)
     local status = self.tracker:getSyncStatus()
     local mode = self.tracker:getSourceMode()
     local isStorage = (badgeKind == "storage")
-    local s = isStorage and status.storage or status.bank
-    local name = isStorage and "Material Storage" or "Bank"
-    local iconObjId = isStorage
-        and STORAGE_ICON_OBJ_ID
-        or BANK_ICON_OBJ_ID
+    local isBank = (badgeKind == "bank")
+    local isBoard = (badgeKind == "board")
+
+    local s = isStorage and status.storage or (isBank and status.bank or status.board)
+    local name = isStorage and "Material Storage" or (isBank and "Bank" or "Collector Board")
+    local iconObjId = isStorage and STORAGE_ICON_OBJ_ID or (isBank and BANK_ICON_OBJ_ID or 49429)
+
     local openHint = isStorage
         and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
-        or "Open your Bank to sync."
+        or (isBank and "Open your Bank to sync."
+        or "Open the Collector Information noticeboard at the Archaeology Guild, check your Archaeology journal, or talk to a collector to sync.")
+
     local contents = isStorage
         and string.format("%d material types stored.", s.matTypes or 0)
-        or string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
+        or (isBank
+            and string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
+            or string.format("%d collections marked as completed.", s.completedCount or 0))
 
     if not s.enabled then
         self:showRowTooltip(
@@ -1787,14 +1786,16 @@ function Window:onHoverSyncBadge(badgeKind)
         self:showRowTooltip(
             name .. ": Synced",
             "Read live this session. " .. contents,
-            "Updates automatically while open. Changes made elsewhere (e.g. another device) need a resync.",
+            isBoard
+                and "Updates automatically when viewing collector noticeboards, journals, or achievements."
+                or "Updates automatically while open. Changes made elsewhere (e.g. another device) need a resync.",
             COL_GREEN,
             iconObjId
         )
     elseif s.cached then
         self:showRowTooltip(
-            name .. ": Cached - resync recommended",
-            "Using counts saved from a previous session. " .. contents,
+            name .. ": Cached",
+            "Using data saved from a previous session. " .. contents,
             openHint .. " Counts may be out of date if changed on another device.",
             COL_AMBER,
             iconObjId
@@ -1802,7 +1803,7 @@ function Window:onHoverSyncBadge(badgeKind)
     else
         self:showRowTooltip(
             name .. ": Not synced",
-            "No data yet - " .. name .. " contents are not being counted.",
+            "No data yet - " .. (isBoard and "collections have not been synced." or (name .. " contents are not being counted.")),
             openHint,
             COL_RED,
             iconObjId
@@ -1863,7 +1864,7 @@ function Window:onHoverCollectionRow(rowIdx)
 
     for _, a in ipairs(prog.artefacts or {}) do
         if a.isReady then
-            table.insert(details, string.format("  [✓] %s: Ready (%d in Bag/Bank)", a.name, a.restoredCount))
+            table.insert(details, string.format("  [+] %s: Ready (%d in Bag/Bank)", a.name, a.restoredCount))
         elseif a.damagedCount > 0 then
             table.insert(details, string.format("  [-] %s: Damaged (%d in Bag/Bank)", a.name, a.damagedCount))
         else
@@ -1991,13 +1992,10 @@ function Window:updateToolbarLayout(forceReflow)
         self.btnTabArtefacts.setBounds(8 + tabW + gap, 6, tabW, 26)
         self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 6, availW - (tabW * 2) - (gap * 2), 26)
 
-        -- Row 2: Contextual Control Toolbar + 2 Sync Status Badges at y = 36
+        -- Row 2: Contextual Control Toolbar + 3 Sync Status Badges at y = 36
         self.btnColFilter.setHidden(not isColTab)
         local hasTargets = self.tracker and self.tracker.hasTargetedCollections and self.tracker:hasTargetedCollections()
         self.btnClearTargets.setHidden(not isColTab or not hasTargets)
-        if self.btnSyncBoard then
-            self.btnSyncBoard.setHidden(not isColTab or hasTargets)
-        end
         self.btnPin.setHidden(not isArtTab)
         self.btnDupes.setHidden(not isArtTab)
         self.btnFilter.setHidden(not isMatTab)
@@ -2005,26 +2003,34 @@ function Window:updateToolbarLayout(forceReflow)
             self.btnSpots.setHidden(not isMatTab)
         end
 
-        local badgesTotalW = BADGE_W * 2 + gap
+        local badgesTotalW = BADGE_W * 3 + (gap * 2)
 
-        local totalBtnsW = math.max(240, availW - badgesTotalW - (gap * 3))
-        local w1 = math.floor(totalBtnsW * 0.35)
-        local w2 = math.floor(totalBtnsW * 0.33)
-        local w3 = totalBtnsW - (w1 + w2)
+        local totalBtnsW = math.max(180, availW - badgesTotalW - (gap * 3))
+
+        local isTwoBtns = isColTab and not hasTargets
+        local w1, w2, w3
+        if isTwoBtns then
+            w1 = math.floor((totalBtnsW - gap) * 0.5)
+            w2 = totalBtnsW - gap - w1
+            w3 = 0
+        else
+            w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
+            w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
+            w3 = totalBtnsW - (gap * 2) - (w1 + w2)
+        end
 
         local x1 = 8
         local x2 = x1 + w1 + gap
         local x3 = x2 + w2 + gap
-        local xStor = x3 + w3 + gap
+        local xStor = 8 + totalBtnsW + gap
         local xBank = xStor + BADGE_W + gap
+        local xBoard = xBank + BADGE_W + gap
 
         self.btnSource.setBounds(x1, 36, w1, 26)
         if isColTab then
             self.btnColFilter.setBounds(x2, 36, w2, 26)
             if hasTargets then
                 self.btnClearTargets.setBounds(x3, 36, w3, 26)
-            elseif self.btnSyncBoard then
-                self.btnSyncBoard.setBounds(x3, 36, w3, 26)
             end
         elseif isArtTab then
             self.btnDupes.setBounds(x2, 36, w2, 26)
@@ -2041,6 +2047,9 @@ function Window:updateToolbarLayout(forceReflow)
         end
         if self.badgeBank then
             self.badgeBank.setBounds(xBank, 36, BADGE_W, 26)
+        end
+        if self.badgeBoard then
+            self.badgeBoard.setBounds(xBoard, 36, BADGE_W, 26)
         end
 
     end
@@ -2285,6 +2294,10 @@ function Window:refresh()
         self.badgeBank.setState(getBadgeState(syncStatus.bank))
         self.badgeBank.setIcon(BANK_ICON_OBJ_ID)
     end
+    if self.badgeBoard then
+        self.badgeBoard.setState(getBadgeState(syncStatus.board))
+        self.badgeBoard.setIcon(49429)
+    end
 
     -- 3. Update Artefact & Deficit Summary Card
     if isColTab then
@@ -2390,11 +2403,11 @@ function Window:refresh()
                 if prog.isCompleted then
                     rowUI.doneBtnBg.colour = makeColour(0.12, 0.35, 0.16, 0.9)
                     rowUI.doneBtnTxt.colour = COL_GREEN
-                    rowUI.doneBtnTxt.content = "✓ Done"
+                    rowUI.doneBtnTxt.content = "Done"
                 else
                     rowUI.doneBtnBg.colour = COL_BTN_STEP
                     rowUI.doneBtnTxt.colour = COL_MUTED
-                    rowUI.doneBtnTxt.content = "O Inc"
+                    rowUI.doneBtnTxt.content = "Todo"
                 end
 
                 -- Level
@@ -2409,16 +2422,16 @@ function Window:refresh()
                 rowUI.rewardTxt.hidden = false
                 if col.benefitType == "relic" then
                     rowUI.rewardTxt.colour = COL_CYAN
-                    rowUI.rewardTxt.content = "⚡ " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = "[Relic] " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif col.benefitType == "weapon" then
                     rowUI.rewardTxt.colour = COL_GOLD
-                    rowUI.rewardTxt.content = "⚔ " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = "[Weapon] " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif col.benefitType == "mystery" then
                     rowUI.rewardTxt.colour = COL_AMBER
-                    rowUI.rewardTxt.content = "⭐ " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = "[Mystery] " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif col.benefitType == "tetra" then
                     rowUI.rewardTxt.colour = COL_CREAM
-                    rowUI.rewardTxt.content = "🧩 " .. (col.recurringReward ~= "" and col.recurringReward or "Tetracompass piece")
+                    rowUI.rewardTxt.content = "[Tetra] " .. (col.recurringReward ~= "" and col.recurringReward or "Tetracompass piece")
                 else
                     rowUI.rewardTxt.colour = COL_MUTED
                     local rew = col.chronotes ~= "" and col.chronotes or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
@@ -2429,7 +2442,7 @@ function Window:refresh()
                 rowUI.readyTxt.hidden = false
                 if prog.isReady then
                     rowUI.readyTxt.colour = COL_GREEN
-                    rowUI.readyTxt.content = "✓ Ready!"
+                    rowUI.readyTxt.content = "Ready!"
                 else
                     rowUI.readyTxt.colour = (prog.readyCount > 0) and COL_CREAM or COL_MUTED
                     rowUI.readyTxt.content = string.format("%d / %d Ready", prog.readyCount, prog.totalCount)

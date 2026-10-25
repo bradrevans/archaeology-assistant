@@ -195,6 +195,7 @@ function Tracker.new()
     self.bankIconObjId = 995
     self.storageSyncedLive = false
     self.bankSyncedLive = false
+    self.boardSyncedLive = false
 
     -- If storage was falsely populated with an exact duplicate copy of Bank, purge it
     local isBankDuplicate = (storEntries > 0 and bankEntries > 0)
@@ -215,6 +216,7 @@ function Tracker.new()
 
     self.storageHasCache = (storEntries > 0)
     self.bankHasCache = (bankEntries > 0)
+    self.boardHasCache = (countMapEntries(self.completedCollections) > 0)
     self.lastAction = nil
 
     -- Computed state for UI consumption
@@ -232,6 +234,9 @@ function Tracker.new()
         totalMaterialsShort = 0
     }
 
+    -- Check if achievements are already available for free sync
+    pcall(function() self:syncCollectionsDoneStatus() end)
+
     return self
 end
 
@@ -239,12 +244,13 @@ function Tracker:getSourceMode()
     return Tracker.SOURCE_MODES[self.sourceModeIndex] or Tracker.SOURCE_MODES[1]
 end
 
--- Returns structured sync status for Material Storage and Bank icon badges/tooltips
+-- Returns structured sync status for Material Storage, Bank, and Collector Board icon badges/tooltips
 function Tracker:getSyncStatus()
     local mode = self:getSourceMode()
     local storEntries = countMapEntries(self.storageMaterials)
     local bankMatEntries = countMapEntries(self.bankMaterials)
     local bankArtEntries = countMapEntries(self.bankArtefacts)
+    local boardEntries = countMapEntries(self.completedCollections)
 
     return {
         storage = {
@@ -259,6 +265,12 @@ function Tracker:getSyncStatus()
             enabled = (mode.useBank == true) or (mode.id ~= "BAG_ONLY"),
             matTypes = bankMatEntries,
             artTypes = bankArtEntries
+        },
+        board = {
+            synced = self.boardSyncedLive == true,
+            cached = (not self.boardSyncedLive) and (self.boardHasCache or boardEntries > 0),
+            enabled = true,
+            completedCount = boardEntries
         }
     }
 end
@@ -852,12 +864,14 @@ function Tracker:syncCollectionsDoneStatus()
     local syncedCount = 0
     if not Collections or not Collections.LIST then return 0 end
 
+    local hasValidAchievementData = false
     for _, col in ipairs(Collections.LIST) do
         local achId = col.achievementId
         if achId and achId > 0 then
             if config and config.Achievement and config.Achievement.FromID then
                 local ok, ach = pcall(config.Achievement.FromID, achId)
-                if ok and ach then
+                if ok and ach and type(ach.progress) == "number" then
+                    hasValidAchievementData = true
                     -- AchievementProgressType.COMPLETE is -2 (or 1 in some boolean states)
                     if ach.progress == -2 or ach.progress == 1 then
                         if not self.completedCollections[col.name] then
@@ -868,6 +882,11 @@ function Tracker:syncCollectionsDoneStatus()
                 end
             end
         end
+    end
+
+    if hasValidAchievementData then
+        self.boardSyncedLive = true
+        self.boardHasCache = true
     end
 
     if syncedCount > 0 then
@@ -891,8 +910,14 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "storage"
     end
 
-    if string.find(fLower, "collector") or string.find(fLower, "noticeboard") or string.find(fLower, "journal") or string.find(fLower, "collection") or string.find(vLower, "collector") then
+    if string.find(fLower, "collector") or string.find(fLower, "noticeboard")
+        or string.find(fLower, "journal") or string.find(fLower, "collection")
+        or string.find(vLower, "collector") or string.find(fLower, "contribute")
+        or string.find(vLower, "contribute") then
+        self.boardSyncedLive = true
+        self.boardHasCache = true
         self:syncCollectionsDoneStatus()
+        self:recalculate()
     end
 end
 
