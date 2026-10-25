@@ -140,9 +140,11 @@ end
 function Tracker.new()
     local self = setmetatable({}, Tracker)
 
-    -- All three filter/source toggles default to "All" (Src: All, Dupes: All, Show: All)
+    -- All filter/source toggles default to "All" (Src: All, Dupes: All, Show: All)
     self.sourceModeIndex = 1
-    self.includeDuplicates = true
+    self.includeMode = safeDbGet("arch_include_mode", "ALL") -- "ALL" | "ONE" | "ZERO"
+    self.includeDuplicates = (self.includeMode == "ALL")
+    self.artefactFilter = safeDbGet("arch_art_filter", "ALL") -- "ALL" | "TARGETED" | "OWNED"
     self.shortOnly = false
 
     local savedPinned = safeDbGet("arch_is_pinned", 0)
@@ -285,18 +287,73 @@ function Tracker:hasCustomCounts()
     return countMapEntries(self.customArtefactCounts) > 0
 end
 
-function Tracker:toggleDuplicates()
-    if self:hasCustomCounts() then
-        -- Reset any per-artefact +/- overrides back to clean All mode
-        self.customArtefactCounts = {}
+-- Cycles inclusion mode: Dupes: All -> Dupes: 1x -> Include: 0 -> Dupes: All
+-- Switching to All or 1x cleanly re-includes previously excluded artefacts
+function Tracker:cycleDuplicates()
+    if self:hasCustomCounts() or countMapEntries(self.excludedArtefacts) > 0 then
+        -- Reset any custom +/- overrides or manual exclusions back to clean All mode
+        self.includeMode = "ALL"
         self.includeDuplicates = true
+        self.excludedArtefacts = {}
+        self.customArtefactCounts = {}
+    elseif self.includeMode == "ALL" then
+        self.includeMode = "ONE"
+        self.includeDuplicates = false
+        self.excludedArtefacts = {}
+        self.customArtefactCounts = {}
+    elseif self.includeMode == "ONE" then
+        self.includeMode = "ZERO"
+        self.includeDuplicates = false
+        self.excludedArtefacts = {}
+        self.customArtefactCounts = {}
     else
-        self.includeDuplicates = not self.includeDuplicates
+        self.includeMode = "ALL"
+        self.includeDuplicates = true
+        self.excludedArtefacts = {}
         self.customArtefactCounts = {}
     end
+    safeDbSet("arch_include_mode", self.includeMode)
     safeDbSet("arch_include_dupes", self.includeDuplicates and 1 or 0)
+    safeDbSet("arch_excluded_artefacts", "")
     safeDbSet("arch_custom_art_counts", "")
     return self:recalculate()
+end
+
+function Tracker:toggleDuplicates()
+    return self:cycleDuplicates()
+end
+
+-- Cycles Artefact source filter: All -> Targeted Only -> Owned Only -> All
+function Tracker:cycleArtefactFilter()
+    if self.artefactFilter == "ALL" then
+        self.artefactFilter = "TARGETED"
+    elseif self.artefactFilter == "TARGETED" then
+        self.artefactFilter = "OWNED"
+    else
+        self.artefactFilter = "ALL"
+    end
+    safeDbSet("arch_art_filter", self.artefactFilter)
+    return self:recalculate()
+end
+
+function Tracker:getArtefactFilterLabel()
+    if self.artefactFilter == "TARGETED" then
+        return "Show: Tracked"
+    elseif self.artefactFilter == "OWNED" then
+        return "Show: Owned"
+    end
+    return "Show: All"
+end
+
+function Tracker:getDuplicatesLabel()
+    if self:hasCustomCounts() then
+        return "Dupes: Custom"
+    elseif self.includeMode == "ZERO" then
+        return "Include: 0"
+    elseif self.includeMode == "ONE" or not self.includeDuplicates then
+        return "Dupes: 1x"
+    end
+    return "Dupes: All"
 end
 
 function Tracker:toggleShortOnly()
@@ -322,7 +379,15 @@ end
 
 function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
     if not damagedName then return self.lastResult end
-    local defaultQty = self.includeDuplicates and math.max(1, tonumber(rawCount) or 1) or 1
+    local defaultQty
+    if self.includeMode == "ZERO" then
+        defaultQty = 0
+    elseif self.includeMode == "ONE" or not self.includeDuplicates then
+        defaultQty = 1
+    else
+        defaultQty = math.max(1, tonumber(rawCount) or 1)
+    end
+
     local currentQty
     if self.excludedArtefacts[damagedName] then
         currentQty = 0
@@ -345,6 +410,42 @@ function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
 
     safeDbSet("arch_excluded_artefacts", serializeCountMap(self.excludedArtefacts))
     safeDbSet("arch_custom_art_counts", serializeCountMap(self.customArtefactCounts))
+    return self:recalculate()
+end
+
+-- Completely wipes all persistent storage caches, completions, and custom settings back to pristine state
+function Tracker:clearAllCache()
+    self.storageMaterials = {}
+    self.bankMaterials = {}
+    self.bankArtefacts = {}
+    self.bankRestored = {}
+    self.completedCollections = {}
+    self.targetedCollections = {}
+    self.excludedArtefacts = {}
+    self.customArtefactCounts = {}
+    self.pinnedArtefactCounts = {}
+    self.isPinned = false
+    self.storageSyncedLive = false
+    self.bankSyncedLive = false
+    self.boardSyncedLive = false
+    self.storageHasCache = false
+    self.bankHasCache = false
+    self.boardHasCache = false
+
+    safeDbSet("arch_storage_materials", "")
+    safeDbSet("arch_storage_synced", 0)
+    safeDbSet("arch_storage_inv_id", -1)
+    safeDbSet("arch_bank_materials", "")
+    safeDbSet("arch_bank_artefacts", "")
+    safeDbSet("arch_bank_restored", "")
+    safeDbSet("arch_bank_inv_id", -1)
+    safeDbSet("arch_completed_collections", "")
+    safeDbSet("arch_targeted_collections", "")
+    safeDbSet("arch_excluded_artefacts", "")
+    safeDbSet("arch_custom_art_counts", "")
+    safeDbSet("arch_pinned_artefacts", "")
+    safeDbSet("arch_is_pinned", 0)
+
     return self:recalculate()
 end
 
@@ -1050,13 +1151,29 @@ function Tracker:recalculate(triggerInvType)
     for damagedName, info in pairs(combinedArts) do
         local rawCount = info.rawCount or 0
         local minTarget = (info.neededToRestore and info.neededToRestore > 0) and info.neededToRestore or 0
-        if rawCount > 0 or minTarget > 0 then
+
+        -- Apply Artefact Source Filter (All / Tracked / Owned)
+        local keep = true
+        if self.artefactFilter == "TARGETED" then
+            keep = (info.colTarget and info.colTarget > 0)
+        elseif self.artefactFilter == "OWNED" then
+            keep = ((info.inBag or 0) + (info.inBank or 0)) > 0
+        end
+
+        if keep and (rawCount > 0 or minTarget > 0) then
             local art = Artefacts.findByName(damagedName)
             if art then
                 uniqueArtefacts = uniqueArtefacts + 1
                 local isExcluded = (self.excludedArtefacts[art.damagedName] ~= nil)
-                local defaultQty = self.includeDuplicates and rawCount or 1
-                if minTarget > defaultQty then
+                local defaultQty
+                if self.includeMode == "ZERO" then
+                    defaultQty = 0
+                elseif self.includeMode == "ONE" or not self.includeDuplicates then
+                    defaultQty = 1
+                else
+                    defaultQty = math.max(1, rawCount)
+                end
+                if self.includeMode ~= "ZERO" and minTarget > defaultQty then
                     defaultQty = minTarget
                 end
                 local targetCount = self.customArtefactCounts[art.damagedName] or defaultQty

@@ -9,6 +9,7 @@ Artefacts.LIST = {
         name = "Centurion's dress sword",
         damagedName = "Centurion's dress sword (damaged)",
         level = 1,
+        location = "Centurion remains (Archaeology Guild)",
         xp = 250,
         chronotes = 0,
         materials = { { name = "Imperial iron", count = 5 }, { name = "Purpleheart wood", count = 5 } }
@@ -18,6 +19,7 @@ Artefacts.LIST = {
         name = "Venator dagger",
         damagedName = "Venator dagger (damaged)",
         level = 5,
+        location = "Venator remains (Kharid-et)",
         xp = 305.1,
         chronotes = 206,
         materials = { { name = "Third Age iron", count = 16 }, { name = "Zarosian insignia", count = 12 } }
@@ -27,6 +29,7 @@ Artefacts.LIST = {
         name = "Venator light crossbow",
         damagedName = "Venator light crossbow (damaged)",
         level = 5,
+        location = "Venator remains (Kharid-et)",
         xp = 305.1,
         chronotes = 206,
         materials = { { name = "Third Age iron", count = 12 }, { name = "Zarosian insignia", count = 16 } }
@@ -36,6 +39,7 @@ Artefacts.LIST = {
         name = "Centurion's seal",
         damagedName = "Centurion's seal (damaged)",
         level = 12,
+        location = "Centurion remains (Guild)",
         xp = 430.8,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 6 }, { name = "Zarosian insignia", count = 2 } }
@@ -45,6 +49,7 @@ Artefacts.LIST = {
         name = "Primis Elementis standard",
         damagedName = "Primis Elementis standard (damaged)",
         level = 12,
+        location = "Legionary remains (Kharid-et)",
         xp = 430.8,
         chronotes = 220,
         materials = { { name = "Samite silk", count = 16 }, { name = "Third Age iron", count = 12 } }
@@ -54,6 +59,7 @@ Artefacts.LIST = {
         name = "Legionary gladius",
         damagedName = "Legionary gladius (damaged)",
         level = 12,
+        location = "Legionary remains (Kharid-et)",
         xp = 430.8,
         chronotes = 220,
         materials = { { name = "Third Age iron", count = 10 }, { name = "Zarosian insignia", count = 6 }, { name = "Imperial steel", count = 12 } }
@@ -63,6 +69,7 @@ Artefacts.LIST = {
         name = "Legionary square shield",
         damagedName = "Legionary square shield (damaged)",
         level = 12,
+        location = "Legionary remains (Kharid-et)",
         xp = 430.8,
         chronotes = 220,
         materials = { { name = "Third Age iron", count = 8 }, { name = "Zarosian insignia", count = 8 }, { name = "Imperial steel", count = 12 } }
@@ -72,6 +79,7 @@ Artefacts.LIST = {
         name = "Zaros effigy",
         damagedName = "Zaros effigy (damaged)",
         level = 17,
+        location = "Castra debris (Kharid-et)",
         xp = 520.5,
         chronotes = 244,
         materials = { { name = "Samite silk", count = 8 }, { name = "White oak", count = 10 }, { name = "Zarosian insignia", count = 12 } }
@@ -81,6 +89,7 @@ Artefacts.LIST = {
         name = "Zarosian training dummy",
         damagedName = "Zarosian training dummy (damaged)",
         level = 17,
+        location = "Castra debris (Kharid-et)",
         xp = 520.5,
         chronotes = 244,
         materials = { { name = "Third Age iron", count = 16 }, { name = "White oak", count = 14 } }
@@ -90,6 +99,7 @@ Artefacts.LIST = {
         name = "Hookah pipe",
         damagedName = "Hookah pipe (damaged)",
         level = 20,
+        location = "Lodge bar storage (Infernal Source)",
         xp = 574.4,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 10 }, { name = "Goldrune", count = 12 }, { name = "Orthenglass", count = 8 } }
@@ -99,6 +109,7 @@ Artefacts.LIST = {
         name = "Opulent wine goblet",
         damagedName = "Opulent wine goblet (damaged)",
         level = 20,
+        location = "Lodge bar storage (Infernal Source)",
         xp = 574.4,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 14 }, { name = "Goldrune", count = 16 } }
@@ -108,6 +119,7 @@ Artefacts.LIST = {
         name = "Crest of Dagon",
         damagedName = "Crest of Dagon (damaged)",
         level = 24,
+        location = "Lodge art storage (Infernal Source)",
         xp = 646.2,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 14 }, { name = "Orthenglass", count = 18 } }
@@ -117,6 +129,7 @@ Artefacts.LIST = {
         name = "'Disorder' painting",
         damagedName = "'Disorder' painting (damaged)",
         level = 24,
+        location = "Lodge art storage (Infernal Source)",
         xp = 646.2,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 6 }, { name = "White oak", count = 6 }, { name = "Vellum", count = 6 }, { name = "Cadmium red", count = 14 } }
@@ -126,6 +139,7 @@ Artefacts.LIST = {
         name = "Legatus Maximus figurine",
         damagedName = "Legatus Maximus figurine (damaged)",
         level = 25,
+        location = "Administratum debris (Kharid-et)",
         xp = 664.1,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 8 }, { name = "Zarosian insignia", count = 14 }, { name = "Ancient vis", count = 10 } }
@@ -135,6 +149,7 @@ Artefacts.LIST = {
         name = "'Solem in Umbra' painting",
         damagedName = "'Solem in Umbra' painting (damaged)",
         level = 25,
+        location = "Administratum debris (Kharid-et)",
         xp = 664.1,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 8 }, { name = "White oak", count = 10 }, { name = "Tyrian purple", count = 14 } }
@@ -144,6 +159,7 @@ Artefacts.LIST = {
         name = "Imp mask",
         damagedName = "Imp mask (damaged)",
         level = 29,
+        location = "Cultist footlocker (Infernal Source)",
         xp = 735.9,
         chronotes = 0,
         materials = { { name = "Leather scraps", count = 10 }, { name = "Chaotic brimstone", count = 10 }, { name = "Demonhide", count = 12 } }
@@ -153,6 +169,7 @@ Artefacts.LIST = {
         name = "Lesser demon mask",
         damagedName = "Lesser demon mask (damaged)",
         level = 29,
+        location = "Cultist footlocker (Infernal Source)",
         xp = 735.9,
         chronotes = 0,
         materials = { { name = "Leather scraps", count = 6 }, { name = "Chaotic brimstone", count = 8 }, { name = "Demonhide", count = 12 }, { name = "Cadmium red", count = 6 } }
@@ -162,6 +179,7 @@ Artefacts.LIST = {
         name = "Greater demon mask",
         damagedName = "Greater demon mask (damaged)",
         level = 29,
+        location = "Cultist footlocker (Infernal Source)",
         xp = 735.9,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 6 }, { name = "Leather scraps", count = 6 }, { name = "Chaotic brimstone", count = 8 }, { name = "Demonhide", count = 12 } }
@@ -171,6 +189,7 @@ Artefacts.LIST = {
         name = "Teleportation crystal",
         damagedName = "Teleportation crystal (damaged)",
         level = 30,
+        location = "Crystallised rubble",
         xp = 233.3,
         chronotes = 200,
         materials = { { name = "Orthenglass", count = 20 } }
@@ -180,6 +199,7 @@ Artefacts.LIST = {
         name = "Order of Dis robes",
         damagedName = "Order of Dis robes (damaged)",
         level = 36,
+        location = "Sacrificial altar (Infernal Source)",
         xp = 861.5,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 16 }, { name = "Cadmium red", count = 10 }, { name = "Eye of Dagon", count = 14 } }
@@ -189,6 +209,7 @@ Artefacts.LIST = {
         name = "Ritual dagger",
         damagedName = "Ritual dagger (damaged)",
         level = 36,
+        location = "Sacrificial altar (Infernal Source)",
         xp = 861.5,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 16 }, { name = "Hellfire metal", count = 24 }, { name = "Ruby", count = 1 } }
@@ -198,6 +219,7 @@ Artefacts.LIST = {
         name = "'Frying pan'",
         damagedName = "'Frying pan' (damaged)",
         level = 42,
+        location = "Prodromoi remains (Everlight)",
         xp = 1073.3,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 20 }, { name = "White marble", count = 24 } }
@@ -207,6 +229,7 @@ Artefacts.LIST = {
         name = "Hallowed lantern",
         damagedName = "Hallowed lantern (damaged)",
         level = 42,
+        location = "Prodromoi remains (Everlight)",
         xp = 1073.3,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 20 }, { name = "Keramos", count = 24 }, { name = "White candle", count = 1 } }
@@ -216,6 +239,7 @@ Artefacts.LIST = {
         name = "Branding iron",
         damagedName = "Branding iron (damaged)",
         level = 45,
+        location = "Dis dungeon debris (Infernal Source)",
         xp = 1283.3,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 14 }, { name = "Eye of Dagon", count = 12 }, { name = "Hellfire metal", count = 20 } }
@@ -225,6 +249,7 @@ Artefacts.LIST = {
         name = "Manacles",
         damagedName = "Manacles (damaged)",
         level = 45,
+        location = "Dis dungeon debris (Infernal Source)",
         xp = 1283.3,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 14 }, { name = "Chaotic brimstone", count = 18 }, { name = "Eye of Dagon", count = 14 } }
@@ -234,6 +259,7 @@ Artefacts.LIST = {
         name = "Ancient timepiece",
         damagedName = "Ancient timepiece (damaged)",
         level = 47,
+        location = "Praesidio remains (Kharid-et)",
         xp = 1423.3,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 12 }, { name = "Imperial steel", count = 16 }, { name = "Ancient vis", count = 18 } }
@@ -243,6 +269,7 @@ Artefacts.LIST = {
         name = "Legatus pendant",
         damagedName = "Legatus pendant (damaged)",
         level = 47,
+        location = "Praesidio remains (Kharid-et)",
         xp = 1423.3,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 16 }, { name = "Goldrune", count = 18 }, { name = "Ancient vis", count = 12 }, { name = "Dragonstone", count = 1 } }
@@ -252,6 +279,7 @@ Artefacts.LIST = {
         name = "Ceremonial unicorn ornament",
         damagedName = "Ceremonial unicorn ornament (damaged)",
         level = 48,
+        location = "Monoceros remains (Everlight)",
         xp = 1493.3,
         chronotes = 0,
         materials = { { name = "Keramos", count = 26 }, { name = "Cobalt blue", count = 20 } }
@@ -261,6 +289,7 @@ Artefacts.LIST = {
         name = "Ceremonial unicorn saddle",
         damagedName = "Ceremonial unicorn saddle (damaged)",
         level = 48,
+        location = "Monoceros remains (Everlight)",
         xp = 1493.3,
         chronotes = 0,
         materials = { { name = "Leather scraps", count = 24 }, { name = "Cobalt blue", count = 22 } }
@@ -270,6 +299,7 @@ Artefacts.LIST = {
         name = "Dragonkin device",
         damagedName = "Dragonkin device (damaged)",
         level = 50,
+        location = "Dragonkin remains (Desperate Measures)",
         xp = 600,
         chronotes = 0,
         materials = { { name = "Orthenglass", count = 50 } }
@@ -279,6 +309,7 @@ Artefacts.LIST = {
         name = "Dragonkin tablet",
         damagedName = "Dragonkin tablet (damaged)",
         level = 50,
+        location = "Orthen rubble (Desperate Measures)",
         xp = 600,
         chronotes = 0,
         materials = { { name = "Orthenglass", count = 50 } }
@@ -288,6 +319,7 @@ Artefacts.LIST = {
         name = "Tetracompass (unpowered)",
         damagedName = "Tetracompass (unpowered) (damaged)",
         level = 50,
+        location = "Tetracompass rewards",
         xp = 2065,
         chronotes = 0,
         materials = { { name = "Tetracompass piece (left)", count = 1 }, { name = "Tetracompass piece (right)", count = 1 }, { name = "Tetracompass piece (dial)", count = 1 }, { name = "Tetracompass piece (needle)", count = 1 }, { name = "Malachite green", count = 30 }, { name = "Cadmium red", count = 30 }, { name = "Cobalt blue", count = 30 }, { name = "Armadylean yellow", count = 30 }, { name = "Tyrian purple", count = 30 } }
@@ -297,6 +329,7 @@ Artefacts.LIST = {
         name = "Everlight harp",
         damagedName = "Everlight harp (damaged)",
         level = 51,
+        location = "Amphitheatre debris (Everlight)",
         xp = 1703.3,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 30 }, { name = "White oak", count = 22 } }
@@ -306,6 +339,7 @@ Artefacts.LIST = {
         name = "Everlight trumpet",
         damagedName = "Everlight trumpet (damaged)",
         level = 51,
+        location = "Amphitheatre debris (Everlight)",
         xp = 1703.3,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 28 }, { name = "Goldrune", count = 24 } }
@@ -315,6 +349,7 @@ Artefacts.LIST = {
         name = "Everlight violin",
         damagedName = "Everlight violin (damaged)",
         level = 51,
+        location = "Amphitheatre debris (Everlight)",
         xp = 1703.3,
         chronotes = 0,
         materials = { { name = "Star of Saradomin", count = 16 }, { name = "White oak", count = 20 }, { name = "Samite silk", count = 16 } }
@@ -324,6 +359,7 @@ Artefacts.LIST = {
         name = "Lunar calendar",
         damagedName = "Lunar calendar (damaged)",
         level = 52,
+        location = "Lunar wheel debris (Moonrise)",
         xp = 1773.3,
         chronotes = 0,
         materials = { { name = "Banded limestone", count = 28 }, { name = "Triskelion", count = 24 } }
@@ -333,6 +369,7 @@ Artefacts.LIST = {
         name = "Wolf statuette",
         damagedName = "Wolf statuette (damaged)",
         level = 52,
+        location = "Lunar wheel debris (Moonrise)",
         xp = 1773.3,
         chronotes = 0,
         materials = { { name = "Banded limestone", count = 26 }, { name = "Ivory", count = 26 } }
@@ -342,6 +379,7 @@ Artefacts.LIST = {
         name = "Ivory sickle",
         damagedName = "Ivory sickle (damaged)",
         level = 52,
+        location = "Lunar wheel debris (Moonrise)",
         xp = 1773.3,
         chronotes = 0,
         materials = { { name = "Ivory", count = 28 }, { name = "Triskelion", count = 24 } }
@@ -351,6 +389,7 @@ Artefacts.LIST = {
         name = "Folded-arm figurine (female)",
         damagedName = "Folded-arm figurine (female)(damaged)",
         level = 56,
+        location = "Archaeology",
         xp = 2053.3,
         chronotes = 0,
         materials = { { name = "White marble", count = 30 }, { name = "Goldrune", count = 24 } }
@@ -360,6 +399,7 @@ Artefacts.LIST = {
         name = "Folded-arm figurine (male)",
         damagedName = "Folded-arm figurine (male)(damaged)",
         level = 56,
+        location = "Archaeology",
         xp = 2053.3,
         chronotes = 0,
         materials = { { name = "White marble", count = 30 }, { name = "Goldrune", count = 24 } }
@@ -369,6 +409,7 @@ Artefacts.LIST = {
         name = "'Incite Fear' spell scroll",
         damagedName = "'Incite Fear' spell scroll (damaged)",
         level = 58,
+        location = "Carcerem debris (Kharid-et)",
         xp = 2193.3,
         chronotes = 0,
         materials = { { name = "Vellum", count = 20 }, { name = "Ancient vis", count = 18 }, { name = "Blood of Orcus", count = 18 } }
@@ -378,6 +419,7 @@ Artefacts.LIST = {
         name = "Pontifex signet ring",
         damagedName = "Pontifex signet ring (damaged)",
         level = 58,
+        location = "Carcerem debris (Kharid-et)",
         xp = 2193.3,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 16 }, { name = "Goldrune", count = 18 }, { name = "Ancient vis", count = 22 }, { name = "Dragonstone", count = 1 } }
@@ -387,6 +429,7 @@ Artefacts.LIST = {
         name = "Nakkirian seal",
         damagedName = "Nakkirian seal (damaged)",
         level = 59,
+        location = "Arbour rubble (Moonrise)",
         xp = 2263.3,
         chronotes = 0,
         materials = { { name = "Ivory", count = 34 }, { name = "White oak", count = 28 }, { name = "Soft clay", count = 1 } }
@@ -396,6 +439,7 @@ Artefacts.LIST = {
         name = "Royal Game of Ba",
         damagedName = "Royal Game of Ba (damaged)",
         level = 59,
+        location = "Arbour rubble (Moonrise)",
         xp = 2263.3,
         chronotes = 0,
         materials = { { name = "White oak", count = 32 }, { name = "Triskelion", count = 30 } }
@@ -405,6 +449,7 @@ Artefacts.LIST = {
         name = "Apex cap",
         damagedName = "Apex cap (damaged)",
         level = 60,
+        location = "Ministry remains (Senntisten)",
         xp = 2333.3,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 28 }, { name = "Leather scraps", count = 12 }, { name = "Ancient vis", count = 20 } }
@@ -414,6 +459,7 @@ Artefacts.LIST = {
         name = "Curse tablet",
         damagedName = "Curse tablet (damaged)",
         level = 60,
+        location = "Ministry remains (Senntisten)",
         xp = 2333.3,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 16 }, { name = "Zarosian insignia", count = 12 }, { name = "Soapstone", count = 20 }, { name = "Blood of Orcus", count = 12 } }
@@ -423,6 +469,7 @@ Artefacts.LIST = {
         name = "Funerary urn of shadow",
         damagedName = "Funerary urn of shadow (damaged)",
         level = 60,
+        location = "Ministry remains (Senntisten)",
         xp = 2333.3,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 26 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
@@ -432,6 +479,7 @@ Artefacts.LIST = {
         name = "Dominion discus",
         damagedName = "Dominion discus (damaged)",
         level = 61,
+        location = "Stadio debris (Everlight)",
         xp = 2566.7,
         chronotes = 0,
         materials = { { name = "Keramos", count = 34 }, { name = "Star of Saradomin", count = 28 } }
@@ -441,6 +489,7 @@ Artefacts.LIST = {
         name = "Dominion javelin",
         damagedName = "Dominion javelin (damaged)",
         level = 61,
+        location = "Stadio debris (Everlight)",
         xp = 2566.7,
         chronotes = 0,
         materials = { { name = "Keramos", count = 32 }, { name = "Third Age iron", count = 30 } }
@@ -450,6 +499,7 @@ Artefacts.LIST = {
         name = "Dominion pelte shield",
         damagedName = "Dominion pelte shield (damaged)",
         level = 61,
+        location = "Stadio debris (Everlight)",
         xp = 2566.7,
         chronotes = 0,
         materials = { { name = "Star of Saradomin", count = 34 }, { name = "Samite silk", count = 28 } }
@@ -459,6 +509,7 @@ Artefacts.LIST = {
         name = "Infula robes",
         damagedName = "Infula robes (damaged)",
         level = 62,
+        location = "Cathedral debris (Senntisten)",
         xp = 2800,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 26 }, { name = "Leather scraps", count = 12 }, { name = "Goldrune", count = 12 }, { name = "Tyrian purple", count = 12 } }
@@ -468,6 +519,7 @@ Artefacts.LIST = {
         name = "Funerary urn of smoke",
         damagedName = "Funerary urn of smoke (damaged)",
         level = 62,
+        location = "Cathedral debris (Senntisten)",
         xp = 2800,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 28 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
@@ -477,6 +529,7 @@ Artefacts.LIST = {
         name = "Hand of the Ancients",
         damagedName = "Hand of the Ancients (damaged)",
         level = 62,
+        location = "Cathedral debris (Senntisten)",
         xp = 2800,
         chronotes = 0,
         materials = { { name = "Blood of Orcus", count = 12 }, { name = "White oak", count = 18 }, { name = "Ancient vis", count = 14 }, { name = "Goldrune", count = 18 } }
@@ -486,6 +539,7 @@ Artefacts.LIST = {
         name = "Decorative amphora",
         damagedName = "Decorative amphora (damaged)",
         level = 63,
+        location = "Marketplace debris (Senntisten)",
         xp = 3033.3,
         chronotes = 0,
         materials = { { name = "Tyrian purple", count = 16 }, { name = "Ancient vis", count = 18 }, { name = "Soapstone", count = 28 } }
@@ -495,6 +549,7 @@ Artefacts.LIST = {
         name = "Funerary urn of ice",
         damagedName = "Funerary urn of ice (damaged)",
         level = 63,
+        location = "Marketplace debris (Senntisten)",
         xp = 3033.3,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 28 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
@@ -504,6 +559,7 @@ Artefacts.LIST = {
         name = "Loarnab rod",
         damagedName = "Loarnab rod (damaged)",
         level = 63,
+        location = "Marketplace debris (Senntisten)",
         xp = 3033.3,
         chronotes = 0,
         materials = { { name = "White oak", count = 28 }, { name = "Blood of Orcus", count = 16 }, { name = "Imperial steel", count = 18 } }
@@ -513,6 +569,7 @@ Artefacts.LIST = {
         name = "Inquisitor's ceremonial armour",
         damagedName = "Inquisitor's ceremonial armour (damaged)",
         level = 64,
+        location = "Inquisitor remains (Senntisten)",
         xp = 3266.7,
         chronotes = 0,
         materials = { { name = "Leather scraps", count = 14 }, { name = "Samite silk", count = 30 }, { name = "Tyrian purple", count = 18 } }
@@ -522,6 +579,7 @@ Artefacts.LIST = {
         name = "Inquisitor's ceremonial mask",
         damagedName = "Inquisitor's ceremonial mask (damaged)",
         level = 64,
+        location = "Inquisitor remains (Senntisten)",
         xp = 3266.7,
         chronotes = 0,
         materials = { { name = "Ancient vis", count = 14 }, { name = "Leather scraps", count = 12 }, { name = "Blood of Orcus", count = 14 }, { name = "Samite silk", count = 22 } }
@@ -531,6 +589,7 @@ Artefacts.LIST = {
         name = "Inquisitor's seal",
         damagedName = "Inquisitor's seal (damaged)",
         level = 64,
+        location = "Inquisitor remains (Senntisten)",
         xp = 3266.7,
         chronotes = 0,
         materials = { { name = "Tyrian purple", count = 14 }, { name = "Zarosian insignia", count = 20 }, { name = "Ancient vis", count = 14 }, { name = "Goldrune", count = 14 } }
@@ -540,6 +599,7 @@ Artefacts.LIST = {
         name = "'The Lake of Fire' painting",
         damagedName = "'The Lake of Fire' painting (damaged)",
         level = 65,
+        location = "Infernal art (Infernal Source)",
         xp = 3500,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 10 }, { name = "White oak", count = 10 }, { name = "Vellum", count = 10 }, { name = "Cadmium red", count = 34 } }
@@ -549,6 +609,7 @@ Artefacts.LIST = {
         name = "'Lust' metal sculpture",
         damagedName = "'Lust' metal sculpture (damaged)",
         level = 65,
+        location = "Infernal art (Infernal Source)",
         xp = 3500,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 16 }, { name = "Eye of Dagon", count = 24 }, { name = "Goldrune", count = 24 }, { name = "Ruby", count = 1 } }
@@ -558,6 +619,7 @@ Artefacts.LIST = {
         name = "Backstrap loom",
         damagedName = "Backstrap loom (damaged)",
         level = 66,
+        location = "Weaver's hut debris (Moonrise)",
         xp = 3733.3,
         chronotes = 0,
         materials = { { name = "White oak", count = 30 }, { name = "Burnt umber", count = 18 }, { name = "Cashmere", count = 16 } }
@@ -567,6 +629,7 @@ Artefacts.LIST = {
         name = "Animal doll",
         damagedName = "Animal doll (damaged)",
         level = 66,
+        location = "Weaver's hut debris (Moonrise)",
         xp = 3733.3,
         chronotes = 0,
         materials = { { name = "Cashmere", count = 24 }, { name = "White oak", count = 24 }, { name = "Ivory", count = 16 } }
@@ -576,6 +639,7 @@ Artefacts.LIST = {
         name = "Initiate's kaunake",
         damagedName = "Initiate's kaunake (damaged)",
         level = 66,
+        location = "Weaver's hut debris (Moonrise)",
         xp = 3733.3,
         chronotes = 0,
         materials = { { name = "Cashmere", count = 30 }, { name = "Burnt umber", count = 20 }, { name = "Leather scraps", count = 14 } }
@@ -585,6 +649,7 @@ Artefacts.LIST = {
         name = "Gladiator helmet",
         damagedName = "Gladiator helmet (damaged)",
         level = 66,
+        location = "Gladiator remains (Senntisten)",
         xp = 3773.3,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 30 }, { name = "Blood of Orcus", count = 16 }, { name = "Leather scraps", count = 18 } }
@@ -594,6 +659,7 @@ Artefacts.LIST = {
         name = "Gladiator sword",
         damagedName = "Gladiator sword (damaged)",
         level = 66,
+        location = "Gladiator remains (Senntisten)",
         xp = 3773.3,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 30 }, { name = "Goldrune", count = 18 }, { name = "Zarosian insignia", count = 16 } }
@@ -603,6 +669,7 @@ Artefacts.LIST = {
         name = "Funerary urn of blood",
         damagedName = "Funerary urn of blood (damaged)",
         level = 66,
+        location = "Gladiator remains (Senntisten)",
         xp = 3773.3,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 30 }, { name = "Tyrian purple", count = 14 }, { name = "Blood of Orcus", count = 20 } }
@@ -612,6 +679,7 @@ Artefacts.LIST = {
         name = "Funerary urn of miasma",
         damagedName = "Funerary urn of miasma (damaged)",
         level = 67,
+        location = "Citizen remains (Senntisten)",
         xp = 3966.7,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 30 }, { name = "Tyrian purple", count = 14 }, { name = "Ancient vis", count = 20 } }
@@ -621,6 +689,7 @@ Artefacts.LIST = {
         name = "Model chariot",
         damagedName = "Model chariot (damaged)",
         level = 67,
+        location = "Citizen remains (Senntisten)",
         xp = 3966.7,
         chronotes = 0,
         materials = { { name = "Vellum", count = 12 }, { name = "Imperial steel", count = 18 }, { name = "Goldrune", count = 20 }, { name = "Zarosian insignia", count = 14 } }
@@ -630,6 +699,7 @@ Artefacts.LIST = {
         name = "'The Serpent's Fall' carving",
         damagedName = "'The Serpent's Fall' carving (damaged)",
         level = 67,
+        location = "Citizen remains (Senntisten)",
         xp = 3966.7,
         chronotes = 0,
         materials = { { name = "Vellum", count = 16 }, { name = "Tyrian purple", count = 24 }, { name = "Blood of Orcus", count = 12 }, { name = "White oak", count = 12 } }
@@ -639,6 +709,7 @@ Artefacts.LIST = {
         name = "Chaos star",
         damagedName = "Chaos star (damaged)",
         level = 68,
+        location = "Shakroth remains (Infernal Source)",
         xp = 4200,
         chronotes = 0,
         materials = { { name = "Chaotic brimstone", count = 28 }, { name = "Hellfire metal", count = 36 } }
@@ -648,6 +719,7 @@ Artefacts.LIST = {
         name = "Spiked dog collar",
         damagedName = "Spiked dog collar (damaged)",
         level = 68,
+        location = "Shakroth remains (Infernal Source)",
         xp = 4200,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 24 }, { name = "Leather scraps", count = 24 }, { name = "Chaotic brimstone", count = 16 } }
@@ -657,6 +729,7 @@ Artefacts.LIST = {
         name = "Bronze Dominion medal",
         damagedName = "Bronze Dominion medal (damaged)",
         level = 69,
+        location = "Dominion Games podium (Everlight)",
         xp = 4433.3,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 36 }, { name = "Star of Saradomin", count = 26 }, { name = "Bronze bar", count = 1 } }
@@ -666,6 +739,7 @@ Artefacts.LIST = {
         name = "Silver Dominion medal",
         damagedName = "Silver Dominion medal (damaged)",
         level = 69,
+        location = "Dominion Games podium (Everlight)",
         xp = 4433.3,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 36 }, { name = "Star of Saradomin", count = 26 }, { name = "Silver bar", count = 1 } }
@@ -675,6 +749,7 @@ Artefacts.LIST = {
         name = "Dominion torch",
         damagedName = "Dominion torch (damaged)",
         level = 69,
+        location = "Dominion Games podium (Everlight)",
         xp = 4433.3,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 12 }, { name = "Orthenglass", count = 12 }, { name = "Everlight silvthril", count = 20 }, { name = "Star of Saradomin", count = 18 } }
@@ -684,6 +759,7 @@ Artefacts.LIST = {
         name = "Ikovian gerege",
         damagedName = "Ikovian gerege (damaged)",
         level = 70,
+        location = "Ikovian memorial (Stormguard Citadel)",
         xp = 4666.7,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 36 }, { name = "Wings of War", count = 30 } }
@@ -693,6 +769,7 @@ Artefacts.LIST = {
         name = "Toy glider",
         damagedName = "Toy glider (damaged)",
         level = 70,
+        location = "Ikovian memorial (Stormguard Citadel)",
         xp = 4666.7,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 36 }, { name = "White oak", count = 30 } }
@@ -702,6 +779,7 @@ Artefacts.LIST = {
         name = "Toy war golem",
         damagedName = "Toy war golem (damaged)",
         level = 70,
+        location = "Ikovian memorial (Stormguard Citadel)",
         xp = 4666.7,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 36 }, { name = "White oak", count = 30 }, { name = "Clockwork", count = 1 } }
@@ -711,6 +789,7 @@ Artefacts.LIST = {
         name = "Ceremonial dragonkin device",
         damagedName = "Ceremonial dragonkin device (damaged)",
         level = 70,
+        location = "Dragonkin remains (Orthen)",
         xp = 4666.7,
         chronotes = 0,
         materials = { { name = "Orthenglass", count = 66 } }
@@ -720,6 +799,7 @@ Artefacts.LIST = {
         name = "Decorative vase",
         damagedName = "Decorative vase (damaged)",
         level = 72,
+        location = "Oikos studio debris (Everlight)",
         xp = 5133.3,
         chronotes = 0,
         materials = { { name = "White marble", count = 36 }, { name = "Cobalt blue", count = 30 } }
@@ -729,6 +809,7 @@ Artefacts.LIST = {
         name = "Kantharos cup",
         damagedName = "Kantharos cup (damaged)",
         level = 72,
+        location = "Oikos studio debris (Everlight)",
         xp = 5133.3,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 30 }, { name = "Orthenglass", count = 36 }, { name = "Sapphire", count = 1 } }
@@ -738,6 +819,7 @@ Artefacts.LIST = {
         name = "Patera bowl",
         damagedName = "Patera bowl (damaged)",
         level = 72,
+        location = "Oikos studio debris (Everlight)",
         xp = 5133.3,
         chronotes = 0,
         materials = { { name = "Keramos", count = 36 }, { name = "Goldrune", count = 30 }, { name = "Sapphire", count = 1 } }
@@ -747,6 +829,7 @@ Artefacts.LIST = {
         name = "Castle gatestone",
         damagedName = "Castle gatestone (damaged)",
         level = 73,
+        location = "Castle hall rubble (Daemonheim)",
         xp = 5366.7,
         chronotes = 0,
         materials = { { name = "Orgone", count = 36 }, { name = "Orthenglass", count = 32 } }
@@ -756,6 +839,7 @@ Artefacts.LIST = {
         name = "Engraved ring of kinship",
         damagedName = "Engraved ring of kinship (damaged)",
         level = 73,
+        location = "Castle hall rubble (Daemonheim)",
         xp = 5366.7,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 28 }, { name = "Dragon metal", count = 40 } }
@@ -765,6 +849,7 @@ Artefacts.LIST = {
         name = "Ceremonial mace",
         damagedName = "Ceremonial mace (damaged)",
         level = 74,
+        location = "Kharid-et chapel debris (Kharid-et)",
         xp = 5600,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 20 }, { name = "Third Age iron", count = 20 }, { name = "Goldrune", count = 28 } }
@@ -774,6 +859,7 @@ Artefacts.LIST = {
         name = "Pontifex Maximus figurine",
         damagedName = "Pontifex Maximus figurine (damaged)",
         level = 74,
+        location = "Kharid-et chapel debris (Kharid-et)",
         xp = 5600,
         chronotes = 0,
         materials = { { name = "Zarosian insignia", count = 24 }, { name = "Ancient vis", count = 16 }, { name = "Goldrune", count = 28 }, { name = "Dragonstone", count = 1 } }
@@ -783,6 +869,7 @@ Artefacts.LIST = {
         name = "'Consensus ad Idem' painting",
         damagedName = "'Consensus ad Idem' painting (damaged)",
         level = 74,
+        location = "Kharid-et chapel debris (Kharid-et)",
         xp = 5600,
         chronotes = 0,
         materials = { { name = "White oak", count = 10 }, { name = "Samite silk", count = 10 }, { name = "Tyrian purple", count = 50 } }
@@ -792,6 +879,7 @@ Artefacts.LIST = {
         name = "Offering bowl",
         damagedName = "Offering bowl (damaged)",
         level = 75,
+        location = "Shrine debris (Moonrise)",
         xp = 5830,
         chronotes = 0,
         materials = { { name = "Banded limestone", count = 22 }, { name = "Triskelion", count = 20 }, { name = "Burnt umber", count = 20 } }
@@ -801,6 +889,7 @@ Artefacts.LIST = {
         name = "Incense burner",
         damagedName = "Incense burner (damaged)",
         level = 75,
+        location = "Shrine debris (Moonrise)",
         xp = 5830,
         chronotes = 0,
         materials = { { name = "Banded limestone", count = 24 }, { name = "White oak", count = 18 }, { name = "Cashmere", count = 20 } }
@@ -810,6 +899,7 @@ Artefacts.LIST = {
         name = "Wingsuit v1",
         damagedName = "Wingsuit v1 (damaged)",
         level = 76,
+        location = "Stormguard Citadel",
         xp = 10000,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 40 }, { name = "Leather scraps", count = 20 }, { name = "Stormguard steel", count = 9 }, { name = "Armadylean yellow", count = 1 } }
@@ -819,6 +909,7 @@ Artefacts.LIST = {
         name = "Avian song-egg player",
         damagedName = "Avian song-egg player (damaged)",
         level = 76,
+        location = "Keshik ger (Stormguard Citadel)",
         xp = 6066.7,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 36 }, { name = "Armadylean yellow", count = 32 }, { name = "Diamond", count = 1 } }
@@ -828,6 +919,7 @@ Artefacts.LIST = {
         name = "Keshik drum",
         damagedName = "Keshik drum (damaged)",
         level = 76,
+        location = "Keshik ger (Stormguard Citadel)",
         xp = 6066.7,
         chronotes = 0,
         materials = { { name = "Wings of War", count = 16 }, { name = "Animal furs", count = 16 }, { name = "White oak", count = 20 }, { name = "Leather scraps", count = 16 } }
@@ -837,6 +929,7 @@ Artefacts.LIST = {
         name = "Morin khuur",
         damagedName = "Morin khuur (damaged)",
         level = 76,
+        location = "Keshik ger (Stormguard Citadel)",
         xp = 6066.7,
         chronotes = 0,
         materials = { { name = "Armadylean yellow", count = 36 }, { name = "White oak", count = 32 } }
@@ -846,6 +939,7 @@ Artefacts.LIST = {
         name = "Ekeleshuun blinder mask",
         damagedName = "Ekeleshuun blinder mask (damaged)",
         level = 76,
+        location = "Gladiatorial goblin remains (Warforge)",
         xp = 6066.7,
         chronotes = 0,
         materials = { { name = "Vulcanised rubber", count = 24 }, { name = "Malachite green", count = 20 }, { name = "Vellum", count = 24 } }
@@ -855,6 +949,7 @@ Artefacts.LIST = {
         name = "Narogoshuun 'Hob-da-Gob' ball",
         damagedName = "Narogoshuun 'Hob-da-Gob' ball (damaged)",
         level = 76,
+        location = "Gladiatorial goblin remains (Warforge)",
         xp = 6066.7,
         chronotes = 0,
         materials = { { name = "Vulcanised rubber", count = 36 }, { name = "Mark of the Kyzaj", count = 32 } }
@@ -864,6 +959,7 @@ Artefacts.LIST = {
         name = "Rekeshuun war tether",
         damagedName = "Rekeshuun war tether (damaged)",
         level = 76,
+        location = "Gladiatorial goblin remains (Warforge)",
         xp = 6066.7,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 20 }, { name = "Vulcanised rubber", count = 22 }, { name = "Leather scraps", count = 26 } }
@@ -873,6 +969,7 @@ Artefacts.LIST = {
         name = "Exploratory totem",
         damagedName = "Exploratory totem (damaged)",
         level = 77,
+        location = "Tunnelling equipment repository (Daemonheim)",
         xp = 6300,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 34 }, { name = "Compass rose", count = 36 } }
@@ -882,6 +979,7 @@ Artefacts.LIST = {
         name = "Excavator portal mine",
         damagedName = "Excavator portal mine (damaged)",
         level = 77,
+        location = "Tunnelling equipment repository (Daemonheim)",
         xp = 6300,
         chronotes = 0,
         materials = { { name = "Orgone", count = 36 }, { name = "Orthenglass", count = 34 } }
@@ -891,6 +989,7 @@ Artefacts.LIST = {
         name = "Storage totem",
         damagedName = "Storage totem (damaged)",
         level = 78,
+        location = "Botanical reserve (Daemonheim)",
         xp = 6533.3,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 36 }, { name = "Compass rose", count = 34 } }
@@ -900,6 +999,7 @@ Artefacts.LIST = {
         name = "Plant seed satchel",
         damagedName = "Plant seed satchel (damaged)",
         level = 78,
+        location = "Botanical reserve (Daemonheim)",
         xp = 6533.3,
         chronotes = 0,
         materials = { { name = "Felt", count = 28 }, { name = "Carbon black", count = 28 }, { name = "Compass rose", count = 14 } }
@@ -909,6 +1009,7 @@ Artefacts.LIST = {
         name = "Snuff box",
         damagedName = "Snuff box (damaged)",
         level = 78,
+        location = "Botanical reserve (Daemonheim)",
         xp = 6533.3,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 20 }, { name = "Carbon black", count = 30 }, { name = "Felt", count = 20 } }
@@ -918,6 +1019,7 @@ Artefacts.LIST = {
         name = "Aviansie dreamcoat",
         damagedName = "Aviansie dreamcoat (damaged)",
         level = 81,
+        location = "Tailory debris (Stormguard Citadel)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Armadylean yellow", count = 20 }, { name = "Samite silk", count = 30 }, { name = "Animal furs", count = 22 } }
@@ -927,6 +1029,7 @@ Artefacts.LIST = {
         name = "Ceremonial plume",
         damagedName = "Ceremonial plume (damaged)",
         level = 81,
+        location = "Tailory debris (Stormguard Citadel)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Armadylean yellow", count = 38 }, { name = "Goldrune", count = 34 }, { name = "Phoenix feather", count = 1 } }
@@ -936,6 +1039,7 @@ Artefacts.LIST = {
         name = "Peacocking parasol",
         damagedName = "Peacocking parasol (damaged)",
         level = 81,
+        location = "Tailory debris (Stormguard Citadel)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Armadylean yellow", count = 22 }, { name = "Samite silk", count = 30 }, { name = "White oak", count = 20 } }
@@ -945,6 +1049,7 @@ Artefacts.LIST = {
         name = "Ogre Kyzaj axe",
         damagedName = "Ogre Kyzaj axe (damaged)",
         level = 81,
+        location = "Crucible stands debris (Warforge)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 28 }, { name = "Mark of the Kyzaj", count = 20 }, { name = "Fossilised bone", count = 24 } }
@@ -954,6 +1059,7 @@ Artefacts.LIST = {
         name = "Ork cleaver sword",
         damagedName = "Ork cleaver sword (damaged)",
         level = 81,
+        location = "Crucible stands debris (Warforge)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 36 }, { name = "Fossilised bone", count = 36 } }
@@ -963,6 +1069,7 @@ Artefacts.LIST = {
         name = "Larupia trophy",
         damagedName = "Larupia trophy (damaged)",
         level = 81,
+        location = "Animal trophies (Infernal Source)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Cadmium red", count = 18 }, { name = "Animal furs", count = 28 }, { name = "Orthenglass", count = 26 } }
@@ -972,6 +1079,7 @@ Artefacts.LIST = {
         name = "Lion trophy",
         damagedName = "Lion trophy (damaged)",
         level = 81,
+        location = "Animal trophies (Infernal Source)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Cadmium red", count = 18 }, { name = "Animal furs", count = 28 }, { name = "White oak", count = 26 } }
@@ -981,6 +1089,7 @@ Artefacts.LIST = {
         name = "She-wolf trophy",
         damagedName = "She-wolf trophy (damaged)",
         level = 81,
+        location = "Animal trophies (Infernal Source)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Chaotic brimstone", count = 26 }, { name = "Cadmium red", count = 18 }, { name = "Animal furs", count = 28 } }
@@ -990,6 +1099,7 @@ Artefacts.LIST = {
         name = "Pontifex censer",
         damagedName = "Pontifex censer (damaged)",
         level = 81,
+        location = "Pontifex remains (Kharid-et)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 20 }, { name = "Ancient vis", count = 20 }, { name = "Goldrune", count = 32 }, { name = "Dragonstone", count = 1 } }
@@ -999,6 +1109,7 @@ Artefacts.LIST = {
         name = "Pontifex crozier",
         damagedName = "Pontifex crozier (damaged)",
         level = 81,
+        location = "Pontifex remains (Kharid-et)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 20 }, { name = "Zarosian insignia", count = 20 }, { name = "Goldrune", count = 32 } }
@@ -1008,6 +1119,7 @@ Artefacts.LIST = {
         name = "Pontifex mitre",
         damagedName = "Pontifex mitre (damaged)",
         level = 81,
+        location = "Pontifex remains (Kharid-et)",
         xp = 7388.9,
         chronotes = 0,
         materials = { { name = "Samite silk", count = 32 }, { name = "Ancient vis", count = 20 }, { name = "Zarosian insignia", count = 20 } }
@@ -1017,6 +1129,7 @@ Artefacts.LIST = {
         name = "Bloodwine",
         damagedName = "Bloodwine (damaged)",
         level = 82,
+        location = "Cauldron debris (Moonrise)",
         xp = 7777.8,
         chronotes = 0,
         materials = { { name = "Leather scraps", count = 32 }, { name = "Triskelion", count = 20 }, { name = "Cashmere", count = 20 }, { name = "Grapes", count = 1 } }
@@ -1026,6 +1139,7 @@ Artefacts.LIST = {
         name = "Reagent jar",
         damagedName = "Reagent jar (damaged)",
         level = 82,
+        location = "Cauldron debris (Moonrise)",
         xp = 7777.8,
         chronotes = 0,
         materials = { { name = "Leather scraps", count = 20 }, { name = "Banded limestone", count = 22 }, { name = "Burnt umber", count = 30 } }
@@ -1035,6 +1149,7 @@ Artefacts.LIST = {
         name = "Ninbaradari mural",
         damagedName = "Ninbaradari mural (damaged)",
         level = 82,
+        location = "Cauldron debris (Moonrise)",
         xp = 7777.8,
         chronotes = 0,
         materials = { { name = "Burnt umber", count = 30 }, { name = "Banded limestone", count = 22 }, { name = "Triskelion", count = 20 } }
@@ -1044,6 +1159,7 @@ Artefacts.LIST = {
         name = "Thorobshuun battle standard",
         damagedName = "Thorobshuun battle standard (damaged)",
         level = 83,
+        location = "Goblin dorm debris (Warforge)",
         xp = 8166.7,
         chronotes = 0,
         materials = { { name = "Mark of the Kyzaj", count = 16 }, { name = "Malachite green", count = 22 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 20 } }
@@ -1053,6 +1169,7 @@ Artefacts.LIST = {
         name = "Yurkolgokh stink grenade",
         damagedName = "Yurkolgokh stink grenade (damaged)",
         level = 83,
+        location = "Goblin dorm debris (Warforge)",
         xp = 8166.7,
         chronotes = 0,
         materials = { { name = "Yu'biusk clay", count = 38 }, { name = "Vulcanised rubber", count = 36 }, { name = "Weapon poison (3)", count = 1 } }
@@ -1062,6 +1179,7 @@ Artefacts.LIST = {
         name = "Dominarian device",
         damagedName = "Dominarian device (damaged)",
         level = 84,
+        location = "Oikos fishing hut remnants (Everlight)",
         xp = 8555.6,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 30 }, { name = "Keramos", count = 22 }, { name = "Third Age iron", count = 22 }, { name = "Clockwork", count = 1 } }
@@ -1071,6 +1189,7 @@ Artefacts.LIST = {
         name = "Fishing trident",
         damagedName = "Fishing trident (damaged)",
         level = 84,
+        location = "Oikos fishing hut remnants (Everlight)",
         xp = 8555.6,
         chronotes = 0,
         materials = { { name = "Star of Saradomin", count = 22 }, { name = "Third Age iron", count = 30 }, { name = "Goldrune", count = 22 } }
@@ -1080,6 +1199,7 @@ Artefacts.LIST = {
         name = "Hawkeye lens multi-vision scope",
         damagedName = "Hawkeye lens multi-vision scope (damaged)",
         level = 85,
+        location = "Weapons research debris (Stormguard Citadel)",
         xp = 8944.4,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 40 }, { name = "Orthenglass", count = 34 } }
@@ -1089,6 +1209,7 @@ Artefacts.LIST = {
         name = "Talon-3 razor wing",
         damagedName = "Talon-3 razor wing (damaged)",
         level = 85,
+        location = "Weapons research debris (Stormguard Citadel)",
         xp = 8944.4,
         chronotes = 0,
         materials = { { name = "Aetherium alloy", count = 40 }, { name = "Wings of War", count = 34 }, { name = "Rope", count = 1 } }
@@ -1098,6 +1219,7 @@ Artefacts.LIST = {
         name = "'Exsanguinate' spell scroll",
         damagedName = "'Exsanguinate' spell scroll (damaged)",
         level = 86,
+        location = "Orcus altar (Kharid-et)",
         xp = 9333.3,
         chronotes = 0,
         materials = { { name = "Vellum", count = 40 }, { name = "Blood of Orcus", count = 36 } }
@@ -1107,6 +1229,7 @@ Artefacts.LIST = {
         name = "Necromantic focus",
         damagedName = "Necromantic focus (damaged)",
         level = 86,
+        location = "Orcus altar (Kharid-et)",
         xp = 9333.3,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 20 }, { name = "Blood of Orcus", count = 26 }, { name = "Ancient vis", count = 30 } }
@@ -1116,6 +1239,7 @@ Artefacts.LIST = {
         name = "Spent summoning charm",
         damagedName = "Spent summoning charm (damaged)",
         level = 87,
+        location = "Communal space (Daemonheim)",
         xp = 9722.2,
         chronotes = 0,
         materials = { { name = "Orgone", count = 46 }, { name = "Felt", count = 30 } }
@@ -1125,6 +1249,7 @@ Artefacts.LIST = {
         name = "'Friendship bracelet'",
         damagedName = "'Friendship bracelet' (damaged)",
         level = 87,
+        location = "Communal space (Daemonheim)",
         xp = 9722.2,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 30 }, { name = "Felt", count = 46 } }
@@ -1134,6 +1259,7 @@ Artefacts.LIST = {
         name = "Homely totem",
         damagedName = "Homely totem (damaged)",
         level = 87,
+        location = "Communal space (Daemonheim)",
         xp = 9722.2,
         chronotes = 0,
         materials = { { name = "Soapstone", count = 36 }, { name = "Felt", count = 40 } }
@@ -1143,6 +1269,7 @@ Artefacts.LIST = {
         name = "Bloodletting dagger",
         damagedName = "Bloodletting dagger (damaged)",
         level = 88,
+        location = "Blood altar (excavation hotspot) (Moonrise)",
         xp = 10111.1,
         chronotes = 0,
         materials = { { name = "Ivory", count = 28 }, { name = "Cashmere", count = 24 }, { name = "Soapstone", count = 26 } }
@@ -1152,6 +1279,7 @@ Artefacts.LIST = {
         name = "Fang of Kayazu",
         damagedName = "Fang of Kayazu (damaged)",
         level = 88,
+        location = "Blood altar (excavation hotspot) (Moonrise)",
         xp = 10111.1,
         chronotes = 0,
         materials = { { name = "Ivory", count = 38 }, { name = "Burnt umber", count = 20 }, { name = "Soapstone", count = 20 } }
@@ -1161,6 +1289,7 @@ Artefacts.LIST = {
         name = "High priest crozier",
         damagedName = "High priest crozier (damaged)",
         level = 89,
+        location = "Big High War God shrine (Warforge)",
         xp = 10500,
         chronotes = 0,
         materials = { { name = "Mark of the Kyzaj", count = 26 }, { name = "Malachite green", count = 24 }, { name = "Goldrune", count = 28 } }
@@ -1170,6 +1299,7 @@ Artefacts.LIST = {
         name = "High priest mitre",
         damagedName = "High priest mitre (damaged)",
         level = 89,
+        location = "Big High War God shrine (Warforge)",
         xp = 10500,
         chronotes = 0,
         materials = { { name = "Mark of the Kyzaj", count = 26 }, { name = "Malachite green", count = 24 }, { name = "Samite silk", count = 28 } }
@@ -1179,6 +1309,7 @@ Artefacts.LIST = {
         name = "High priest orb",
         damagedName = "High priest orb (damaged)",
         level = 89,
+        location = "Big High War God shrine (Warforge)",
         xp = 10500,
         chronotes = 0,
         materials = { { name = "Mark of the Kyzaj", count = 26 }, { name = "Malachite green", count = 24 }, { name = "Goldrune", count = 28 } }
@@ -1188,6 +1319,7 @@ Artefacts.LIST = {
         name = "'Torment' metal sculpture",
         damagedName = "'Torment' metal sculpture (damaged)",
         level = 89,
+        location = "Dis overspill (Infernal Source)",
         xp = 10500,
         chronotes = 0,
         materials = { { name = "Eye of Dagon", count = 20 }, { name = "Third Age iron", count = 20 }, { name = "Hellfire metal", count = 38 } }
@@ -1197,6 +1329,7 @@ Artefacts.LIST = {
         name = "'Pandemonium' tapestry",
         damagedName = "'Pandemonium' tapestry (damaged)",
         level = 89,
+        location = "Dis overspill (Infernal Source)",
         xp = 10500,
         chronotes = 0,
         materials = { { name = "White oak", count = 12 }, { name = "Samite silk", count = 12 }, { name = "Vellum", count = 12 }, { name = "Cadmium red", count = 42 } }
@@ -1206,6 +1339,7 @@ Artefacts.LIST = {
         name = "Ceremonial dragonkin tablet",
         damagedName = "Ceremonial dragonkin tablet (damaged)",
         level = 90,
+        location = "Orthen rubble (Orthen)",
         xp = 10888.9,
         chronotes = 0,
         materials = { { name = "Orthenglass", count = 79 } }
@@ -1215,6 +1349,7 @@ Artefacts.LIST = {
         name = "Pasaha",
         damagedName = "Pasaha (damaged)",
         level = 90,
+        location = "Varanusaur remains (Orthen)",
         xp = 10888.9,
         chronotes = 0,
         materials = { { name = "Felt", count = 40 }, { name = "Goldrune", count = 38 } }
@@ -1224,6 +1359,7 @@ Artefacts.LIST = {
         name = "Ritual bell",
         damagedName = "Ritual bell (damaged)",
         level = 90,
+        location = "Varanusaur remains (Orthen)",
         xp = 10888.9,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 40 }, { name = "Compass rose", count = 38 } }
@@ -1233,6 +1369,7 @@ Artefacts.LIST = {
         name = "Prototype gravimeter",
         damagedName = "Prototype gravimeter (damaged)",
         level = 91,
+        location = "Gravitron research debris (Stormguard Citadel)",
         xp = 11277.8,
         chronotes = 0,
         materials = { { name = "Quintessence", count = 34 }, { name = "Leather scraps", count = 20 }, { name = "Third Age iron", count = 26 } }
@@ -1242,6 +1379,7 @@ Artefacts.LIST = {
         name = "Songbird recorder",
         damagedName = "Songbird recorder (damaged)",
         level = 91,
+        location = "Gravitron research debris (Stormguard Citadel)",
         xp = 11277.8,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 44 }, { name = "Orthenglass", count = 36 }, { name = "Diamond", count = 1 } }
@@ -1251,6 +1389,7 @@ Artefacts.LIST = {
         name = "Amphora",
         damagedName = "Amphora (damaged)",
         level = 92,
+        location = "Acropolis debris (Everlight)",
         xp = 11666.7,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 34 }, { name = "Keramos", count = 46 } }
@@ -1260,6 +1399,7 @@ Artefacts.LIST = {
         name = "Rod of Asclepius",
         damagedName = "Rod of Asclepius (damaged)",
         level = 92,
+        location = "Acropolis debris (Everlight)",
         xp = 11666.7,
         chronotes = 0,
         materials = { { name = "White marble", count = 30 }, { name = "Star of Saradomin", count = 24 }, { name = "Goldrune", count = 26 } }
@@ -1269,6 +1409,7 @@ Artefacts.LIST = {
         name = "Zarosian ewer",
         damagedName = "Zarosian ewer (damaged)",
         level = 93,
+        location = "Armarium debris (Kharid-et)",
         xp = 12500,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 52 }, { name = "Zarosian insignia", count = 30 } }
@@ -1278,6 +1419,7 @@ Artefacts.LIST = {
         name = "Zarosian stein",
         damagedName = "Zarosian stein (damaged)",
         level = 93,
+        location = "Armarium debris (Kharid-et)",
         xp = 12500,
         chronotes = 0,
         materials = { { name = "Third Age iron", count = 16 }, { name = "Imperial steel", count = 36 }, { name = "Zarosian insignia", count = 30 } }
@@ -1287,6 +1429,7 @@ Artefacts.LIST = {
         name = "Beastkeeper helm",
         damagedName = "Beastkeeper helm (damaged)",
         level = 94,
+        location = "Yu'biusk animal pen (Warforge)",
         xp = 13333.3,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 16 }, { name = "Vulcanised rubber", count = 24 }, { name = "Animal furs", count = 20 }, { name = "Fossilised bone", count = 24 } }
@@ -1296,6 +1439,7 @@ Artefacts.LIST = {
         name = "Idithuun horn ring",
         damagedName = "Idithuun horn ring (damaged)",
         level = 94,
+        location = "Yu'biusk animal pen (Warforge)",
         xp = 13333.3,
         chronotes = 0,
         materials = { { name = "Yu'biusk clay", count = 40 }, { name = "Vulcanised rubber", count = 44 } }
@@ -1305,6 +1449,7 @@ Artefacts.LIST = {
         name = "'Nosorog!' sculpture",
         damagedName = "'Nosorog!' sculpture (damaged)",
         level = 94,
+        location = "Yu'biusk animal pen (Warforge)",
         xp = 13333.3,
         chronotes = 0,
         materials = { { name = "Yu'biusk clay", count = 30 }, { name = "Malachite green", count = 24 }, { name = "Warforged bronze", count = 30 } }
@@ -1314,6 +1459,7 @@ Artefacts.LIST = {
         name = "Dayguard shield",
         damagedName = "Dayguard shield (damaged)",
         level = 95,
+        location = "Keshik tower debris (Stormguard Citadel)",
         xp = 14166.7,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 36 }, { name = "Wings of War", count = 28 }, { name = "White oak", count = 20 } }
@@ -1323,6 +1469,7 @@ Artefacts.LIST = {
         name = "Stormguard gerege",
         damagedName = "Stormguard gerege (damaged)",
         level = 95,
+        location = "Keshik tower debris (Stormguard Citadel)",
         xp = 14166.7,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 36 }, { name = "Wings of War", count = 28 }, { name = "Goldrune", count = 20 } }
@@ -1332,6 +1479,7 @@ Artefacts.LIST = {
         name = "Kilaya",
         damagedName = "Kilaya (damaged)",
         level = 96,
+        location = "Dragonkin reliquary (Orthen)",
         xp = 15000,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 46 }, { name = "Compass rose", count = 40 } }
@@ -1341,6 +1489,7 @@ Artefacts.LIST = {
         name = "Vazara",
         damagedName = "Vazara (damaged)",
         level = 96,
+        location = "Dragonkin reliquary (Orthen)",
         xp = 15000,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 30 }, { name = "Compass rose", count = 28 }, { name = "Goldrune", count = 28 } }
@@ -1350,6 +1499,7 @@ Artefacts.LIST = {
         name = "Ourg megahitter",
         damagedName = "Ourg megahitter (damaged)",
         level = 97,
+        location = "Goblin trainee remains (Warforge)",
         xp = 15833.3,
         chronotes = 0,
         materials = { { name = "White oak", count = 20 }, { name = "Leather scraps", count = 20 }, { name = "Orthenglass", count = 26 }, { name = "Malachite green", count = 22 } }
@@ -1359,6 +1509,7 @@ Artefacts.LIST = {
         name = "Ourg tower/goblin cower shield",
         damagedName = "Ourg tower/goblin cower shield (damaged)",
         level = 97,
+        location = "Goblin trainee remains (Warforge)",
         xp = 15833.3,
         chronotes = 0,
         materials = { { name = "Mark of the Kyzaj", count = 20 }, { name = "Third Age iron", count = 26 }, { name = "Leather scraps", count = 22 }, { name = "White oak", count = 20 } }
@@ -1368,6 +1519,7 @@ Artefacts.LIST = {
         name = "Garagorshuun anchor",
         damagedName = "Garagorshuun anchor (damaged)",
         level = 97,
+        location = "Goblin trainee remains (Warforge)",
         xp = 15833.3,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 32 }, { name = "Mark of the Kyzaj", count = 26 }, { name = "Third Age iron", count = 30 } }
@@ -1377,6 +1529,7 @@ Artefacts.LIST = {
         name = "Golem heart",
         damagedName = "Golem heart (damaged)",
         level = 98,
+        location = "Destroyed golem (Stormguard Citadel)",
         xp = 16666.7,
         chronotes = 0,
         materials = { { name = "Aetherium alloy", count = 34 }, { name = "Quintessence", count = 24 }, { name = "Orthenglass", count = 16 }, { name = "Soapstone", count = 16 } }
@@ -1386,6 +1539,7 @@ Artefacts.LIST = {
         name = "Golem instruction",
         damagedName = "Golem instruction (damaged)",
         level = 98,
+        location = "Destroyed golem (Stormguard Citadel)",
         xp = 16666.7,
         chronotes = 0,
         materials = { { name = "Quintessence", count = 46 }, { name = "Vellum", count = 44 }, { name = "Black mushroom ink", count = 1 } }
@@ -1395,6 +1549,7 @@ Artefacts.LIST = {
         name = "Hellfire haladie",
         damagedName = "Hellfire haladie (damaged)",
         level = 98,
+        location = "Byzroth remains (Infernal Source)",
         xp = 16666.7,
         chronotes = 0,
         materials = { { name = "Hellfire metal", count = 44 }, { name = "Third Age iron", count = 26 }, { name = "Leather scraps", count = 20 } }
@@ -1404,6 +1559,7 @@ Artefacts.LIST = {
         name = "Hellfire katar",
         damagedName = "Hellfire katar (damaged)",
         level = 98,
+        location = "Byzroth remains (Infernal Source)",
         xp = 16666.7,
         chronotes = 0,
         materials = { { name = "Hellfire metal", count = 50 }, { name = "Leather scraps", count = 40 } }
@@ -1413,6 +1569,7 @@ Artefacts.LIST = {
         name = "Hellfire zaghnal",
         damagedName = "Hellfire zaghnal (damaged)",
         level = 98,
+        location = "Byzroth remains (Infernal Source)",
         xp = 16666.7,
         chronotes = 0,
         materials = { { name = "Hellfire metal", count = 38 }, { name = "White oak", count = 26 }, { name = "Orthenglass", count = 26 } }
@@ -1422,6 +1579,7 @@ Artefacts.LIST = {
         name = "Death mask",
         damagedName = "Death mask (damaged)",
         level = 99,
+        location = "Dragonkin coffin (Orthen)",
         xp = 17500,
         chronotes = 0,
         materials = { { name = "Orgone", count = 56 }, { name = "Soapstone", count = 34 } }
@@ -1431,6 +1589,7 @@ Artefacts.LIST = {
         name = "Dragonkin calendar",
         damagedName = "Dragonkin calendar (damaged)",
         level = 99,
+        location = "Dragonkin coffin (Orthen)",
         xp = 17500,
         chronotes = 0,
         materials = { { name = "Orgone", count = 34 }, { name = "Carbon black", count = 28 }, { name = "Compass rose", count = 28 } }
@@ -1440,6 +1599,7 @@ Artefacts.LIST = {
         name = "Dragonkin staff",
         damagedName = "Dragonkin staff (damaged)",
         level = 99,
+        location = "Dragonkin coffin (Orthen)",
         xp = 17500,
         chronotes = 0,
         materials = { { name = "Orgone", count = 56 }, { name = "Compass rose", count = 34 } }
@@ -1449,6 +1609,7 @@ Artefacts.LIST = {
         name = "Dorgeshuun spear",
         damagedName = "Dorgeshuun spear (damaged)",
         level = 100,
+        location = "Kyzaj champion's boudoir (Warforge)",
         xp = 18666.7,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 50 }, { name = "White oak", count = 42 } }
@@ -1458,6 +1619,7 @@ Artefacts.LIST = {
         name = "'Forged in War' sculpture",
         damagedName = "'Forged in War' sculpture (damaged)",
         level = 100,
+        location = "Kyzaj champion's boudoir (Warforge)",
         xp = 18666.7,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 50 }, { name = "Yu'biusk clay", count = 42 }, { name = "Emerald", count = 1 } }
@@ -1467,6 +1629,7 @@ Artefacts.LIST = {
         name = "Kopis dagger",
         damagedName = "Kopis dagger (damaged)",
         level = 100,
+        location = "Icyene weapon rack (Everlight)",
         xp = 18666.7,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 50 }, { name = "Leather scraps", count = 42 } }
@@ -1476,6 +1639,7 @@ Artefacts.LIST = {
         name = "Xiphos short sword",
         damagedName = "Xiphos short sword (damaged)",
         level = 100,
+        location = "Icyene weapon rack (Everlight)",
         xp = 18666.7,
         chronotes = 0,
         materials = { { name = "Everlight silvthril", count = 46 }, { name = "Leather scraps", count = 46 } }
@@ -1485,6 +1649,7 @@ Artefacts.LIST = {
         name = "'Smoke Cloud' spell scroll",
         damagedName = "'Smoke Cloud' spell scroll (damaged)",
         level = 100,
+        location = "Culinarum debris (Kharid-et)",
         xp = 18666.7,
         chronotes = 0,
         materials = { { name = "Vellum", count = 40 }, { name = "Ancient vis", count = 20 }, { name = "Blood of Orcus", count = 32 } }
@@ -1494,6 +1659,7 @@ Artefacts.LIST = {
         name = "Vigorem vial",
         damagedName = "Vigorem vial (damaged)",
         level = 100,
+        location = "Culinarum debris (Kharid-et)",
         xp = 18666.7,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 54 }, { name = "Ancient vis", count = 38 }, { name = "Molten glass", count = 1 } }
@@ -1503,6 +1669,7 @@ Artefacts.LIST = {
         name = "Dragon scalpel",
         damagedName = "Dragon scalpel (damaged)",
         level = 101,
+        location = "Autopsy table (Orthen)",
         xp = 19833.3,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 52 }, { name = "Felt", count = 42 } }
@@ -1512,6 +1679,7 @@ Artefacts.LIST = {
         name = "Protective goggles",
         damagedName = "Protective goggles (damaged)",
         level = 101,
+        location = "Autopsy table (Orthen)",
         xp = 19833.3,
         chronotes = 0,
         materials = { { name = "Felt", count = 42 }, { name = "Orthenglass", count = 52 } }
@@ -1521,6 +1689,7 @@ Artefacts.LIST = {
         name = "Dragon burner",
         damagedName = "Dragon burner (damaged)",
         level = 102,
+        location = "Experiment workbench (Orthen)",
         xp = 21000,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 52 }, { name = "Orgone", count = 42 } }
@@ -1530,6 +1699,7 @@ Artefacts.LIST = {
         name = "Orthenglass flask",
         damagedName = "Orthenglass flask (damaged)",
         level = 102,
+        location = "Experiment workbench (Orthen)",
         xp = 21000,
         chronotes = 0,
         materials = { { name = "Dragon metal", count = 34 }, { name = "Orthenglass", count = 60 } }
@@ -1539,6 +1709,7 @@ Artefacts.LIST = {
         name = "Blackfire lance",
         damagedName = "Blackfire lance (damaged)",
         level = 103,
+        location = "Keshik weapon rack (Stormguard Citadel)",
         xp = 22166.7,
         chronotes = 0,
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Quintessence", count = 46 } }
@@ -1548,6 +1719,7 @@ Artefacts.LIST = {
         name = "Nightguard shield",
         damagedName = "Nightguard shield (damaged)",
         level = 103,
+        location = "Keshik weapon rack (Stormguard Citadel)",
         xp = 22166.7,
         chronotes = 0,
         materials = { { name = "Stormguard steel", count = 30 }, { name = "Wings of War", count = 36 }, { name = "White oak", count = 30 } }
@@ -1557,6 +1729,7 @@ Artefacts.LIST = {
         name = "Projection attuner",
         damagedName = "Projection attuner (damaged)",
         level = 103,
+        location = "Projection space (Daemonheim)",
         xp = 22166.7,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 28 }, { name = "Orthenglass", count = 28 }, { name = "Dragon metal", count = 40 } }
@@ -1566,6 +1739,7 @@ Artefacts.LIST = {
         name = "Golden projection 'needle'",
         damagedName = "Golden projection 'needle' (damaged)",
         level = 103,
+        location = "Projection space (Daemonheim)",
         xp = 22166.7,
         chronotes = 0,
         materials = { { name = "Goldrune", count = 36 }, { name = "Dragon metal", count = 60 } }
@@ -1575,6 +1749,7 @@ Artefacts.LIST = {
         name = "Huzamogaarb chaos crown",
         damagedName = "Huzamogaarb chaos crown (damaged)",
         level = 104,
+        location = "Warforge scrap pile (Warforge)",
         xp = 23333.3,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 44 }, { name = "Third Age iron", count = 34 }, { name = "Eye of Dagon", count = 20 } }
@@ -1584,6 +1759,7 @@ Artefacts.LIST = {
         name = "Saragorgak star crown",
         damagedName = "Saragorgak star crown (damaged)",
         level = 104,
+        location = "Warforge scrap pile (Warforge)",
         xp = 23333.3,
         chronotes = 0,
         materials = { { name = "Warforged bronze", count = 44 }, { name = "Third Age iron", count = 34 }, { name = "Star of Saradomin", count = 20 } }
@@ -1593,6 +1769,7 @@ Artefacts.LIST = {
         name = "'Possession' metal sculpture",
         damagedName = "'Possession' metal sculpture (damaged)",
         level = 104,
+        location = "Hellfire forge (Infernal Source)",
         xp = 23333.3,
         chronotes = 0,
         materials = { { name = "Eye of Dagon", count = 24 }, { name = "Chaotic brimstone", count = 30 }, { name = "Third Age iron", count = 44 } }
@@ -1602,6 +1779,7 @@ Artefacts.LIST = {
         name = "Trishula",
         damagedName = "Trishula (damaged)",
         level = 104,
+        location = "Hellfire forge (Infernal Source)",
         xp = 23333.3,
         chronotes = 0,
         materials = { { name = "Hellfire metal", count = 48 }, { name = "Eye of Dagon", count = 30 }, { name = "Third Age iron", count = 20 } }
@@ -1611,6 +1789,7 @@ Artefacts.LIST = {
         name = "Tsutsaroth piercing",
         damagedName = "Tsutsaroth piercing (damaged)",
         level = 104,
+        location = "Hellfire forge (Infernal Source)",
         xp = 23333.3,
         chronotes = 0,
         materials = { { name = "Hellfire metal", count = 44 }, { name = "Chaotic brimstone", count = 30 }, { name = "Cadmium red", count = 24 } }
@@ -1620,6 +1799,7 @@ Artefacts.LIST = {
         name = "'Hallowed Be the Everlight' painting",
         damagedName = "'Hallowed Be the Everlight' painting (damaged)",
         level = 105,
+        location = "Stockpiled art (Everlight)",
         xp = 24500,
         chronotes = 0,
         materials = { { name = "Cobalt blue", count = 52 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 16 }, { name = "Vellum", count = 16 } }
@@ -1629,6 +1809,7 @@ Artefacts.LIST = {
         name = "'The Lord of Light' painting",
         damagedName = "'The Lord of Light' painting (damaged)",
         level = 105,
+        location = "Stockpiled art (Everlight)",
         xp = 24500,
         chronotes = 0,
         materials = { { name = "Cobalt blue", count = 52 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 16 }, { name = "Vellum", count = 16 } }
@@ -1638,6 +1819,7 @@ Artefacts.LIST = {
         name = "'The Pride of Padosan' painting",
         damagedName = "'The Pride of Padosan' painting (damaged)",
         level = 105,
+        location = "Stockpiled art (Everlight)",
         xp = 24500,
         chronotes = 0,
         materials = { { name = "Cobalt blue", count = 52 }, { name = "White oak", count = 16 }, { name = "Samite silk", count = 16 }, { name = "Vellum", count = 16 } }
@@ -1647,6 +1829,7 @@ Artefacts.LIST = {
         name = "Meditation pipe",
         damagedName = "Meditation pipe (damaged)",
         level = 106,
+        location = "Aughra remains (Orthen)",
         xp = 25666.7,
         chronotes = 0,
         materials = { { name = "Orgone", count = 60 }, { name = "Dragon metal", count = 40 } }
@@ -1656,6 +1839,7 @@ Artefacts.LIST = {
         name = "Personal totem",
         damagedName = "Personal totem (damaged)",
         level = 106,
+        location = "Aughra remains (Orthen)",
         xp = 25666.7,
         chronotes = 0,
         materials = { { name = "Orgone", count = 48 }, { name = "Carbon black", count = 26 }, { name = "Compass rose", count = 26 } }
@@ -1665,6 +1849,7 @@ Artefacts.LIST = {
         name = "Singing bowl",
         damagedName = "Singing bowl (damaged)",
         level = 106,
+        location = "Aughra remains (Orthen)",
         xp = 25666.7,
         chronotes = 0,
         materials = { { name = "Orgone", count = 60 }, { name = "Dragon metal", count = 40 } }
@@ -1674,6 +1859,7 @@ Artefacts.LIST = {
         name = "Ancient magic tablet",
         damagedName = "Ancient magic tablet (damaged)",
         level = 107,
+        location = "Ancient magick munitions (Kharid-et)",
         xp = 27000,
         chronotes = 0,
         materials = { { name = "Ancient vis", count = 40 }, { name = "Blood of Orcus", count = 64 } }
@@ -1683,6 +1869,7 @@ Artefacts.LIST = {
         name = "'Animate Dead' spell scroll",
         damagedName = "'Animate Dead' spell scroll (damaged)",
         level = 107,
+        location = "Ancient magick munitions (Kharid-et)",
         xp = 27000,
         chronotes = 0,
         materials = { { name = "Vellum", count = 40 }, { name = "Ancient vis", count = 24 }, { name = "Blood of Orcus", count = 40 } }
@@ -1692,6 +1879,7 @@ Artefacts.LIST = {
         name = "Portable phylactery",
         damagedName = "Portable phylactery (damaged)",
         level = 107,
+        location = "Ancient magick munitions (Kharid-et)",
         xp = 27000,
         chronotes = 0,
         materials = { { name = "Imperial steel", count = 48 }, { name = "Blood of Orcus", count = 36 }, { name = "Ancient vis", count = 20 } }
@@ -1701,6 +1889,7 @@ Artefacts.LIST = {
         name = "Comfort gatestone",
         damagedName = "Comfort gatestone (damaged)",
         level = 107,
+        location = "Security booth (Daemonheim)",
         xp = 27000,
         chronotes = 0,
         materials = { { name = "Orthenglass", count = 40 }, { name = "Orgone", count = 34 }, { name = "Compass rose", count = 30 } }
@@ -1710,6 +1899,7 @@ Artefacts.LIST = {
         name = "Halak's cube",
         damagedName = "Halak's cube (damaged)",
         level = 107,
+        location = "Security booth (Daemonheim)",
         xp = 27000,
         chronotes = 0,
         materials = { { name = "Compass rose", count = 36 }, { name = "Carbon black", count = 40 }, { name = "Orgone", count = 28 } }
@@ -1719,6 +1909,7 @@ Artefacts.LIST = {
         name = "Lingam stone",
         damagedName = "Lingam stone (damaged)",
         level = 108,
+        location = "Moksha device (Orthen)",
         xp = 28333.3,
         chronotes = 0,
         materials = { { name = "Orgone", count = 44 }, { name = "Carbon black", count = 30 }, { name = "Compass rose", count = 32 } }
@@ -1728,6 +1919,7 @@ Artefacts.LIST = {
         name = "Master control",
         damagedName = "Master control (damaged)",
         level = 108,
+        location = "Moksha device (Orthen)",
         xp = 28333.3,
         chronotes = 0,
         materials = { { name = "Orgone", count = 30 }, { name = "Carbon black", count = 32 }, { name = "Compass rose", count = 44 } }
@@ -1737,6 +1929,7 @@ Artefacts.LIST = {
         name = "'The Enlightened Soul' scroll",
         damagedName = "'The Enlightened Soul' scroll (damaged)",
         level = 109,
+        location = "Bibliotheke debris (Everlight)",
         xp = 29666.7,
         chronotes = 0,
         materials = { { name = "Star of Saradomin", count = 50 }, { name = "Vellum", count = 60 } }
@@ -1746,6 +1939,7 @@ Artefacts.LIST = {
         name = "'The Eudoxian Elements' tablet",
         damagedName = "'The Eudoxian Elements' tablet (damaged)",
         level = 109,
+        location = "Bibliotheke debris (Everlight)",
         xp = 29666.7,
         chronotes = 0,
         materials = { { name = "White marble", count = 60 }, { name = "Goldrune", count = 50 } }
@@ -1755,6 +1949,7 @@ Artefacts.LIST = {
         name = "Drogokishuun hook sword",
         damagedName = "Drogokishuun hook sword (damaged)",
         level = 110,
+        location = "Warforge weapon rack (Warforge)",
         xp = 31000,
         chronotes = 1004,
         materials = { { name = "Warforged bronze", count = 44 }, { name = "Malachite green", count = 36 }, { name = "Fossilised bone", count = 32 } }
@@ -1764,6 +1959,7 @@ Artefacts.LIST = {
         name = "Hobgoblin mansticker",
         damagedName = "Hobgoblin mansticker (damaged)",
         level = 110,
+        location = "Warforge weapon rack (Warforge)",
         xp = 31000,
         chronotes = 1004,
         materials = { { name = "Warforged bronze", count = 66 }, { name = "Fossilised bone", count = 46 } }
@@ -1773,6 +1969,7 @@ Artefacts.LIST = {
         name = "Chaos Elemental trophy",
         damagedName = "Chaos Elemental trophy (damaged)",
         level = 110,
+        location = "Chthonian trophies (Infernal Source)",
         xp = 31000,
         chronotes = 1004,
         materials = { { name = "Chaotic brimstone", count = 52 }, { name = "White oak", count = 30 }, { name = "Hellfire metal", count = 30 } }
@@ -1782,6 +1979,7 @@ Artefacts.LIST = {
         name = "Virius trophy",
         damagedName = "Virius trophy (damaged)",
         level = 110,
+        location = "Chthonian trophies (Infernal Source)",
         xp = 31000,
         chronotes = 1004,
         materials = { { name = "Demonhide", count = 44 }, { name = "White oak", count = 34 }, { name = "Orthenglass", count = 34 } }
@@ -1791,6 +1989,7 @@ Artefacts.LIST = {
         name = "Flat cap",
         damagedName = "Flat cap (damaged)",
         level = 111,
+        location = "Flight research debris (Stormguard Citadel)",
         xp = 32333.3,
         chronotes = 1020,
         materials = { { name = "Armadylean yellow", count = 60 }, { name = "Samite silk", count = 54 } }
@@ -1800,6 +1999,7 @@ Artefacts.LIST = {
         name = "Night owl flight goggles",
         damagedName = "Night owl flight goggles (damaged)",
         level = 111,
+        location = "Flight research debris (Stormguard Citadel)",
         xp = 32333.3,
         chronotes = 1020,
         materials = { { name = "Armadylean yellow", count = 44 }, { name = "Leather scraps", count = 40 }, { name = "Orthenglass", count = 30 } }
@@ -1809,6 +2009,7 @@ Artefacts.LIST = {
         name = "Prototype godbow",
         damagedName = "Prototype godbow (damaged)",
         level = 112,
+        location = "Aetherium forge (Stormguard Citadel)",
         xp = 33666.7,
         chronotes = 1050,
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Quintessence", count = 34 }, { name = "Wings of War", count = 34 } }
@@ -1818,6 +2019,7 @@ Artefacts.LIST = {
         name = "Prototype godstaff",
         damagedName = "Prototype godstaff (damaged)",
         level = 112,
+        location = "Aetherium forge (Stormguard Citadel)",
         xp = 33666.7,
         chronotes = 1050,
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Quintessence", count = 34 }, { name = "Wings of War", count = 34 } }
@@ -1827,6 +2029,7 @@ Artefacts.LIST = {
         name = "Prototype godsword",
         damagedName = "Prototype godsword (damaged)",
         level = 112,
+        location = "Aetherium forge (Stormguard Citadel)",
         xp = 33666.7,
         chronotes = 1050,
         materials = { { name = "Aetherium alloy", count = 50 }, { name = "Wings of War", count = 34 }, { name = "Goldrune", count = 34 } }
@@ -1836,6 +2039,7 @@ Artefacts.LIST = {
         name = "Xolo hard hat",
         damagedName = "Xolo hard hat (damaged)",
         level = 113,
+        location = "Xolo mine (Orthen)",
         xp = 35000,
         chronotes = 1066,
         materials = { { name = "Goldrune", count = 54 }, { name = "Dragon metal", count = 66 } }
@@ -1845,6 +2049,7 @@ Artefacts.LIST = {
         name = "Xolo pickaxe",
         damagedName = "Xolo pickaxe (damaged)",
         level = 113,
+        location = "Xolo mine (Orthen)",
         xp = 35000,
         chronotes = 1066,
         materials = { { name = "Goldrune", count = 36 }, { name = "Dragon metal", count = 50 }, { name = "Orgone", count = 34 } }
@@ -1854,6 +2059,7 @@ Artefacts.LIST = {
         name = "Portable portal generator",
         damagedName = "Portable portal generator (damaged)",
         level = 113,
+        location = "Traveller's station (Daemonheim)",
         xp = 35000,
         chronotes = 1066,
         materials = { { name = "Dragon metal", count = 50 }, { name = "Orthenglass", count = 36 }, { name = "Goldrune", count = 34 } }
@@ -1863,6 +2069,7 @@ Artefacts.LIST = {
         name = "Warped trinket",
         damagedName = "Warped trinket (damaged)",
         level = 113,
+        location = "Traveller's station (Daemonheim)",
         xp = 35000,
         chronotes = 1066,
         materials = { { name = "Dragon metal", count = 30 }, { name = "Orthenglass", count = 30 }, { name = "Soapstone", count = 30 }, { name = "Goldrune", count = 30 } }
@@ -1872,6 +2079,7 @@ Artefacts.LIST = {
         name = "Praetorian hood",
         damagedName = "Praetorian hood (damaged)",
         level = 114,
+        location = "Praetorian remains (Kharid-et)",
         xp = 36666.7,
         chronotes = 1096,
         materials = { { name = "Ancient vis", count = 36 }, { name = "Samite silk", count = 48 }, { name = "Zarosian insignia", count = 40 }, { name = "Death rune", count = 30 } }
@@ -1881,6 +2089,7 @@ Artefacts.LIST = {
         name = "Praetorian robes",
         damagedName = "Praetorian robes (damaged)",
         level = 114,
+        location = "Praetorian remains (Kharid-et)",
         xp = 36666.7,
         chronotes = 1096,
         materials = { { name = "Ancient vis", count = 30 }, { name = "Samite silk", count = 54 }, { name = "Zarosian insignia", count = 40 }, { name = "Death rune", count = 50 } }
@@ -1890,6 +2099,7 @@ Artefacts.LIST = {
         name = "Praetorian staff",
         damagedName = "Praetorian staff (damaged)",
         level = 114,
+        location = "Praetorian remains (Kharid-et)",
         xp = 36666.7,
         chronotes = 1096,
         materials = { { name = "Imperial steel", count = 36 }, { name = "Ancient vis", count = 58 }, { name = "Zarosian insignia", count = 30 }, { name = "Death rune", count = 100 } }
@@ -1899,6 +2109,7 @@ Artefacts.LIST = {
         name = "Kal-i-kra chieftain crown",
         damagedName = "Kal-i-kra chieftain crown (damaged)",
         level = 115,
+        location = "Bandos's sanctum debris (Warforge)",
         xp = 38333.3,
         chronotes = 1112,
         materials = { { name = "Yu'biusk clay", count = 66 }, { name = "Animal furs", count = 60 } }
@@ -1908,6 +2119,7 @@ Artefacts.LIST = {
         name = "Kal-i-kra mace",
         damagedName = "Kal-i-kra mace (damaged)",
         level = 115,
+        location = "Bandos's sanctum debris (Warforge)",
         xp = 38333.3,
         chronotes = 1112,
         materials = { { name = "Vulcanised rubber", count = 42 }, { name = "Third Age iron", count = 44 }, { name = "Fossilised bone", count = 40 } }
@@ -1917,6 +2129,7 @@ Artefacts.LIST = {
         name = "Kal-i-kra warhorn",
         damagedName = "Kal-i-kra warhorn (damaged)",
         level = 115,
+        location = "Bandos's sanctum debris (Warforge)",
         xp = 38333.3,
         chronotes = 1112,
         materials = { { name = "Vulcanised rubber", count = 44 }, { name = "Fossilised bone", count = 42 }, { name = "Animal furs", count = 40 } }
@@ -1926,6 +2139,7 @@ Artefacts.LIST = {
         name = "Spear of Annihilation",
         damagedName = "Spear of Annihilation (damaged)",
         level = 115,
+        location = "Big High War God shrine (Warforge)",
         xp = 38333.3,
         chronotes = 10730,
         materials = { { name = "Spear of Annihilation with shaft + spokes", count = 1 }, { name = "Vulcanised rubber", count = 500 }, { name = "Malachite green", count = 500 }, { name = "Goldrune", count = 500 } }
@@ -1935,6 +2149,7 @@ Artefacts.LIST = {
         name = "Tsutsaroth helm",
         damagedName = "Tsutsaroth helm (damaged)",
         level = 116,
+        location = "Tsutsaroth remains (Infernal Source)",
         xp = 40000,
         chronotes = 1142,
         materials = { { name = "Hellfire metal", count = 50 }, { name = "Eye of Dagon", count = 40 }, { name = "Goldrune", count = 40 } }
@@ -1944,6 +2159,7 @@ Artefacts.LIST = {
         name = "Tsutsaroth pauldron",
         damagedName = "Tsutsaroth pauldron (damaged)",
         level = 116,
+        location = "Tsutsaroth remains (Infernal Source)",
         xp = 40000,
         chronotes = 1142,
         materials = { { name = "Hellfire metal", count = 40 }, { name = "Goldrune", count = 50 }, { name = "Eye of Dagon", count = 40 } }
@@ -1953,6 +2169,7 @@ Artefacts.LIST = {
         name = "Tsutsaroth urumi",
         damagedName = "Tsutsaroth urumi (damaged)",
         level = 116,
+        location = "Tsutsaroth remains (Infernal Source)",
         xp = 40000,
         chronotes = 1142,
         materials = { { name = "Hellfire metal", count = 50 }, { name = "Eye of Dagon", count = 40 }, { name = "Third Age iron", count = 40 } }
@@ -1962,6 +2179,7 @@ Artefacts.LIST = {
         name = "Doru spear",
         damagedName = "Doru spear (damaged)",
         level = 117,
+        location = "Optimatoi remains (Everlight)",
         xp = 41666.7,
         chronotes = 1158,
         materials = { { name = "Everlight silvthril", count = 70 }, { name = "White oak", count = 62 } }
@@ -1971,6 +2189,7 @@ Artefacts.LIST = {
         name = "Kontos lance",
         damagedName = "Kontos lance (damaged)",
         level = 117,
+        location = "Optimatoi remains (Everlight)",
         xp = 41666.7,
         chronotes = 1158,
         materials = { { name = "Everlight silvthril", count = 70 }, { name = "Samite silk", count = 62 } }
@@ -1980,6 +2199,7 @@ Artefacts.LIST = {
         name = "Chuluu stone",
         damagedName = "Chuluu stone (damaged)",
         level = 118,
+        location = "Howl's workshop debris (Stormguard Citadel)",
         xp = 43333.3,
         chronotes = 1174,
         materials = { { name = "Aetherium alloy", count = 40 }, { name = "Quintessence", count = 30 }, { name = "Soapstone", count = 40 }, { name = "Goldrune", count = 24 } }
@@ -1989,6 +2209,7 @@ Artefacts.LIST = {
         name = "Quintessence counter",
         damagedName = "Quintessence counter (damaged)",
         level = 118,
+        location = "Howl's workshop debris (Stormguard Citadel)",
         xp = 43333.3,
         chronotes = 1174,
         materials = { { name = "Quintessence", count = 54 }, { name = "Stormguard steel", count = 40 }, { name = "White oak", count = 40 } }
@@ -1998,6 +2219,7 @@ Artefacts.LIST = {
         name = "Spherical astrolabe",
         damagedName = "Spherical astrolabe (damaged)",
         level = 118,
+        location = "Howl's workshop debris (Stormguard Citadel)",
         xp = 43333.3,
         chronotes = 1174,
         materials = { { name = "Aetherium alloy", count = 46 }, { name = "Armadylean yellow", count = 40 }, { name = "Orthenglass", count = 48 } }
@@ -2007,6 +2229,7 @@ Artefacts.LIST = {
         name = "Ancient globe",
         damagedName = "Ancient globe (damaged)",
         level = 118,
+        location = "War table debris (Kharid-et)",
         xp = 43333.3,
         chronotes = 1174,
         materials = { { name = "White oak", count = 20 }, { name = "Tyrian purple", count = 54 }, { name = "Ancient vis", count = 60 } }
@@ -2016,6 +2239,7 @@ Artefacts.LIST = {
         name = "Battle plans",
         damagedName = "Battle plans (damaged)",
         level = 118,
+        location = "War table debris (Kharid-et)",
         xp = 43333.3,
         chronotes = 1174,
         materials = { { name = "Vellum", count = 40 }, { name = "Tyrian purple", count = 60 }, { name = "Ancient vis", count = 34 } }
@@ -2025,6 +2249,7 @@ Artefacts.LIST = {
         name = "'Prima Legio' painting",
         damagedName = "'Prima Legio' painting (damaged)",
         level = 118,
+        location = "War table debris (Kharid-et)",
         xp = 43333.3,
         chronotes = 1174,
         materials = { { name = "White oak", count = 20 }, { name = "Samite silk", count = 20 }, { name = "Tyrian purple", count = 74 }, { name = "Zarosian insignia", count = 20 } }
@@ -2034,6 +2259,7 @@ Artefacts.LIST = {
         name = "'Da Boss Man' sculpture",
         damagedName = "'Da Boss Man' sculpture (damaged)",
         level = 119,
+        location = "Makeshift pie oven (Warforge)",
         xp = 45000,
         chronotes = 1204,
         materials = { { name = "Yu'biusk clay", count = 50 }, { name = "Malachite green", count = 44 }, { name = "Soapstone", count = 44 } }
@@ -2043,6 +2269,7 @@ Artefacts.LIST = {
         name = "Horogothgar cooking pot",
         damagedName = "Horogothgar cooking pot (damaged)",
         level = 119,
+        location = "Makeshift pie oven (Warforge)",
         xp = 45000,
         chronotes = 1204,
         materials = { { name = "Yu'biusk clay", count = 60 }, { name = "Malachite green", count = 38 }, { name = "Soapstone", count = 40 } }
@@ -2052,6 +2279,7 @@ Artefacts.LIST = {
         name = "Xolo shield",
         damagedName = "Xolo shield (damaged)",
         level = 119,
+        location = "Xolo remains (Orthen)",
         xp = 45000,
         chronotes = 1204,
         materials = { { name = "Goldrune", count = 52 }, { name = "Orgone", count = 44 }, { name = "Felt", count = 42 } }
@@ -2061,6 +2289,7 @@ Artefacts.LIST = {
         name = "Xolo spear",
         damagedName = "Xolo spear (damaged)",
         level = 119,
+        location = "Xolo remains (Orthen)",
         xp = 45000,
         chronotes = 1204,
         materials = { { name = "Dragon metal", count = 74 }, { name = "Orgone", count = 64 } }
@@ -2070,6 +2299,7 @@ Artefacts.LIST = {
         name = "Gold dish",
         damagedName = "Gold dish (damaged)",
         level = 120,
+        location = "Saurthen debris (Orthen)",
         xp = 46666.7,
         chronotes = 1220,
         materials = { { name = "Goldrune", count = 86 }, { name = "Dragon metal", count = 54 } }
@@ -2079,6 +2309,7 @@ Artefacts.LIST = {
         name = "'Raksha' idol",
         damagedName = "'Raksha' idol (damaged)",
         level = 120,
+        location = "Saurthen debris (Orthen)",
         xp = 46666.7,
         chronotes = 1220,
         materials = { { name = "Orgone", count = 56 }, { name = "Dragon metal", count = 44 }, { name = "Goldrune", count = 40 } }

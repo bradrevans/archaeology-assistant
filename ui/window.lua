@@ -121,6 +121,7 @@ function Window.new(tracker)
     self.mounted = false
     self.activeTab = safeDbGet("arch_active_tab", "collections")
     self.colFilterIndex = 1
+    self.isSettingsOpen = false
     self.collectionRows = {}
     self.currentCollections = {}
     self.materialRows = {}
@@ -316,6 +317,17 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self.win = win
     self.root = win.root
     self.contentParent = win.content
+
+    local btnSet = ui.Button.new(win.root)
+    btnSet.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+    btnSet:SetPos(-56, 4, 1.0, 0)
+    btnSet:SetSize(26, 20, 0, 0)
+    btnSet.label = "Set"
+    btnSet:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+        self.isSettingsOpen = not self.isSettingsOpen
+        self:refresh()
+    end)
+    self.btnTitleSettings = btnSet
 
     self:buildContentComponents(win.content)
     self:buildSharedRowTooltip(parent)
@@ -521,6 +533,7 @@ function Window:switchTab(tabName)
         return
     end
     self:hideRowTooltip()
+    self.isSettingsOpen = false
     local changed = (self.activeTab ~= tabName)
     self.activeTab = tabName
     safeDbSet("arch_active_tab", tabName)
@@ -604,8 +617,8 @@ function Window:buildContentComponents(container)
 
     self.btnClearTargets = self:createToolbarButton(
         container,
-        "Clear Targets",
-        "Clear all targeted collections (resets collection-level pinning).",
+        "Clear Tracked",
+        "Clear all tracked collections (resets collection-level pinning).",
         false,
         function()
             self.tracker:clearTargetedCollections()
@@ -613,13 +626,30 @@ function Window:buildContentComponents(container)
         end
     )
 
+    self.btnArtFilter = self:createToolbarButton(
+        container,
+        "Show: All",
+        "Filter artefacts: Show All (inventory + tracked), Tracked (only artefacts needed for tracked collections), or Owned (only artefacts in bag/bank).",
+        false,
+        function()
+            self.tracker:cycleArtefactFilter()
+            if self.btnArtFilter then
+                self.btnArtFilter.setLabel(self.tracker:getArtefactFilterLabel())
+            end
+            self:refresh()
+        end
+    )
+
     self.btnDupes = self:createToolbarButton(
         container,
         "Dupes: All",
-        "Toggle default inclusion between all duplicate artefacts or 1x each (resets custom +/- overrides).",
+        "Toggle artefact inclusion: Dupes: All, Dupes: 1x, or Include: 0 (clear all to 0 for selective repair).",
         false,
         function()
-            self.tracker:toggleDuplicates()
+            self.tracker:cycleDuplicates()
+            if self.btnDupes then
+                self.btnDupes.setLabel(self.tracker:getDuplicatesLabel())
+            end
             self:refresh()
         end
     )
@@ -886,42 +916,42 @@ function Window:buildContentComponents(container)
     local colHTarget = ui.Text.new(colLayer)
     colHTarget.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHTarget.colour = COL_GOLD
-    colHTarget.content = "Target"
+    colHTarget.content = "Track"
     colHTarget.maxLines = 1
     colHTarget:SetPos(12, 2, 0, 0)
-    colHTarget:SetSize(52, 20, 0, 0)
+    colHTarget:SetSize(50, 20, 0, 0)
 
     local colHDone = ui.Text.new(colLayer)
     colHDone.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHDone.colour = COL_GOLD
     colHDone.content = "Done"
     colHDone.maxLines = 1
-    colHDone:SetPos(68, 2, 0, 0)
-    colHDone:SetSize(42, 20, 0, 0)
+    colHDone:SetPos(66, 2, 0, 0)
+    colHDone:SetSize(40, 20, 0, 0)
 
     local colHLvl = ui.Text.new(colLayer)
     colHLvl.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHLvl.colour = COL_GOLD
     colHLvl.content = "Lvl"
     colHLvl.maxLines = 1
-    colHLvl:SetPos(114, 2, 0, 0)
-    colHLvl:SetSize(30, 20, 0, 0)
+    colHLvl:SetPos(110, 2, 0, 0)
+    colHLvl:SetSize(32, 20, 0, 0)
 
     local colHName = ui.Text.new(colLayer)
     colHName.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHName.colour = COL_GOLD
     colHName.content = "Collection"
     colHName.maxLines = 1
-    colHName:SetPos(148, 2, 0, 0)
-    colHName:SetSize(142, 20, 0, 0)
+    colHName:SetPos(146, 2, 0, 0)
+    colHName:SetSize(-474, 20, 1.0, 0)
 
     local colHReward = ui.Text.new(colLayer)
     colHReward.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colHReward.colour = COL_GOLD
     colHReward.content = "Reward"
     colHReward.maxLines = 1
-    colHReward:SetPos(294, 2, 0, 0)
-    colHReward:SetSize(-390, 20, 1.0, 0)
+    colHReward:SetPos(-324, 2, 1.0, 0)
+    colHReward:SetSize(230, 20, 0, 0)
 
     local colHReady = ui.Text.new(colLayer)
     colHReady.font = id.Font.MUSEO_SANS_15PT_REGULAR
@@ -947,7 +977,7 @@ function Window:buildContentComponents(container)
             self:onHoverCollectionRow(rowIdx)
         end)
 
-        -- Target button
+        -- Track button
         local targetBtnBg = ui.Rectangle.new(colLayer)
         targetBtnBg.colour = COL_BTN_STEP
         targetBtnBg.fill = true
@@ -960,7 +990,7 @@ function Window:buildContentComponents(container)
         local targetBtnTxt = ui.Text.new(colLayer)
         targetBtnTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         targetBtnTxt.colour = COL_MUTED
-        targetBtnTxt.content = "Target"
+        targetBtnTxt.content = "Track"
         targetBtnTxt.maxLines = 1
         targetBtnTxt.clickthrough = true
         targetBtnTxt:SetPos(12, rowY + 2)
@@ -971,29 +1001,16 @@ function Window:buildContentComponents(container)
             self:onToggleCollectionTarget(rowIdx)
         end)
 
-        -- Done toggle button
-        local doneBtnBg = ui.Rectangle.new(colLayer)
-        doneBtnBg.colour = COL_BTN_STEP
-        doneBtnBg.fill = true
-        doneBtnBg.clickthrough = false
-        doneBtnBg:SetPos(66, rowY + 2)
-        doneBtnBg:SetSize(42, ROW_HEIGHT - 6)
-        doneBtnBg.hidden = (i > 1)
-        forwardScrollWheel(doneBtnBg)
-
-        local doneBtnTxt = ui.Text.new(colLayer)
-        doneBtnTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
-        doneBtnTxt.colour = COL_MUTED
-        doneBtnTxt.content = "Todo"
-        doneBtnTxt.maxLines = 1
-        doneBtnTxt.clickthrough = true
-        doneBtnTxt:SetPos(66, rowY + 2)
-        doneBtnTxt:SetSize(42, ROW_HEIGHT - 6)
-        doneBtnTxt.hidden = (i > 1)
-
-        doneBtnBg:Subscribe(ui.Hook.ONCLICK, function()
-            self:onToggleCollectionDone(rowIdx)
-        end)
+        -- Done status text (pure display driven by collection sync)
+        local doneTxt = ui.Text.new(colLayer)
+        doneTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        doneTxt.colour = COL_MUTED
+        doneTxt.content = "-"
+        doneTxt.maxLines = 1
+        doneTxt.clickthrough = true
+        doneTxt:SetPos(66, rowY + 2)
+        doneTxt:SetSize(40, ROW_HEIGHT - 2)
+        doneTxt.hidden = (i > 1)
 
         -- Level
         local lvlTxt = ui.Text.new(colLayer)
@@ -1001,28 +1018,28 @@ function Window:buildContentComponents(container)
         lvlTxt.colour = COL_MUTED
         lvlTxt.maxLines = 1
         lvlTxt.clickthrough = true
-        lvlTxt:SetPos(114, rowY + 2)
-        lvlTxt:SetSize(30, ROW_HEIGHT - 2)
+        lvlTxt:SetPos(110, rowY + 2)
+        lvlTxt:SetSize(32, ROW_HEIGHT - 2)
         lvlTxt.hidden = (i > 1)
 
-        -- Name
+        -- Name (Collection expands dynamically)
         local nameTxt = ui.Text.new(colLayer)
         nameTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         nameTxt.colour = COL_WHITE
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
-        nameTxt:SetPos(148, rowY + 2)
-        nameTxt:SetSize(142, ROW_HEIGHT - 2)
+        nameTxt:SetPos(146, rowY + 2)
+        nameTxt:SetSize(-474, ROW_HEIGHT - 2, 1.0, 0)
         nameTxt.hidden = (i > 1)
 
-        -- Reward / Power text
+        -- Reward text
         local rewardTxt = ui.Text.new(colLayer)
         rewardTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         rewardTxt.colour = COL_MUTED
         rewardTxt.maxLines = 1
         rewardTxt.clickthrough = true
-        rewardTxt:SetPos(294, rowY + 2)
-        rewardTxt:SetSize(-390, ROW_HEIGHT - 2, 1.0, 0)
+        rewardTxt:SetPos(-324, rowY + 2, 1.0, 0)
+        rewardTxt:SetSize(230, ROW_HEIGHT - 2, 0, 0)
         rewardTxt.hidden = (i > 1)
 
         -- Ready
@@ -1039,8 +1056,7 @@ function Window:buildContentComponents(container)
             bg = bg,
             targetBtnBg = targetBtnBg,
             targetBtnTxt = targetBtnTxt,
-            doneBtnBg = doneBtnBg,
-            doneBtnTxt = doneBtnTxt,
+            doneTxt = doneTxt,
             lvlTxt = lvlTxt,
             nameTxt = nameTxt,
             rewardTxt = rewardTxt,
@@ -1070,40 +1086,48 @@ function Window:buildContentComponents(container)
     colArtName.colour = COL_GOLD
     colArtName.content = "Artefact"
     colArtName.maxLines = 1
-    colArtName:SetPos(38, 2, 0, 0)
-    colArtName:SetSize(-422, 20, 1.0, 0)
+    colArtName:SetPos(36, 2, 0, 0)
+    colArtName:SetSize(132, 20, 0, 0)
 
     local colArtLvl = ui.Text.new(artLayer)
     colArtLvl.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtLvl.colour = COL_GOLD
     colArtLvl.content = "Lvl"
     colArtLvl.maxLines = 1
-    colArtLvl:SetPos(-380, 2, 1.0, 0)
-    colArtLvl:SetSize(36, 20, 0, 0)
+    colArtLvl:SetPos(170, 2, 0, 0)
+    colArtLvl:SetSize(30, 20, 0, 0)
+
+    local colArtLoc = ui.Text.new(artLayer)
+    colArtLoc.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    colArtLoc.colour = COL_GOLD
+    colArtLoc.content = "Location"
+    colArtLoc.maxLines = 1
+    colArtLoc:SetPos(202, 2, 0, 0)
+    colArtLoc:SetSize(-442, 20, 1.0, 0)
 
     local colArtOwned = ui.Text.new(artLayer)
     colArtOwned.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtOwned.colour = COL_GOLD
     colArtOwned.content = "Owned"
     colArtOwned.maxLines = 1
-    colArtOwned:SetPos(-340, 2, 1.0, 0)
-    colArtOwned:SetSize(112, 20, 0, 0)
+    colArtOwned:SetPos(-236, 2, 1.0, 0)
+    colArtOwned:SetSize(74, 20, 0, 0)
 
     local colArtQty = ui.Text.new(artLayer)
     colArtQty.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtQty.colour = COL_GOLD
     colArtQty.content = "Include"
     colArtQty.maxLines = 1
-    colArtQty:SetPos(-224, 2, 1.0, 0)
-    colArtQty:SetSize(96, 20, 0, 0)
+    colArtQty:SetPos(-158, 2, 1.0, 0)
+    colArtQty:SetSize(76, 20, 0, 0)
 
     local colArtStatus = ui.Text.new(artLayer)
     colArtStatus.font = id.Font.MUSEO_SANS_15PT_REGULAR
     colArtStatus.colour = COL_GOLD
-    colArtStatus.content = "Repair Status"
+    colArtStatus.content = "Status"
     colArtStatus.maxLines = 1
-    colArtStatus:SetPos(-122, 2, 1.0, 0)
-    colArtStatus:SetSize(114, 20, 0, 0)
+    colArtStatus:SetPos(-78, 2, 1.0, 0)
+    colArtStatus:SetSize(70, 20, 0, 0)
 
     local startY = 24
     for i = 1, MAX_ARTEFACT_ROWS do
@@ -1132,8 +1156,8 @@ function Window:buildContentComponents(container)
         nameTxt.colour = COL_WHITE
         nameTxt.maxLines = 1
         nameTxt.clickthrough = true
-        nameTxt:SetPos(38, rowY + 2, 0, 0)
-        nameTxt:SetSize(-422, ROW_HEIGHT - 2, 1.0, 0)
+        nameTxt:SetPos(36, rowY + 2, 0, 0)
+        nameTxt:SetSize(132, ROW_HEIGHT - 2, 0, 0)
         nameTxt.hidden = (i > 1)
 
         local lvlTxt = ui.Text.new(artLayer)
@@ -1141,17 +1165,26 @@ function Window:buildContentComponents(container)
         lvlTxt.colour = COL_CREAM
         lvlTxt.maxLines = 1
         lvlTxt.clickthrough = true
-        lvlTxt:SetPos(-380, rowY + 2, 1.0, 0)
-        lvlTxt:SetSize(36, ROW_HEIGHT - 2, 0, 0)
+        lvlTxt:SetPos(170, rowY + 2, 0, 0)
+        lvlTxt:SetSize(30, ROW_HEIGHT - 2, 0, 0)
         lvlTxt.hidden = (i > 1)
+
+        local locTxt = ui.Text.new(artLayer)
+        locTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        locTxt.colour = COL_MUTED
+        locTxt.maxLines = 1
+        locTxt.clickthrough = true
+        locTxt:SetPos(202, rowY + 2, 0, 0)
+        locTxt:SetSize(-442, ROW_HEIGHT - 2, 1.0, 0)
+        locTxt.hidden = (i > 1)
 
         local ownedTxt = ui.Text.new(artLayer)
         ownedTxt.font = id.Font.MUSEO_SANS_15PT_REGULAR
         ownedTxt.colour = COL_MUTED
         ownedTxt.maxLines = 1
         ownedTxt.clickthrough = true
-        ownedTxt:SetPos(-340, rowY + 2, 1.0, 0)
-        ownedTxt:SetSize(112, ROW_HEIGHT - 2, 0, 0)
+        ownedTxt:SetPos(-236, rowY + 2, 1.0, 0)
+        ownedTxt:SetSize(74, ROW_HEIGHT - 2, 0, 0)
         ownedTxt.hidden = (i > 1)
 
         -- [-] Stepper Button
@@ -1159,8 +1192,8 @@ function Window:buildContentComponents(container)
         minusBg.colour = COL_BTN_STEP
         minusBg.fill = true
         minusBg.clickthrough = false
-        minusBg:SetPos(-224, rowY + 2, 1.0, 0)
-        minusBg:SetSize(22, ROW_HEIGHT - 6, 0, 0)
+        minusBg:SetPos(-158, rowY + 2, 1.0, 0)
+        minusBg:SetSize(20, ROW_HEIGHT - 6, 0, 0)
         minusBg.hidden = true
         minusBg:Subscribe(ui.Hook.ONCLICK, function()
             local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
@@ -1187,8 +1220,8 @@ function Window:buildContentComponents(container)
                 minusTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        minusTxt:SetPos(-224, rowY + 2, 1.0, 0)
-        minusTxt:SetSize(22, ROW_HEIGHT - 6, 0, 0)
+        minusTxt:SetPos(-158, rowY + 2, 1.0, 0)
+        minusTxt:SetSize(20, ROW_HEIGHT - 6, 0, 0)
         minusTxt.hidden = true
 
         local qtyTxt = ui.Text.new(artLayer)
@@ -1202,8 +1235,8 @@ function Window:buildContentComponents(container)
                 qtyTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        qtyTxt:SetPos(-200, rowY + 2, 1.0, 0)
-        qtyTxt:SetSize(44, ROW_HEIGHT - 2, 0, 0)
+        qtyTxt:SetPos(-136, rowY + 2, 1.0, 0)
+        qtyTxt:SetSize(32, ROW_HEIGHT - 2, 0, 0)
         qtyTxt.hidden = (i > 1)
 
         -- [+] Stepper Button
@@ -1211,8 +1244,8 @@ function Window:buildContentComponents(container)
         plusBg.colour = COL_BTN_STEP
         plusBg.fill = true
         plusBg.clickthrough = false
-        plusBg:SetPos(-154, rowY + 2, 1.0, 0)
-        plusBg:SetSize(22, ROW_HEIGHT - 6, 0, 0)
+        plusBg:SetPos(-102, rowY + 2, 1.0, 0)
+        plusBg:SetSize(20, ROW_HEIGHT - 6, 0, 0)
         plusBg:Subscribe(ui.Hook.ONCLICK, function()
             local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
             if item and item.artefact then
@@ -1239,8 +1272,8 @@ function Window:buildContentComponents(container)
                 plusTxt.alignVertical = ui.AlignMode.CENTRE
             end)
         end
-        plusTxt:SetPos(-154, rowY + 2, 1.0, 0)
-        plusTxt:SetSize(22, ROW_HEIGHT - 6, 0, 0)
+        plusTxt:SetPos(-102, rowY + 2, 1.0, 0)
+        plusTxt:SetSize(20, ROW_HEIGHT - 6, 0, 0)
         plusTxt.hidden = true
 
         local statusTxt = ui.Text.new(artLayer)
@@ -1248,8 +1281,8 @@ function Window:buildContentComponents(container)
         statusTxt.colour = COL_WHITE
         statusTxt.maxLines = 1
         statusTxt.clickthrough = true
-        statusTxt:SetPos(-122, rowY + 2, 1.0, 0)
-        statusTxt:SetSize(114, ROW_HEIGHT - 2, 0, 0)
+        statusTxt:SetPos(-78, rowY + 2, 1.0, 0)
+        statusTxt:SetSize(70, ROW_HEIGHT - 2, 0, 0)
         statusTxt.hidden = (i > 1)
 
         self.artefactRows[i] = {
@@ -1257,6 +1290,7 @@ function Window:buildContentComponents(container)
             icon = icon,
             nameTxt = nameTxt,
             lvlTxt = lvlTxt,
+            locTxt = locTxt,
             ownedTxt = ownedTxt,
             minusBg = minusBg,
             minusTxt = minusTxt,
@@ -1410,6 +1444,73 @@ function Window:buildContentComponents(container)
         }
     end
     self._prevVisibleRowCount = 1
+
+    -- 5D. SETTINGS OVERLAY LAYER
+    local setLayer = ui.Layer.new(container)
+    setLayer.clickthrough = false
+    setLayer.hidden = true
+    setLayer:SetPos(12, 68)
+    setLayer:SetSize(-24, 200, 1.0, 0)
+
+    local setBg = ui.Rectangle.new(setLayer)
+    setBg.colour = makeColour(0.06, 0.09, 0.14, 0.98)
+    setBg.fill = true
+    setBg.clickthrough = false
+    setBg:SetPos(0, 0)
+    setBg:SetSize(0, 0, 1.0, 1.0)
+
+    local setBorder = ui.Rectangle.new(setLayer)
+    setBorder.colour = COL_GOLD
+    setBorder.fill = false
+    setBorder.clickthrough = true
+    setBorder:SetPos(0, 0)
+    setBorder:SetSize(0, 0, 1.0, 1.0)
+
+    local setTitle = ui.Text.new(setLayer)
+    setTitle.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    setTitle.colour = COL_GOLD
+    setTitle.content = "Settings & Cache Management"
+    setTitle:SetPos(16, 12)
+    setTitle:SetSize(-32, 22, 1.0, 0)
+
+    local setDesc = ui.Text.new(setLayer)
+    setDesc.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    setDesc.colour = COL_MUTED
+    setDesc.content = "Wipe cached storage, bank, completions, and custom quantities back to fresh."
+    setDesc:SetPos(16, 36)
+    setDesc:SetSize(-32, 20, 1.0, 0)
+
+    local btnClearCache = ui.Button.new(setLayer)
+    btnClearCache.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+    btnClearCache:SetPos(16, 64)
+    btnClearCache:SetSize(-32, 30, 1.0, 0)
+    btnClearCache.label = "Clear All Cache & Saved Data"
+    btnClearCache:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+        self.tracker:clearAllCache()
+        self.isSettingsOpen = false
+        self:refresh()
+    end)
+
+    local btnResetGeom = ui.Button.new(setLayer)
+    btnResetGeom.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+    btnResetGeom:SetPos(16, 102)
+    btnResetGeom:SetSize(-32, 30, 1.0, 0)
+    btnResetGeom.label = "Reset Window Position & Size"
+    btnResetGeom:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+        self:resetWindowGeometry()
+    end)
+
+    local btnCloseSettings = ui.Button.new(setLayer)
+    btnCloseSettings.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+    btnCloseSettings:SetPos(16, 146)
+    btnCloseSettings:SetSize(-32, 30, 1.0, 0)
+    btnCloseSettings.label = "Close Settings"
+    btnCloseSettings:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+        self.isSettingsOpen = false
+        self:refresh()
+    end)
+
+    self.settingsLayer = setLayer
 end
 
 local cachedBodyFont = nil
@@ -1683,19 +1784,19 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
             lineTxt.hidden = false
             lineTxt.content = text
 
-            if string.find(text, "%[Relic%]") or string.find(text, "Power/Benefit") then
+            if string.find(text, "Power/Benefit") then
                 lineTxt.colour = COL_CYAN
-            elseif string.find(text, "%[Weapon%]") or string.find(text, "Weapon") then
+            elseif string.find(text, "Weapon") then
                 lineTxt.colour = COL_GOLD
-            elseif string.find(text, "%[Mystery%]") or string.find(text, "Mystery") then
+            elseif string.find(text, "Mystery") then
                 lineTxt.colour = COL_AMBER
-            elseif string.find(text, "%[Tetra%]") or string.find(text, "Tetracompass") then
+            elseif string.find(text, "Tetracompass") then
                 lineTxt.colour = COL_CREAM
-            elseif string.find(text, "%[%+%]") then
+            elseif string.find(text, ": Ready") then
                 lineTxt.colour = COL_GREEN
-            elseif string.find(text, "%[%-%]") then
+            elseif string.find(text, ": Damaged") then
                 lineTxt.colour = COL_AMBER
-            elseif string.find(text, "%[x%]") then
+            elseif string.find(text, ": Missing") then
                 lineTxt.colour = COL_RED
             elseif string.find(text, "Required Artefacts") then
                 lineTxt.colour = COL_GOLD
@@ -1819,14 +1920,6 @@ function Window:onToggleCollectionTarget(rowIdx)
     end
 end
 
-function Window:onToggleCollectionDone(rowIdx)
-    local item = self.currentCollections and self.currentCollections[rowIdx]
-    if item and item.data and item.data.name then
-        self.tracker:toggleCollectionCompleted(item.data.name)
-        self:refresh()
-    end
-end
-
 function Window:onHoverCollectionRow(rowIdx)
     if self._isResizing then return end
     local item = self.currentCollections and self.currentCollections[rowIdx]
@@ -1864,11 +1957,11 @@ function Window:onHoverCollectionRow(rowIdx)
 
     for _, a in ipairs(prog.artefacts or {}) do
         if a.isReady then
-            table.insert(details, string.format("  [+] %s: Ready (%d in Bag/Bank)", a.name, a.restoredCount))
+            table.insert(details, string.format("  %s: Ready (%d in Bag/Bank)", a.name, a.restoredCount))
         elseif a.damagedCount > 0 then
-            table.insert(details, string.format("  [-] %s: Damaged (%d in Bag/Bank)", a.name, a.damagedCount))
+            table.insert(details, string.format("  %s: Damaged (%d in Bag/Bank)", a.name, a.damagedCount))
         else
-            table.insert(details, string.format("  [x] %s: Missing", a.name))
+            table.insert(details, string.format("  %s: Missing", a.name))
         end
     end
 
@@ -1895,9 +1988,10 @@ function Window:onHoverArtefactRow(rowIdx)
     local art = item.artefact
     local objId = art and art.id
     local title = string.format("%s (Lv %d) | %s XP | %s Chronotes", art.name, art.level or 1, formatInt(art.xp), formatInt(art.chronotes))
+    local locStr = art.location or "Archaeology"
     local sub = string.format(
-        "Owned: %d (Bag: %d, Bank: %d) | Included: %d",
-        item.rawCount, item.inBag, item.inBank, item.effectiveCount
+        "Location: %s | Owned: %d (Bag: %d, Bank: %d) | Included: %d",
+        locStr, item.rawCount, item.inBag, item.inBank, item.effectiveCount
     )
     local reqParts = {}
     local mult = math.max(1, item.effectiveCount > 0 and item.effectiveCount or 1)
@@ -1996,51 +2090,59 @@ function Window:updateToolbarLayout(forceReflow)
         self.btnColFilter.setHidden(not isColTab)
         local hasTargets = self.tracker and self.tracker.hasTargetedCollections and self.tracker:hasTargetedCollections()
         self.btnClearTargets.setHidden(not isColTab or not hasTargets)
-        self.btnPin.setHidden(not isArtTab)
+        self.btnArtFilter.setHidden(not isArtTab)
         self.btnDupes.setHidden(not isArtTab)
+        self.btnPin.setHidden(not isArtTab)
         self.btnFilter.setHidden(not isMatTab)
         if self.btnSpots then
             self.btnSpots.setHidden(not isMatTab)
         end
 
         local badgesTotalW = BADGE_W * 3 + (gap * 2)
-
         local totalBtnsW = math.max(180, availW - badgesTotalW - (gap * 3))
 
-        local isTwoBtns = isColTab and not hasTargets
-        local w1, w2, w3
-        if isTwoBtns then
-            w1 = math.floor((totalBtnsW - gap) * 0.5)
-            w2 = totalBtnsW - gap - w1
-            w3 = 0
+        if isColTab then
+            local isTwoBtns = not hasTargets
+            if isTwoBtns then
+                local w1 = math.floor((totalBtnsW - gap) * 0.5)
+                local w2 = totalBtnsW - gap - w1
+                self.btnSource.setBounds(8, 36, w1, 26)
+                self.btnColFilter.setBounds(8 + w1 + gap, 36, w2, 26)
+            else
+                local w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
+                local w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
+                local w3 = totalBtnsW - (gap * 2) - (w1 + w2)
+                self.btnSource.setBounds(8, 36, w1, 26)
+                self.btnColFilter.setBounds(8 + w1 + gap, 36, w2, 26)
+                self.btnClearTargets.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
+            end
+        elseif isArtTab then
+            local w1 = math.floor((totalBtnsW - (gap * 3)) * 0.25)
+            local w2 = math.floor((totalBtnsW - (gap * 3)) * 0.27)
+            local w3 = math.floor((totalBtnsW - (gap * 3)) * 0.28)
+            local w4 = totalBtnsW - (gap * 3) - (w1 + w2 + w3)
+            local x1 = 8
+            local x2 = x1 + w1 + gap
+            local x3 = x2 + w2 + gap
+            local x4 = x3 + w3 + gap
+            self.btnSource.setBounds(x1, 36, w1, 26)
+            self.btnArtFilter.setBounds(x2, 36, w2, 26)
+            self.btnDupes.setBounds(x3, 36, w3, 26)
+            self.btnPin.setBounds(x4, 36, w4, 26)
         else
-            w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
-            w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
-            w3 = totalBtnsW - (gap * 2) - (w1 + w2)
+            local w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
+            local w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
+            local w3 = totalBtnsW - (gap * 2) - (w1 + w2)
+            self.btnSource.setBounds(8, 36, w1, 26)
+            self.btnFilter.setBounds(8 + w1 + gap, 36, w2, 26)
+            if self.btnSpots then
+                self.btnSpots.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
+            end
         end
 
-        local x1 = 8
-        local x2 = x1 + w1 + gap
-        local x3 = x2 + w2 + gap
         local xStor = 8 + totalBtnsW + gap
         local xBank = xStor + BADGE_W + gap
         local xBoard = xBank + BADGE_W + gap
-
-        self.btnSource.setBounds(x1, 36, w1, 26)
-        if isColTab then
-            self.btnColFilter.setBounds(x2, 36, w2, 26)
-            if hasTargets then
-                self.btnClearTargets.setBounds(x3, 36, w3, 26)
-            end
-        elseif isArtTab then
-            self.btnDupes.setBounds(x2, 36, w2, 26)
-            self.btnPin.setBounds(x3, 36, w3, 26)
-        else
-            self.btnFilter.setBounds(x2, 36, w2, 26)
-            if self.btnSpots then
-                self.btnSpots.setBounds(x3, 36, w3, 26)
-            end
-        end
 
         if self.badgeStorage then
             self.badgeStorage.setBounds(xStor, 36, BADGE_W, 26)
@@ -2188,7 +2290,7 @@ function Window:resetWindowGeometry()
     self:updateToolbarLayout(true)
 end
 
--- Populates the PrettyUI Ribbon Bar hub panel with just the single Show/Hide Window button
+-- Populates the PrettyUI Ribbon Bar hub panel with controls and cache management
 function Window:populateRibbonHub(parent)
     self.hubParent = parent
     pcall(function() parent:DeleteAll() end)
@@ -2204,6 +2306,25 @@ function Window:populateRibbonHub(parent)
         end
     end)
     self.hubToggleBtn = btn
+
+    local btnReset = ui.Button.new(parent)
+    btnReset.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+    btnReset:SetPos(12, 48)
+    btnReset:SetSize(-24, 30, 1.0, 0)
+    btnReset.label = "Reset Window Position"
+    btnReset:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+        self:resetWindowGeometry()
+    end)
+
+    local btnClear = ui.Button.new(parent)
+    btnClear.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+    btnClear:SetPos(12, 84)
+    btnClear:SetSize(-24, 30, 1.0, 0)
+    btnClear.label = "Clear All Cache & Saved Data"
+    btnClear:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+        self.tracker:clearAllCache()
+        self:refresh()
+    end)
 end
 
 function Window:refreshHub()
@@ -2251,9 +2372,16 @@ function Window:refresh()
     self.btnTabMaterials.setLabel(string.format("Materials (%d)", #matList))
     self.btnTabMaterials.setActive(isMatTab)
 
-    self.collectionsTableLayer.hidden = (not isColTab) or (#colList == 0)
-    self.artefactTableLayer.hidden = (not isArtTab) or (#artList == 0)
-    self.tableLayer.hidden = (not isMatTab) or (#matList == 0)
+    self.collectionsTableLayer.hidden = (not isColTab) or (#colList == 0) or (self.isSettingsOpen == true)
+    self.artefactTableLayer.hidden = (not isArtTab) or (#artList == 0) or (self.isSettingsOpen == true)
+    self.tableLayer.hidden = (not isMatTab) or (#matList == 0) or (self.isSettingsOpen == true)
+
+    if self.settingsLayer then
+        self.settingsLayer.hidden = not (self.isSettingsOpen == true)
+        if self.isSettingsOpen then
+            self.settingsLayer:MoveToFront()
+        end
+    end
 
     self.btnSource.setLabel(mode.shortLabel)
     if self.btnColFilter then
@@ -2261,13 +2389,15 @@ function Window:refresh()
         self.btnColFilter.setActive(self.colFilterIndex > 1)
     end
     if self.btnClearTargets then
-        self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Targets: 0")
+        self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Tracked: 0")
         self.btnClearTargets.setActive(targetedCols > 0)
     end
-    if t.hasCustomCounts and t:hasCustomCounts() then
-        self.btnDupes.setLabel("Dupes: Custom")
-    else
-        self.btnDupes.setLabel(t.includeDuplicates and "Dupes: All" or "Dupes: 1x")
+    if self.btnArtFilter then
+        self.btnArtFilter.setLabel(t:getArtefactFilterLabel())
+        self.btnArtFilter.setActive(t.artefactFilter ~= "ALL")
+    end
+    if self.btnDupes then
+        self.btnDupes.setLabel(t:getDuplicatesLabel())
     end
     self.btnFilter.setLabel(t.shortOnly and "Short Only" or "Show: All")
     self.btnFilter.setActive(t.shortOnly)
@@ -2302,7 +2432,7 @@ function Window:refresh()
     -- 3. Update Artefact & Deficit Summary Card
     if isColTab then
         self.summaryTitle.content = string.format(
-            "Collections: %d / %d Completed  |  %d Targeted",
+            "Collections: %d / %d Completed  |  %d Tracked",
             completedCols,
             totalCols,
             targetedCols
@@ -2384,30 +2514,27 @@ function Window:refresh()
                 rowUI.bg.hidden = false
                 rowUI.bg.colour = (slotIdx % 2 == 1) and COL_BG_ROW or COL_BG_ALT
 
-                -- Target button
+                -- Track button
                 rowUI.targetBtnBg.hidden = false
                 rowUI.targetBtnTxt.hidden = false
                 if prog.isTargeted then
                     rowUI.targetBtnBg.colour = COL_GOLD
                     rowUI.targetBtnTxt.colour = makeColour(0.08, 0.08, 0.08, 1.0)
-                    rowUI.targetBtnTxt.content = "Targeted"
+                    rowUI.targetBtnTxt.content = "Tracked"
                 else
                     rowUI.targetBtnBg.colour = COL_BTN_STEP
                     rowUI.targetBtnTxt.colour = COL_MUTED
-                    rowUI.targetBtnTxt.content = "Target"
+                    rowUI.targetBtnTxt.content = "Track"
                 end
 
-                -- Done button
-                rowUI.doneBtnBg.hidden = false
-                rowUI.doneBtnTxt.hidden = false
+                -- Done status text (driven purely by collection completion)
+                rowUI.doneTxt.hidden = false
                 if prog.isCompleted then
-                    rowUI.doneBtnBg.colour = makeColour(0.12, 0.35, 0.16, 0.9)
-                    rowUI.doneBtnTxt.colour = COL_GREEN
-                    rowUI.doneBtnTxt.content = "Done"
+                    rowUI.doneTxt.colour = COL_GREEN
+                    rowUI.doneTxt.content = "Done"
                 else
-                    rowUI.doneBtnBg.colour = COL_BTN_STEP
-                    rowUI.doneBtnTxt.colour = COL_MUTED
-                    rowUI.doneBtnTxt.content = "Todo"
+                    rowUI.doneTxt.colour = COL_MUTED
+                    rowUI.doneTxt.content = "-"
                 end
 
                 -- Level
@@ -2422,16 +2549,16 @@ function Window:refresh()
                 rowUI.rewardTxt.hidden = false
                 if col.benefitType == "relic" then
                     rowUI.rewardTxt.colour = COL_CYAN
-                    rowUI.rewardTxt.content = "[Relic] " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif col.benefitType == "weapon" then
                     rowUI.rewardTxt.colour = COL_GOLD
-                    rowUI.rewardTxt.content = "[Weapon] " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif col.benefitType == "mystery" then
                     rowUI.rewardTxt.colour = COL_AMBER
-                    rowUI.rewardTxt.content = "[Mystery] " .. (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif col.benefitType == "tetra" then
                     rowUI.rewardTxt.colour = COL_CREAM
-                    rowUI.rewardTxt.content = "[Tetra] " .. (col.recurringReward ~= "" and col.recurringReward or "Tetracompass piece")
+                    rowUI.rewardTxt.content = (col.recurringReward ~= "" and col.recurringReward or "Tetracompass piece")
                 else
                     rowUI.rewardTxt.colour = COL_MUTED
                     local rew = col.chronotes ~= "" and col.chronotes or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
@@ -2451,8 +2578,7 @@ function Window:refresh()
                 rowUI.bg.hidden = true
                 rowUI.targetBtnBg.hidden = true
                 rowUI.targetBtnTxt.hidden = true
-                rowUI.doneBtnBg.hidden = true
-                rowUI.doneBtnTxt.hidden = true
+                rowUI.doneTxt.hidden = true
                 rowUI.lvlTxt.hidden = true
                 rowUI.nameTxt.hidden = true
                 rowUI.rewardTxt.hidden = true
@@ -2489,6 +2615,7 @@ function Window:refresh()
             rowUI.bg.hidden = false
             rowUI.nameTxt.hidden = false
             rowUI.lvlTxt.hidden = false
+            rowUI.locTxt.hidden = false
             rowUI.ownedTxt.hidden = false
             rowUI.minusBg.hidden = false
             rowUI.minusTxt.hidden = false
@@ -2499,6 +2626,8 @@ function Window:refresh()
 
             rowUI.nameTxt.content = item.artefact.name
             rowUI.lvlTxt.content = tostring(item.artefact.level or 1)
+            rowUI.locTxt.content = item.artefact.location or "Archaeology"
+            rowUI.locTxt.colour = COL_MUTED
 
             if item.inBag > 0 and item.inBank > 0 then
                 rowUI.ownedTxt.content = string.format("%d (%d/%d)", item.rawCount, item.inBag, item.inBank)
@@ -2559,6 +2688,7 @@ function Window:refresh()
             rowUI.bg.hidden = true
             rowUI.nameTxt.hidden = true
             rowUI.lvlTxt.hidden = true
+            rowUI.locTxt.hidden = true
             rowUI.ownedTxt.hidden = true
             rowUI.minusBg.hidden = true
             rowUI.minusTxt.hidden = true
