@@ -85,8 +85,43 @@ local function onChatMessage(event)
     end)
 end
 
-if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
-    Event.ChatMessage.Subscribe("arch_assistant_chat", onChatMessage)
+local chatSubscribed = false
+local function updateChatSubscription()
+    local hasPerm = true
+    if Plugin and Plugin.HasPermission and PluginPermissions and PluginPermissions.chatAccess then
+        local ok, granted = pcall(Plugin.HasPermission, PluginPermissions.chatAccess)
+        if ok then
+            hasPerm = granted
+        end
+    end
+
+    if hasPerm and not chatSubscribed then
+        if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
+            local ok, err = pcall(function()
+                Event.ChatMessage.Subscribe("arch_assistant_chat", onChatMessage)
+            end)
+            if ok then
+                chatSubscribed = true
+            else
+                recordError("ChatMessage.Subscribe", err)
+            end
+        end
+    elseif not hasPerm and chatSubscribed then
+        if Event and Event.ChatMessage and Event.ChatMessage.Unsubscribe then
+            pcall(function()
+                Event.ChatMessage.Unsubscribe("arch_assistant_chat")
+            end)
+        end
+        chatSubscribed = false
+    end
+end
+
+updateChatSubscription()
+
+if Event and Event.OptionalPermissionChanged and Event.OptionalPermissionChanged.Subscribe then
+    Event.OptionalPermissionChanged.Subscribe("arch_assistant_perm_changed", function(ev)
+        updateChatSubscription()
+    end)
 end
 
 -- Track player player actions like Drop vs Deposit from the MiniMenu
@@ -115,6 +150,9 @@ function PluginShutdown()
     end
     if Event and Event.ChatMessage and Event.ChatMessage.Unsubscribe then
         pcall(function() Event.ChatMessage.Unsubscribe("arch_assistant_chat") end)
+    end
+    if Event and Event.OptionalPermissionChanged and Event.OptionalPermissionChanged.Unsubscribe then
+        pcall(function() Event.OptionalPermissionChanged.Unsubscribe("arch_assistant_perm_changed") end)
     end
     if Event and Event.MiniMenuEntrySelected and Event.MiniMenuEntrySelected.Unsubscribe then
         pcall(function() Event.MiniMenuEntrySelected.Unsubscribe("arch_assistant_minimenu") end)

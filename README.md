@@ -96,11 +96,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Update-WikiData.ps1
 ```
 *(Pass `-DryRun` to fetch and validate Wiki data without overwriting files, or run `.\deploy.cmd -UpdateData` to update data and deploy in one command.)*
 
-### 3. Enable & Reload in the RS3 Beta Client
+### 3. Enable, Permissions & Reload in the RS3 Beta Client
 1. In the Beta lobby, click **Import Save** to copy your live character into the Beta world, then enter the game.
 2. Open the RS3 Developer Console (`Alt` + `` ` ``) and run:
    - `prf` — Refresh the plugin list
+   - `ppe archaeology-assistant chatAccess` — Grant the required `chatAccess` permission (required for Sign of the Porter & Grace of the Elves excavation tracking)
    - `pon prettyui` — Enable the `PrettyUI` dependency (if not already enabled)
    - `pon archaeology-assistant` — Enable the plugin
    - `prl archaeology-assistant` — Reload the plugin after running `.\deploy.cmd`
+
+> **Note on `requiredPermissions` in Dev Mode:**
+> For store-installed plugins, the client prompts players to accept required permissions during installation. Because `dev_plugins` are loaded directly from disk without going through the store install prompt, the client lists required permissions as non-toggleable in the UI. Running `ppe archaeology-assistant chatAccess` (or `ppr archaeology-assistant`) in the developer console grants the permission immediately.
 
