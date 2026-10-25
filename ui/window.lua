@@ -35,7 +35,7 @@ local COL_FILTER_MODES = {
 local BADGE_W = 42
 local BANK_ICON_OBJ_ID = 995
 local STORAGE_ICON_OBJ_ID = 49429
-local BOARD_ICON_OBJ_ID = 49424
+local BOARD_ICON_OBJ_ID = 49423
 
 
 local HUB_EVENT_ID = "arch_assistant_hub"
@@ -718,7 +718,7 @@ function Window:buildContentComponents(container)
     -- Each badge shows an in-game item icon, a coloured border and a status dot:
     --   green = synced live this session, amber = cached (resync recommended),
     --   red = never synced, grey = ignored by the current Src mode.
-    local function createSyncBadge(fallbackLabel, iconObjId, onHoverFn)
+    local function createSyncBadge(fallbackLabel, iconObjId, onHoverFn, onClickFn)
         local root = ui.Layer.new(container)
         root.clickthrough = false
         root:SetPos(0, 36)
@@ -734,9 +734,20 @@ function Window:buildContentComponents(container)
         local bg = ui.Rectangle.new(root)
         bg.colour = COL_SYNC_MISSING
         bg.fill = true
-        bg.clickthrough = true
+        bg.clickthrough = (onClickFn == nil)
         bg:SetPos(2, 2)
         bg:SetSize(-4, -4, 1.0, 1.0)
+
+        if onClickFn and ui and ui.Hook and ui.Hook.ONCLICK then
+            bg:Subscribe(ui.Hook.ONCLICK, function()
+                onClickFn()
+                return false
+            end)
+            root:Subscribe(ui.Hook.ONCLICK, function()
+                onClickFn()
+                return false
+            end)
+        end
 
         -- Item icon sprite (falls back to a short text label if no icon is available)
         local icon = ui.Sprite.new(root)
@@ -800,6 +811,7 @@ function Window:buildContentComponents(container)
 
         return {
             root = root,
+            bg = bg,
             setIcon = setIcon,
             setBounds = function(x, y, w, h)
                 root:SetPos(x, y)
@@ -837,16 +849,12 @@ function Window:buildContentComponents(container)
 
     self.badgeBoard = createSyncBadge("Board", BOARD_ICON_OBJ_ID, function()
         self:onHoverSyncBadge("board")
+    end, function()
+        if self.tracker and self.tracker.syncCollectorBoard then
+            self.tracker:syncCollectorBoard(true)
+            self:refresh()
+        end
     end)
-    if self.badgeBoard.root and ui and ui.Hook and ui.Hook.ONCLICK then
-        self.badgeBoard.root:Subscribe(ui.Hook.ONCLICK, function()
-            if self.tracker and self.tracker.syncCollectorBoard then
-                self.tracker:syncCollectorBoard()
-                self:refresh()
-            end
-            return false
-        end)
-    end
 
     self.badgeStorage = createSyncBadge("Stor", STORAGE_ICON_OBJ_ID, function()
         self:onHoverSyncBadge("storage")
@@ -1123,8 +1131,8 @@ function Window:buildContentComponents(container)
     colArtStatus.colour = COL_GOLD
     colArtStatus.content = "Status"
     colArtStatus.maxLines = 1
-    colArtStatus:SetPos(-158, 2, 1.0, 0)
-    colArtStatus:SetSize(150, 20, 0, 0)
+    colArtStatus:SetPos(-143, 2, 1.0, 0)
+    colArtStatus:SetSize(135, 20, 0, 0)
 
     self.colArtLoc = colArtLoc
     self.colArtOwned = colArtOwned
@@ -1283,8 +1291,8 @@ function Window:buildContentComponents(container)
         statusTxt.colour = COL_WHITE
         statusTxt.maxLines = 1
         statusTxt.clickthrough = true
-        statusTxt:SetPos(-158, rowY + 2, 1.0, 0)
-        statusTxt:SetSize(150, ROW_HEIGHT - 2, 0, 0)
+        statusTxt:SetPos(-143, rowY + 2, 1.0, 0)
+        statusTxt:SetSize(135, ROW_HEIGHT - 2, 0, 0)
         statusTxt.hidden = (i > 1)
 
         self.artefactRows[i] = {
@@ -1810,6 +1818,15 @@ function Window:onHoverSyncBadge(badgeKind)
             and string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
             or string.format("%d collections completed, %d artefacts handed in.", s.completedCount or 0, s.submittedCount or 0))
 
+    if isBoard then
+        local scanSumm = self.tracker and self.tracker.lastCollectorScanSummary
+        if scanSumm then
+            contents = contents .. "\nLast scan: " .. scanSumm .. ".\n(Click badge to force rescan & log to dev console)"
+        else
+            contents = contents .. "\n(Click badge to force rescan & log to dev console)"
+        end
+    end
+
     if not s.enabled then
         self:showRowTooltip(
             name .. ": Ignored",
@@ -2149,7 +2166,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
 
     -- Dynamic Status & Location width expansion for Artefacts table
     if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
-        local statusW = math.min(240, math.max(150, math.floor(150 + ((availW or 480) - 520) * 0.25)))
+        local statusW = math.min(215, math.max(135, math.floor(135 + ((availW or 480) - 520) * 0.25)))
         local statusOffset = statusW + 8
         local qtyOffset = statusOffset + 70
         local ownedOffset = qtyOffset + 60

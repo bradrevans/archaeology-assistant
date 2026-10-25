@@ -1126,57 +1126,192 @@ function Tracker:scanAllInventories(triggerInvType)
 end
 
 -- Scans any currently open Collector Information or Archaeology journal interface components
-function Tracker:scanCollectorInterface()
+function Tracker:scanCollectorInterface(forceLog)
     if not ui or not ui.Interfaces or not id or not id.Component then return false end
     local detected = false
+    local visitedCount = 0
+    local maxDepth = 0
+    local artsFound = 0
+    local debugLogs = {}
+
+    local function logDbg(fmt, ...)
+        local msg = string.format(fmt, ...)
+        table.insert(debugLogs, msg)
+        if forceLog then
+            print("[Archaeology Assistant] " .. msg)
+        end
+    end
+
+    -- Collect all possible candidate root components
+    local candidateRoots = {}
+    local seenRootIds = {}
+    local function addRootId(compId, tag)
+        if compId and type(compId) == "number" and not seenRootIds[compId] then
+            seenRootIds[compId] = true
+            table.insert(candidateRoots, { id = compId, tag = tag })
+        end
+    end
+
+    if id.Component.TOPLEVEL_V2__ROOT then addRootId(id.Component.TOPLEVEL_V2__ROOT, "TOPLEVEL_V2__ROOT") end
+    if id.Component.TOPLEVEL_V2__GAME_AREA then addRootId(id.Component.TOPLEVEL_V2__GAME_AREA, "TOPLEVEL_V2__GAME_AREA") end
+
+    for compName, compId in pairs(id.Component) do
+        if type(compId) == "number" and type(compName) == "string" then
+            local upper = string.upper(compName)
+            if string.find(upper, "MODAL") or string.find(upper, "POPUP")
+                or string.find(upper, "DIALOG") or string.find(upper, "NOTICE")
+                or string.find(upper, "COLLECT") or string.find(upper, "JOURNAL")
+                or string.find(upper, "ARCH") or string.find(upper, "CENTRAL") then
+                addRootId(compId, compName)
+            end
+        end
+    end
+
+    local function getCompText(c)
+        if not c then return nil end
+        local t = nil
+        pcall(function()
+            t = c.content or c.text or (c.GetText and c:GetText()) or c.textFormatted or c.rawText
+        end)
+        if t and type(t) ~= "string" then t = tostring(t) end
+        return t
+    end
 
     local function inspectComp(comp, depth)
-        if not comp or depth > 8 then return end
-        local txt = nil
-        pcall(function() txt = comp.content or comp.text end)
-        if txt and type(txt) == "string" and txt ~= "" then
-            local txtLower = string.lower(txt)
+        if not comp or depth > 32 or visitedCount >= 12000 then return end
+        visitedCount = visitedCount + 1
+        if depth > maxDepth then maxDepth = depth end
+
+        local rawTxt = getCompText(comp)
+        local cleanTxt = rawTxt and string.gsub(rawTxt, "<[^>]+>", "") or nil
+
+        -- Check if text matches collection or collector keyword
+        if cleanTxt and #cleanTxt >= 3 and forceLog then
+            local cleanLower = string.lower(cleanTxt)
+            if string.find(cleanLower, "smoky", 1, true) or string.find(cleanLower, "tess", 1, true) or string.find(cleanLower, "fing", 1, true) then
+                logDbg("Found section label at depth %d: '%s'", depth, cleanTxt)
+            end
+        end
+
+        local matchedArtName = nil
+        if cleanTxt and #cleanTxt >= 3 then
+            local cl = string.lower(cleanTxt)
             for artName, _ in pairs(Artefacts.ALL or {}) do
-                local artLower = string.lower(artName)
-                if string.find(txtLower, artLower, 1, true) then
-                    local isDone = false
-                    if string.find(txtLower, "1/1") or string.find(txtLower, "handed in")
-                        or string.find(txtLower, "turned in") or string.find(txtLower, "submitted")
-                        or string.find(txtLower, "complete") or string.find(txtLower, "contributed")
-                        or string.find(txtLower, "done") or string.find(txtLower, "yes") then
-                        isDone = true
-                    end
+                if string.find(cl, string.lower(artName), 1, true) then
+                    matchedArtName = artName
+                    break
+                end
+            end
+        end
 
-                    -- Check green text colour (indicates turned-in / complete in RS3 UI)
-                    if not isDone and comp.colour then
-                        pcall(function()
-                            local colVal = comp.colour
-                            if type(colVal) == "table" and colVal.y and colVal.x and colVal.z then
-                                if colVal.y > 0.6 and colVal.y > colVal.x and colVal.y > colVal.z then
-                                    isDone = true
-                                end
-                            elseif type(colVal) == "number" then
-                                local r = math.floor(colVal / 16777216) % 256
-                                local g = math.floor(colVal / 65536) % 256
-                                local b = math.floor(colVal / 256) % 256
-                                if g > 150 and g > (r + 40) and g > (b + 40) then
-                                    isDone = true
-                                end
+        if not matchedArtName and comp.associatedObjectID and comp.associatedObjectID > 0 and Artefacts.BY_ID then
+            local artObj = Artefacts.BY_ID[comp.associatedObjectID]
+            if artObj then
+                matchedArtName = artObj.name
+            end
+        end
+
+        if matchedArtName then
+            artsFound = artsFound + 1
+            local isDone = false
+
+            -- 1. Check text content indicators
+            if rawTxt then
+                local rawLower = string.lower(rawTxt)
+                if string.find(rawLower, "1/1") or string.find(rawLower, "1 / 1")
+                    or string.find(rawLower, "handed in") or string.find(rawLower, "turned in")
+                    or string.find(rawLower, "submitted") or string.find(rawLower, "complete")
+                    or string.find(rawLower, "contributed") or string.find(rawLower, "done")
+                    or string.find(rawLower, "yes") then
+                    isDone = true
+                end
+
+                -- Strikethrough tag
+                if not isDone and (string.find(rawLower, "<str>") or string.find(rawLower, "<s>")) then
+                    isDone = true
+                end
+
+                -- Green BBCode colour tag: <col=00ff00> etc.
+                if not isDone then
+                    for hex in string.gmatch(rawTxt, "<col=([0-9a-fA-F]+)>") do
+                        if #hex >= 6 then
+                            local r = tonumber(string.sub(hex, 1, 2), 16) or 0
+                            local g = tonumber(string.sub(hex, 3, 4), 16) or 0
+                            local b = tonumber(string.sub(hex, 5, 6), 16) or 0
+                            if g > 150 and g > (r + 30) and g > (b + 30) then
+                                isDone = true
+                                break
                             end
-                        end)
+                        end
                     end
+                end
+            end
 
-                    if isDone then
-                        for _, col in ipairs(Collections.LIST or {}) do
-                            if col.artefacts then
-                                for _, colArt in ipairs(col.artefacts) do
-                                    if colArt == artName then
-                                        self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
-                                        if not self.submittedArtefacts[col.name][artName] then
-                                            self.submittedArtefacts[col.name][artName] = true
-                                            detected = true
-                                        end
-                                    end
+            -- 2. Check native component colour properties
+            if not isDone then
+                local colVal = comp.colour or comp.color or comp.rgba or comp.textColour or comp.textColor
+                if colVal then
+                    pcall(function()
+                        if type(colVal) == "table" then
+                            local r = colVal.r or colVal.x or 0
+                            local g = colVal.y or colVal.g or 0
+                            local b = colVal.z or colVal.b or 0
+                            if g > 0.55 and g > (r + 0.15) and g > (b + 0.15) then
+                                isDone = true
+                            end
+                        elseif type(colVal) == "number" then
+                            local r = math.floor(colVal / 16777216) % 256
+                            local g = math.floor(colVal / 65536) % 256
+                            local b = math.floor(colVal / 256) % 256
+                            if g > 140 and g > (r + 30) and g > (b + 30) then
+                                isDone = true
+                            end
+                        end
+                    end)
+                end
+            end
+
+            -- 3. Check sibling components under comp.parent (e.g. adjacent [1/1] text or checkmark sprite)
+            local siblingSummary = ""
+            if comp.parent then
+                local function checkSibling(sib)
+                    if sib and sib ~= comp then
+                        local sTxt = getCompText(sib)
+                        if sTxt and type(sTxt) == "string" and sTxt ~= "" then
+                            siblingSummary = siblingSummary .. "[" .. sTxt .. "]"
+                            local sLower = string.lower(sTxt)
+                            if string.find(sLower, "0/1") or string.find(sLower, "0 / 1") then
+                                isDone = false
+                            elseif string.find(sLower, "1/1") or string.find(sLower, "1 / 1")
+                                or string.find(sLower, "done") or string.find(sLower, "turned in") then
+                                isDone = true
+                            end
+                        end
+                    end
+                    return false
+                end
+                if comp.parent.IterateStaticComponents then
+                    pcall(comp.parent.IterateStaticComponents, comp.parent, checkSibling)
+                end
+                if comp.parent.IterateDynamicComponents then
+                    pcall(comp.parent.IterateDynamicComponents, comp.parent, checkSibling)
+                end
+            end
+
+            logDbg("Artefact '%s' (depth %d, type %s, objId %s): raw='%s', isDone=%s, sibs=%s",
+                matchedArtName, depth, tostring(comp.type), tostring(comp.associatedObjectID),
+                rawTxt or "(nil)", tostring(isDone), siblingSummary ~= "" and siblingSummary or "(none)")
+
+            if isDone then
+                for _, col in ipairs(Collections.LIST or {}) do
+                    if col.artefacts then
+                        for _, colArt in ipairs(col.artefacts) do
+                            if colArt == matchedArtName then
+                                self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
+                                if not self.submittedArtefacts[col.name][matchedArtName] then
+                                    self.submittedArtefacts[col.name][matchedArtName] = true
+                                    detected = true
+                                    logDbg("--> RECORDED SUBMISSION: '%s' in collection '%s'", matchedArtName, col.name)
                                 end
                             end
                         end
@@ -1188,34 +1323,49 @@ function Tracker:scanCollectorInterface()
         if comp.IterateStaticComponents then
             pcall(comp.IterateStaticComponents, comp, function(child, visible)
                 inspectComp(child, depth + 1)
+                return false
             end)
         end
         if comp.IterateDynamicComponents then
             pcall(comp.IterateDynamicComponents, comp, function(child, visible)
                 inspectComp(child, depth + 1)
+                return false
             end)
         end
     end
 
-    pcall(function()
-        local root = nil
-        if id.Component.TOPLEVEL_V2__ROOT then
-            root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__ROOT)
-        end
-        if not root and id.Component.TOPLEVEL_V2__GAME_AREA then
-            root = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
-        end
-        if root then
-            inspectComp(root, 1)
-        end
-    end)
+    for _, rInfo in ipairs(candidateRoots) do
+        pcall(function()
+            local rootComp = ui.Interfaces:GetComponent(rInfo.id)
+            if rootComp then
+                inspectComp(rootComp, 1)
+            end
+        end)
+    end
+
+    logDbg("Scan finished: %d nodes (max depth %d). Arts seen: %d. New submissions: %s",
+        visitedCount, maxDepth, artsFound, tostring(detected))
+
+    self.lastCollectorScanSummary = string.format("%d nodes (depth %d), %d arts on screen", visitedCount, maxDepth, artsFound)
+    self.lastCollectorScanLog = table.concat(debugLogs, "\n")
 
     if detected then
         self.boardSyncedLive = true
         self.boardHasCache = true
         safeDbSet("arch_submitted_artefacts", serializeSubmittedMap(self.submittedArtefacts))
         self:recalculate()
+    elseif artsFound > 0 then
+        -- Even if no *new* submissions were detected, seeing artefacts on screen confirms the board is open!
+        self.boardSyncedLive = true
+        self.boardHasCache = true
     end
+
+    if forceLog or detected or artsFound > 0 then
+        for _, logLine in ipairs(debugLogs) do
+            print("[Archaeology Assistant] " .. logLine)
+        end
+    end
+
     return detected
 end
 
@@ -1231,7 +1381,7 @@ function Tracker:onLogicTick()
 end
 
 -- Synchronizes completed collections and submitted artefacts from in-game achievements
-function Tracker:syncCollectionsDoneStatus()
+function Tracker:syncCollectionsDoneStatus(forceLog)
     local syncedCount = 0
     if not Collections or not Collections.LIST then return 0 end
 
@@ -1243,6 +1393,9 @@ function Tracker:syncCollectionsDoneStatus()
         if achId and achId > 0 then
             if config and config.Achievement and config.Achievement.FromID then
                 local ok, ach = pcall(config.Achievement.FromID, achId)
+                if achId == 1091 and forceLog then
+                    print(string.format("[Archaeology Assistant DEBUG] Smoky Fings (ach 1091): ok=%s, progress=%s", tostring(ok), tostring(ach and ach.progress)))
+                end
                 if ok and ach and type(ach.progress) == "number" then
                     hasValidAchievementData = true
                     -- AchievementProgressType.COMPLETE is -2 (or 1 in some boolean states)
@@ -1345,11 +1498,9 @@ function Tracker:syncCollectionsDoneStatus()
 end
 
 -- Forces a live sync of the Collector noticeboard, journal, and active collector interfaces
-function Tracker:syncCollectorBoard()
-    self.boardSyncedLive = true
-    self.boardHasCache = true
-    self:syncCollectionsDoneStatus()
-    self:scanCollectorInterface()
+function Tracker:syncCollectorBoard(forceLog)
+    self:syncCollectionsDoneStatus(forceLog)
+    self:scanCollectorInterface(forceLog)
     return self:recalculate()
 end
 
