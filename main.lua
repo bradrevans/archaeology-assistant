@@ -3,7 +3,7 @@
 -- Initialises the material & artefact tracker, builds the UI overlay window,
 -- and subscribes to client inventory & chat events for real-time updates.
 
-print("[Archaeology Assistant] Initializing plugin v0.2.0...")
+print("[Archaeology Assistant] Initializing plugin v0.2.1...")
 
 
 
@@ -183,5 +183,5 @@ function PluginShutdown()
     end
 end
 
-print("Archaeology Assistant v0.2.0 loaded.")
+print("Archaeology Assistant v0.2.1 loaded.")
 
