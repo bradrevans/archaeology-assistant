@@ -1,7 +1,7 @@
 {
     "name": "Archaeology Assistant",
     "version": "1.0.0",
-    "contactEmailAddress": "bradrevans@gmail.com",
+    "contactEmailAddress": "contact@archaeology-assistant.dev",
     "hasRibbonIcon": true,
     "hasSettingsIcon": false,
     "requiredPermissions": [

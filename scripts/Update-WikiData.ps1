@@ -32,7 +32,7 @@ Add-Type -AssemblyName System.Web
 $MaterialsUrl = "https://runescape.wiki/w/Materials_(Archaeology)?action=raw"
 $ArtefactsUrl = "https://runescape.wiki/w/Artefacts"
 $Headers = @{
-    "User-Agent" = "RS3-Archaeology-Assistant-Generator/0.1.0 (Brad Evans; bradrevans@gmail.com)"
+    "User-Agent" = "RS3-Archaeology-Assistant-Generator/1.0.0 (https://github.com/bradrevans/archaeology-assistant)"
 }
 
 function Invoke-WikiFetch {

@@ -1,6 +1,6 @@
 # Archaeology Assistant (RS3 Client Plugin)
 
-**Author:** Brad Evans (`bradrevans@gmail.com`)  
+**Author:** Brad Evans  
 **Required Dependency:** `PrettyUI` (`6398181`)
 
 An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your inventory for damaged Archaeology artefacts, calculates the restoration materials required, tracks your owned materials across your **Backpack**, **Material Storage**, and **Bank**, and shows your live `Owned / Required` (`x/x`) progress and exact material deficits.
