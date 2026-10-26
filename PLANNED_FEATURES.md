@@ -13,7 +13,7 @@ The following low-cost community suggestions were implemented directly before re
   * Displayed directly in collection hover tooltips (`Hand-In Location: ...`) and the Collector Noticeboard overview status popup.
 * **Dedicated Tetracompass Piece Filter (`Tetra Pieces`)**:
   * Added `Tetra Pieces` to the Collections filter dropdown to instantly view all repeatable and one-time collections that award a Tetracompass piece (Green Gobbo Goodies, Red Rum Relics, Dragonkin, Wise Am the Gorillas, etc.).
-  * Highlighted Tetracompass piece rewards with distinctive `★ Tetracompass piece` styling in collection table rows.
+  * Highlighted Tetracompass piece rewards with distinctive cream text styling in collection table rows.
 * **Targeted Collections Total Chronotes Bounty**:
   * Calculates and displays the total combined Chronote payout across all currently targeted collections right on the Collections tab header (`Collections (79 | +4,216)`).
 

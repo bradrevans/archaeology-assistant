@@ -8,6 +8,8 @@ end, function(err)
     print("[ArchAssistant ERROR] Failed to require('ui/overlay'): " .. tostring(err))
 end)
 
+local Collections = require("data/collections")
+
 local Window = {}
 Window.__index = Window
 
@@ -2066,7 +2068,7 @@ function Window:onHoverCollectionRow(rowIdx)
         or string.find(string.lower(col.oneTimeReward or ""), "tetra", 1, true)
         or string.find(string.lower(col.specialBenefit or ""), "tetra", 1, true)
     if isTetra then
-        table.insert(details, "★ Tetracompass: Awards a Tetracompass Piece on completion!")
+        table.insert(details, "Tetracompass: Awards a Tetracompass Piece on completion!")
     end
     if col.specialBenefit and col.specialBenefit ~= "" then
         table.insert(details, string.format("Power/Benefit: %s", col.specialBenefit))
@@ -2749,7 +2751,7 @@ function Window:refresh()
                     rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
                 elseif isTetra or col.benefitType == "tetra" then
                     rowUI.rewardTxt.colour = COL_CREAM
-                    rowUI.rewardTxt.content = "★ Tetracompass piece"
+                    rowUI.rewardTxt.content = "Tetracompass piece"
                 else
                     rowUI.rewardTxt.colour = COL_MUTED
                     local rew = col.chronotes ~= "" and col.chronotes or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
