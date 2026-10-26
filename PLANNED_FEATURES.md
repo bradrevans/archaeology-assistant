@@ -1,27 +1,12 @@
 # Archaeology Assistant — Planned Features & Community Roadmap
 
-This document compiles community feature requests and suggestions collected from the [Reddit Launch Post](https://www.reddit.com/r/runescape/comments/1xfdq26/archaeology_assistant_plugin_development/) and player feedback, organized by priority, implementation cost, and milestone.
-
----
-
-## 🚀 Added in v0.2.2 (Quick Wins / Low-Cost High-Impact)
-
-The following low-cost community suggestions were implemented directly before release:
-
-* **Collector Hand-In Locations & Navigation**:
-  * Added exact in-game hand-in locations and map directions for all 14 canonical Archaeology collectors (e.g., General Wartface at Goblin Village, Soran at Kharid-et Camp, Chief Tess at Warforge!, Isaura at Infernal Source, etc.).
-  * Displayed directly in collection hover tooltips (`Hand-In Location: ...`) and the Collector Noticeboard overview status popup.
-* **Dedicated Tetracompass Piece Filter (`Tetra Pieces`)**:
-  * Added `Tetra Pieces` to the Collections filter dropdown to instantly view all repeatable and one-time collections that award a Tetracompass piece (Green Gobbo Goodies, Red Rum Relics, Dragonkin, Wise Am the Gorillas, etc.).
-  * Highlighted Tetracompass piece rewards with distinctive cream text styling in collection table rows.
-* **Targeted Collections Total Chronotes Bounty**:
-  * Calculates and displays the total combined Chronote payout across all currently targeted collections right on the Collections tab header (`Collections (79 | +4,216)`).
+This document compiles community feature requests and suggestions collected from the [Reddit Launch Post](https://www.reddit.com/r/runescape/comments/1xfdq26/archaeology_assistant_plugin_development/) and player feedback, organized by priority and implementation scope.
 
 ---
 
 ## 📋 Near-Term Features (Tier 1: Low-to-Medium Cost)
 
-Planned for upcoming minor updates (v0.2.3 – v0.2.5):
+Planned for upcoming updates:
 
 ### 1. Archaeology Level Filtering & Highlighting
 * **Description**: Option to filter collections and damaged artefacts to only those at or below the player's current Archaeology level.
@@ -50,7 +35,7 @@ Planned for upcoming minor updates (v0.2.3 – v0.2.5):
 
 ## 🔮 Advanced / Long-Term Features (Tier 2: High-Value Systems)
 
-Planned for major milestone updates (v0.3.0+):
+Planned for future major updates:
 
 ### 1. Time Sprite 3D Overhead & Focus Helper
 * **Description**: High-visibility 3D reticle or arrow pointing to the active Time Sprite as it jumps between excavation hotspots, with an indicator showing the player's current sprite focus percentage.

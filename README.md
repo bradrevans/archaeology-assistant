@@ -25,8 +25,9 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - Click `Track` on any collection to track it; track multiple collections simultaneously.
       - Automatically sets required artefact targets and scales required restoration materials and deficits in the Materials tab (excluding any artefacts already submitted to collectors).
       - Displays tracked collection tags on artefacts in the Artefacts tab.
-    - **Clean Tooltip Inspection**: Hovering any collection shows collector location, account benefits, recurring rewards, chronotes, and a concise checklist of every required artefact with its live status (`Handed in to collector`, `Restored (in Bag/Bank)`, `Damaged (in Bag/Bank)`, `Missing`).
-    - **Filter & Management**: Toolbar controls positioned cleanly: `Src`, `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Unsynced`), `Clear Tracked`, and `Collectors: X/13`.
+    - **Clean Tooltip Inspection**: Hovering any collection shows the collector's exact hand-in location across Gielinor, account benefits, recurring rewards, chronotes, and a concise checklist of every required artefact with its live status (`Handed in to collector`, `Restored (in Bag/Bank)`, `Damaged (in Bag/Bank)`, `Missing`).
+    - **Filter & Management**: Toolbar controls positioned cleanly: `Src`, `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`, `Unsynced`), `Clear Tracked`, and `Collectors: X/13`.
+    - **Targeted Collections Total Chronotes Bounty**: Displays the combined total Chronote payout across all currently targeted collections directly on the Collections tab header (`Collections (X | +Y)`).
   - **Artefacts Tab (Second)**:
     - Scans damaged artefacts across your **Backpack** and **Bank**, including uncollected artefacts targeted by collections.
     - **Artefact Ownership Required for Ready Status**: An artefact requires actual damaged artefact ownership to be marked "Ready". If an artefact is required for a tracked collection but not yet excavated (`Owned: 0`), its status clearly displays `Need Art` (when materials are satisfied) or `Short (Art+Mats)` (when materials are also missing).
@@ -53,6 +54,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - **Shows Needed Artefacts Overhead by Name**: If an excavation hotspot yields an artefact required for your tracked collections or inclusion plan, and you do not already have enough damaged or repaired copies, the artefact appears directly on the overhead badge with its in-game item icon and cyan label displaying the artefact name (e.g. `x1 Venator dagger`).
   - **Visually Unique Styling**: Hotspots yielding needed artefacts feature a distinct, vibrant **Cyan** border and downward pointer chevron so you can identify needed artefact spots across the dig site at a glance.
   - Overhead indicators display each obtainable needed material with its in-game item sprite, live deficit quantity, and percentage likelihood based on the spot's material pool (e.g. `100%` for material caches, `25%` for 4-material hotspots).
+  - **Proximity-Prioritized Indicators**: Nearby excavation spots and material caches are continuously sorted by distance to the player (`distSq`), guaranteeing that the closest spots always take priority for overhead badge rendering.
   - **Dynamic Real-Time Dismissal ("until they're gone")**: As you collect materials (via inventory updates or Sign of the Porter cart transfers) or excavate damaged artefacts, required counts decrease in real time; once all needed items from a spot are satisfied, the indicator and highlight vanish automatically.
   - **Zero-Stutter Performance Architecture**: Fast-path stationary caching completely bypasses world object searches when standing still excavating, background logic callbacks are throttled, and projection helpers avoid per-frame GC allocations for smooth 60 FPS gameplay.
   - Fully click-through: does not block interaction with the world or the excavation spot.
@@ -98,6 +100,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 - [`ui/overlay.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/overlay.lua) — In-game 3D world spot highlighter, ground target reticle, and overhead deficit indicator badges
 - [`data/materials.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/materials.lua) — Auto-generated Archaeology material metadata and cache locations
 - [`data/artefacts.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/artefacts.lua) — Auto-generated damaged artefact restoration recipes
+- [`data/collections.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/collections.lua) — Auto-generated database mapping all 79 RS3 Archaeology collections, collector locations, required artefacts, and rewards
 - [`data/hotspots.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/hotspots.lua) — Auto-generated database mapping all 103 RS3 Excavation Hotspots to their yielded materials
 
 ### Build & Data Generation Scripts (Excluded from Plugin Bundle)
