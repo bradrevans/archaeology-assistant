@@ -4,6 +4,38 @@
 
 local Collections = {}
 
+-- Canonical in-game hand-in locations for all 14 Archaeology collectors
+Collections.COLLECTOR_LOCATIONS = {
+    ["Velucia"] = "Archaeology Guild (Museum Ground Floor)",
+    ["Soran, Emissary of Zaros"] = "Kharid-et (Entrance camp, South of Al Kharid)",
+    ["Lowse"] = "Kharid-et (Excavation camp, South of Al Kharid)",
+    ["Sir Atcha"] = "Archaeology Guild (Ground Floor, North table)",
+    ["Art Critic Jacques"] = "Varrock Museum (Ground Floor, East wing)",
+    ["Chief Tess"] = "Warforge! (Bandos dig site camp, Feldip Hills)",
+    ["General Wartface"] = "Goblin Village (North of Falador, Chieftains' hut)",
+    ["General Bentnoze"] = "Goblin Village (North of Falador, Chieftains' hut)",
+    ["Isaura"] = "Infernal Source (Zamorak dig site camp, Starved Cultist area)",
+    ["Sharrigan"] = "Orthen (Dinosaur Island / Anachronia camp)",
+    ["Eblis"] = "Kharid-et (North of Bandit Camp / Desert)",
+    ["Wise Old Man"] = "Draynor Village (House next to the market bank)",
+    ["Artiefax"] = "Stormguard Citadel (Armadyl dig site camp, Icyene area)",
+    ["Giles"] = "Archaeology Guild (Ground Floor, general collection turn-in)"
+}
+
+function Collections.getCollectorLocation(collectorName)
+    if not collectorName or collectorName == "" then return "Archaeology Guild" end
+    if Collections.COLLECTOR_LOCATIONS[collectorName] then
+        return Collections.COLLECTOR_LOCATIONS[collectorName]
+    end
+    for name, loc in pairs(Collections.COLLECTOR_LOCATIONS) do
+        if string.find(string.lower(collectorName), string.lower(name), 1, true)
+            or string.find(string.lower(name), string.lower(collectorName), 1, true) then
+            return loc
+        end
+    end
+    return "Archaeology Guild"
+end
+
 Collections.LIST = {
     {
         name = "Museum - Training Weapons",
@@ -1633,8 +1665,10 @@ Collections.LIST = {
     },
 }
 
+-- Collections index
 Collections.BY_NAME = {}
 for _, col in ipairs(Collections.LIST) do
+    col.location = Collections.getCollectorLocation(col.collector)
     Collections.BY_NAME[col.name] = col
 end
 

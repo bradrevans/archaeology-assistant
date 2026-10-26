@@ -1985,16 +1985,16 @@ function Window:onHoverCollectorsStatus()
         or "Noticeboard scan needed to track turned-in artefacts for unsynced collectors."
 
     local lines = {}
-    table.insert(lines, "COLLECTORS & LOCATIONS:")
+    table.insert(lines, "COLLECTORS:")
     for _, c in ipairs(list or {}) do
-        local loc = (Collections and Collections.getCollectorLocation) and Collections.getCollectorLocation(c.name) or "Archaeology Guild"
         local subTag = c.submittedCount > 0 and string.format(", %d turned in", c.submittedCount) or ""
         local statusTxt = c.synced and "Synced" or "Not synced"
-        table.insert(lines, string.format("  • %s: %s [%s%s]",
+        table.insert(lines, string.format("  • %s (%d col%s%s) - %s",
             c.name,
-            loc,
-            statusTxt,
-            subTag
+            c.collectionsCount,
+            c.collectionsCount == 1 and "" or "s",
+            subTag,
+            statusTxt
         ))
     end
 
@@ -2053,10 +2053,11 @@ function Window:onHoverCollectionRow(rowIdx)
     local colLoc = (Collections and Collections.getCollectorLocation) and Collections.getCollectorLocation(col.collector) or "Archaeology Guild"
     local isColSynced = (self.tracker and self.tracker.isCollectorSynced) and self.tracker:isCollectorSynced(col.collector)
     local syncTag = isColSynced and "Synced" or "Unsynced"
-    local sub = string.format("Collector: %s (%s) [%s]", col.collector, colLoc, syncTag)
+    local sub = string.format("Collector: %s [%s] | %s", col.collector, syncTag, statusStr)
 
     local details = {}
-    table.insert(details, string.format("Collector Location: %s", colLoc))
+    local colLoc = col.location or (Collections and Collections.getCollectorLocation and Collections.getCollectorLocation(col.collector)) or "Archaeology Guild"
+    table.insert(details, string.format("Hand-In Location: %s", colLoc))
     table.insert(details, string.format("Collection Status: %s", statusStr))
     table.insert(details, "")
     if not isColSynced then
