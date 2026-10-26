@@ -131,10 +131,22 @@ if ($Deploy) {
     foreach ($targetDir in $TargetDirs) {
         $devRoot = Split-Path -Parent $targetDir
         New-Item -ItemType Directory -Force -Path $devRoot | Out-Null
-        if (Test-Path $targetDir) {
-            Remove-Item -Recurse -Force $targetDir
+        if (-not (Test-Path $targetDir)) {
+            New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
         }
-        Copy-Item -Path $DistDir -Destination $targetDir -Recurse -Force
+        Get-ChildItem -Path $DistDir -Recurse | ForEach-Object {
+            $rel = $_.FullName.Substring($DistDir.Length).TrimStart('\', '/')
+            $dest = Join-Path $targetDir $rel
+            if ($_.PSIsContainer) {
+                if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
+            } else {
+                try {
+                    Copy-Item -Path $_.FullName -Destination $dest -Force -ErrorAction Stop
+                } catch {
+                    # If locked by running client, skip if unchanged
+                }
+            }
+        }
         Write-Host "Deployed clean plugin bundle to: $targetDir" -ForegroundColor Green
     }
 

@@ -28,6 +28,7 @@ local COL_FILTER_MODES = {
     { id = "all", label = "Show: All" },
     { id = "incomplete", label = "Incomplete" },
     { id = "targeted", label = "Targeted" },
+    { id = "tetra", label = "Tetra Pieces" },
     { id = "powers", label = "Powers/Relics" },
     { id = "unsynced", label = "Unsynced" }
 }
@@ -1981,16 +1982,16 @@ function Window:onHoverCollectorsStatus()
         or "Noticeboard scan needed to track turned-in artefacts for unsynced collectors."
 
     local lines = {}
-    table.insert(lines, "COLLECTORS:")
+    table.insert(lines, "COLLECTORS & LOCATIONS:")
     for _, c in ipairs(list or {}) do
+        local loc = (Collections and Collections.getCollectorLocation) and Collections.getCollectorLocation(c.name) or "Archaeology Guild"
         local subTag = c.submittedCount > 0 and string.format(", %d turned in", c.submittedCount) or ""
         local statusTxt = c.synced and "Synced" or "Not synced"
-        table.insert(lines, string.format("  %s (%d col%s%s) - %s",
+        table.insert(lines, string.format("  • %s: %s [%s%s]",
             c.name,
-            c.collectionsCount,
-            c.collectionsCount == 1 and "" or "s",
-            subTag,
-            statusTxt
+            loc,
+            statusTxt,
+            subTag
         ))
     end
 
@@ -2046,15 +2047,24 @@ function Window:onHoverCollectionRow(rowIdx)
     if prog.isCompleted then
         statusStr = statusStr .. " [Completed]"
     end
+    local colLoc = (Collections and Collections.getCollectorLocation) and Collections.getCollectorLocation(col.collector) or "Archaeology Guild"
     local isColSynced = (self.tracker and self.tracker.isCollectorSynced) and self.tracker:isCollectorSynced(col.collector)
     local syncTag = isColSynced and "Synced" or "Unsynced"
     local sub = string.format("Collector: %s [%s] | %s", col.collector, syncTag, statusStr)
 
     local details = {}
+    table.insert(details, string.format("Hand-In Location: %s", colLoc))
+    table.insert(details, "")
     if not isColSynced then
         table.insert(details, string.format("Notice: %s is not yet synced.", col.collector))
         table.insert(details, string.format("Click '%s' on noticeboard or via Arch Journal to sync.", col.collector))
         table.insert(details, "")
+    end
+    local isTetra = string.find(string.lower(col.recurringReward or ""), "tetra", 1, true)
+        or string.find(string.lower(col.oneTimeReward or ""), "tetra", 1, true)
+        or string.find(string.lower(col.specialBenefit or ""), "tetra", 1, true)
+    if isTetra then
+        table.insert(details, "★ Tetracompass: Awards a Tetracompass Piece on completion!")
     end
     if col.specialBenefit and col.specialBenefit ~= "" then
         table.insert(details, string.format("Power/Benefit: %s", col.specialBenefit))
@@ -2528,7 +2538,12 @@ function Window:refresh()
     local colList, totalCols, completedCols, targetedCols, readyCols = t:getCollectionsForDisplay(colFilterMode)
     self.currentCollections = colList
 
-    self.btnTabCollections.setLabel(string.format("Collections (%d)", #colList))
+    local chronoteTotal = (t.getTargetedChronotesTotal and t:getTargetedChronotesTotal()) or 0
+    if targetedCols > 0 and chronoteTotal > 0 then
+        self.btnTabCollections.setLabel(string.format("Collections (%d | +%s)", #colList, formatInt(chronoteTotal)))
+    else
+        self.btnTabCollections.setLabel(string.format("Collections (%d)", #colList))
+    end
     self.btnTabCollections.setActive(isColTab)
     self.btnTabArtefacts.setLabel(string.format("Artefacts (%d)", #artList))
     self.btnTabArtefacts.setActive(isArtTab)
@@ -2712,6 +2727,8 @@ function Window:refresh()
 
                 -- Reward / Power text (highlighting relics / powers / weapons / tetracompass!)
                 rowUI.rewardTxt.hidden = false
+                local isTetra = string.find(string.lower(col.recurringReward or ""), "tetra", 1, true)
+                    or string.find(string.lower(col.specialBenefit or ""), "tetra", 1, true)
                 if col.benefitType == "relic" then
                     rowUI.rewardTxt.colour = COL_CYAN
                     rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
@@ -2721,9 +2738,9 @@ function Window:refresh()
                 elseif col.benefitType == "mystery" then
                     rowUI.rewardTxt.colour = COL_AMBER
                     rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
-                elseif col.benefitType == "tetra" then
+                elseif isTetra or col.benefitType == "tetra" then
                     rowUI.rewardTxt.colour = COL_CREAM
-                    rowUI.rewardTxt.content = (col.recurringReward ~= "" and col.recurringReward or "Tetracompass piece")
+                    rowUI.rewardTxt.content = "★ Tetracompass piece"
                 else
                     rowUI.rewardTxt.colour = COL_MUTED
                     local rew = col.chronotes ~= "" and col.chronotes or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)

@@ -183,5 +183,5 @@ function PluginShutdown()
     end
 end
 
-print("Archaeology Assistant v0.2.1 loaded.")
+print("Archaeology Assistant v0.2.2 loaded.")
 

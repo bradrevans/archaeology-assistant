@@ -905,6 +905,13 @@ function Tracker:getCollectionsForDisplay(filterMode)
             include = progress.isTargeted
         elseif filterMode == "powers" then
             include = (col.benefitType == "relic" or col.benefitType == "weapon" or col.benefitType == "mystery")
+        elseif filterMode == "tetra" then
+            local rec = string.lower(col.recurringReward or "")
+            local one = string.lower(col.oneTimeReward or "")
+            local ben = string.lower(col.specialBenefit or "")
+            include = (string.find(rec, "tetra", 1, true) ~= nil
+                or string.find(one, "tetra", 1, true) ~= nil
+                or string.find(ben, "tetra", 1, true) ~= nil)
         elseif filterMode == "unsynced" then
             include = not self:isCollectorSynced(col.collector)
         end
@@ -918,6 +925,22 @@ function Tracker:getCollectionsForDisplay(filterMode)
     end
 
     return list, totalCount, completedTotal, targetedTotal, readyTotal
+end
+
+-- Calculates the total chronotes awarded across all currently targeted collections
+function Tracker:getTargetedChronotesTotal()
+    local total = 0
+    if not Collections or not Collections.BY_NAME then return 0 end
+    for colName, _ in pairs(self.targetedCollections or {}) do
+        if self:isCollectionTargeted(colName) then
+            local col = Collections.BY_NAME[colName]
+            if col and col.chronotes then
+                local numStr = string.gsub(string.match(col.chronotes, "[%d,]+") or "0", ",", "")
+                total = total + (tonumber(numStr) or 0)
+            end
+        end
+    end
+    return total
 end
 
 function Tracker:isCollectorSynced(collectorName)
