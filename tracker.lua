@@ -426,10 +426,15 @@ end
 function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
     if not damagedName then return self.lastResult end
     local colTargets = self:getTargetedArtefactRequirements()
-    local minTarget = (colTargets and colTargets[damagedName] and colTargets[damagedName].count) or 0
+    local targetInfo = colTargets and colTargets[damagedName]
+    local minTarget = (targetInfo and targetInfo.count) or 0
 
     local defaultQty
-    if minTarget > 0 then
+    if targetInfo and targetInfo.isSubmitted then
+        defaultQty = 0
+    elseif targetInfo and targetInfo.neededToRestore then
+        defaultQty = targetInfo.neededToRestore
+    elseif minTarget > 0 then
         defaultQty = minTarget
     elseif self.includeMode == "ZERO" then
         defaultQty = 0
@@ -762,22 +767,24 @@ function Tracker:getTargetedArtefactRequirements()
             local col = Collections.BY_NAME[colName]
             if col and col.artefacts then
                 for _, artName in ipairs(col.artefacts) do
-                    -- If the artefact has already been submitted to the collector,
-                    -- it does NOT need to be excavated or restored for this collection!
                     local isSubmitted = self:isArtefactSubmitted(col.name, artName)
-                    if not isSubmitted then
-                        local damagedName = artName .. " (damaged)"
-                        if not requirements[damagedName] then
-                            requirements[damagedName] = {
-                                artName = artName,
-                                damagedName = damagedName,
-                                count = 1,
-                                collections = { col.name }
-                            }
-                        else
+                    local damagedName = artName .. " (damaged)"
+                    if not requirements[damagedName] then
+                        requirements[damagedName] = {
+                            artName = artName,
+                            damagedName = damagedName,
+                            count = isSubmitted and 0 or 1,
+                            neededToRestore = isSubmitted and 0 or 1,
+                            isSubmitted = isSubmitted,
+                            collections = { col.name }
+                        }
+                    else
+                        if not isSubmitted then
                             requirements[damagedName].count = requirements[damagedName].count + 1
-                            table.insert(requirements[damagedName].collections, col.name)
+                            requirements[damagedName].neededToRestore = requirements[damagedName].neededToRestore + 1
+                            requirements[damagedName].isSubmitted = false
                         end
+                        table.insert(requirements[damagedName].collections, col.name)
                     end
                 end
             end
@@ -785,14 +792,28 @@ function Tracker:getTargetedArtefactRequirements()
     end
 
     for _, req in pairs(requirements) do
-        local bagRestored = self.backpackRestored[req.artName] or 0
-        local bankRestored = self.bankRestored[req.artName] or 0
+        local bagRestored = (self.backpackRestored and self.backpackRestored[req.artName]) or 0
+        local bankRestored = (self.bankRestored and self.bankRestored[req.artName]) or 0
         local totalRestored = bagRestored + bankRestored
         req.ownedRestored = totalRestored
-        req.neededToRestore = math.max(0, req.count - totalRestored)
+        if not req.isSubmitted then
+            req.neededToRestore = math.max(0, req.count - totalRestored)
+        else
+            req.neededToRestore = 0
+        end
     end
 
     return requirements
+end
+
+function Tracker:hasAnyTargetedCollections()
+    if not self.targetedCollections then return false end
+    for colName, _ in pairs(self.targetedCollections) do
+        if self:isCollectionTargeted(colName) then
+            return true
+        end
+    end
+    return false
 end
 
 -- Returns how many copies of an artefact are still needed to be collected from excavation spots
@@ -1183,7 +1204,29 @@ function Tracker:scanAllInventories(triggerInvType)
             for artName, prevArtCount in pairs(self.prevBackpackArtefacts or {}) do
                 local currentArtCount = bagArts[artName] or 0
                 if currentArtCount < prevArtCount then
-                    artsRestored[artName] = prevArtCount - currentArtCount
+                    local diff = prevArtCount - currentArtCount
+                    local artDef = Artefacts.findByName(artName)
+                    local isActuallyRestored = false
+
+                    -- Verify whether the restored artefact actually appeared in the backpack
+                    if artDef and artDef.name then
+                        local prevR = (self.prevBackpackRestored and self.prevBackpackRestored[artDef.name]) or 0
+                        local currR = (bagRestored and bagRestored[artDef.name]) or 0
+                        if currR > prevR then
+                            isActuallyRestored = true
+                        end
+                    end
+                    if self.lastAction == "restore" then
+                        isActuallyRestored = true
+                    end
+
+                    -- Only count as restored if genuinely repaired at a workbench (not dropped, banked, or moved)
+                    if isActuallyRestored and self.lastAction ~= "drop" and self.lastAction ~= "bank" and self.lastAction ~= "loot" then
+                        artsRestored[artName] = diff
+                    elseif self.lastAction == "bank" then
+                        self.bankArtefacts[artName] = (self.bankArtefacts[artName] or 0) + diff
+                        safeDbSet("arch_bank_artefacts", serializeCountMap(self.bankArtefacts))
+                    end
                 end
             end
 
@@ -1240,8 +1283,8 @@ function Tracker:scanAllInventories(triggerInvType)
                         consumedMats[matName] = consumed - consumedFromBag
                     end
 
-                    -- If the player explicitly dropped the item, do not credit to storage or bank
-                    if self.lastAction == "drop" then
+                    -- If the player explicitly dropped or looted an item, do not credit to storage or bank
+                    if self.lastAction == "drop" or self.lastAction == "loot" then
                         -- Dropping resources decreases the total naturally
                     elseif self.lastAction == "bank" then
                         -- Deposited into Bank (bank chest, bank booth, deposit box): credit to bankMaterials!
@@ -1249,7 +1292,7 @@ function Tracker:scanAllInventories(triggerInvType)
                             self.bankMaterials[matName] = (self.bankMaterials[matName] or 0) + depositedCount
                             bankChanged = true
                         end
-                    else
+                    elseif self.lastAction == "storage" then
                         -- Deposited into Material Storage (Material Cart, storage box): credit to storageMaterials!
                         if depositedCount > 0 then
                             self.storageMaterials[matName] = (self.storageMaterials[matName] or 0) + depositedCount
@@ -1339,22 +1382,39 @@ function Tracker:scanAllInventories(triggerInvType)
         local isBank = (config.Inv.BANK and triggerInvType == config.Inv.BANK)
         local isWorn = (config.Inv.WORN and triggerInvType == config.Inv.WORN)
         if not isBag and not isBank and not isWorn then
-            local customInv = findInventory(triggerInvType)
-            if customInv and customInv ~= bagInv and customInv ~= bankInv then
-                local mats, archKinds, nonMatSlots, _, _, totalSlots = self:extractMaterialsFromInv(customInv)
-                local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(mats, archKinds)
-                -- Material Storage holds exclusively Archaeology materials and has large capacity (>= 20 slots)
-                local isStorage = (self.lastAction == "storage" or totalSlots >= 20)
-                    and archKinds >= 1
-                    and nonMatSlots == 0
-                    and not isInspect
+            local cfgName = ""
+            pcall(function()
+                cfgName = string.upper(tostring(triggerInvType.configName or ""))
+            end)
+            local isLoot = string.find(cfgName, "LOOT")
+                or string.find(cfgName, "AREA")
+                or string.find(cfgName, "GROUND")
+                or string.find(cfgName, "DROP")
+                or self.lastAction == "loot"
 
-                if isStorage then
-                    self.storageMaterials = mats
-                    self.storageSyncedLive = true
-                    self.storageHasCache = true
-                    safeDbSet("arch_storage_synced", 1)
-                    safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
+            if not isLoot then
+                local customInv = findInventory(triggerInvType)
+                if customInv and customInv ~= bagInv and customInv ~= bankInv then
+                    local mats, archKinds, nonMatSlots, _, _, totalSlots = self:extractMaterialsFromInv(customInv)
+                    local isInspect = (totalSlots > 0 and totalSlots < 15) or isArtefactRecipeContainer(mats, archKinds)
+                    -- Material Storage holds exclusively Archaeology materials and has large capacity (>= 35 slots).
+                    -- Area Loot, inspection dialogs, and temporary loot windows are strictly excluded.
+                    local isStorage = (self.lastAction == "storage" or (totalSlots >= 35 and archKinds >= 3))
+                        and archKinds >= 1
+                        and nonMatSlots == 0
+                        and not isInspect
+
+                    -- Protection against wiping existing storage cache:
+                    -- Never replace an existing populated storage cache with a container that has significantly fewer items
+                    -- unless explicitly opened via a storage action.
+                    local currentStorCount = countMapEntries(self.storageMaterials)
+                    if isStorage and (self.lastAction == "storage" or archKinds >= math.min(5, currentStorCount)) then
+                        self.storageMaterials = mats
+                        self.storageSyncedLive = true
+                        self.storageHasCache = true
+                        safeDbSet("arch_storage_synced", 1)
+                        safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
+                    end
                 end
             end
         end
@@ -2116,7 +2176,7 @@ function Tracker:onRestoredArtefactSubmitted(artName, countHandedIn)
     end
 end
 
--- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart) from in-game MiniMenu clicks
+-- Tracks player actions (e.g. Drop vs Deposit into Bank vs Deposit into Material Cart vs Area Loot) from in-game MiniMenu clicks
 function Tracker:onMiniMenuAction(verb, full)
     local vLower = string.lower(verb or "")
     local fLower = string.lower(full or "")
@@ -2124,10 +2184,16 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "drop"
     elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box") then
         self.lastAction = "bank"
-    elseif string.find(fLower, "cart") or string.find(fLower, "material storage") then
+    elseif string.find(fLower, "cart") or string.find(fLower, "material storage") or string.find(fLower, "storage") then
         self.lastAction = "storage"
     elseif string.find(fLower, "deposit") then
         self.lastAction = "storage"
+    elseif string.find(vLower, "loot") or string.find(fLower, "loot")
+        or string.find(vLower, "take") or string.find(fLower, "take")
+        or string.find(vLower, "pick") or string.find(fLower, "pick") then
+        self.lastAction = "loot"
+    elseif string.find(vLower, "restore") or string.find(fLower, "restore") or string.find(fLower, "workbench") then
+        self.lastAction = "restore"
     end
 end
 
@@ -2136,35 +2202,61 @@ function Tracker:onChatMessage(text)
     if type(text) ~= "string" or text == "" then
         return false
     end
+    -- Strip HTML/color tags and normalize non-breaking spaces
     local clean = string.gsub(text, "<[^>]+>", "")
+    clean = string.gsub(clean, "[\194\160]", " ")
+    clean = string.gsub(clean, "%s+", " ")
     local lower = string.lower(clean)
 
-    -- Match porter / grace of the elves / material storage transport events:
-    -- e.g. "Your sign of the porter transports the following item to your material storage: Third Age iron."
-    -- "Your Grace of the elves transports the following item to your material storage: Cadmium red."
-    if string.find(lower, "porter") or string.find(lower, "grace of the elves") or string.find(lower, "material storage") then
-        local found = false
-        for matName, matDef in pairs(Materials.ALL or {}) do
-            local matLower = string.lower(matName)
-            if string.find(lower, matLower, 1, true) then
-                local qty = 1
-                local qMatch = string.match(clean, "(%d+)%s*[xX]%s*" .. matName)
-                    or string.match(clean, matName .. "%s*[xX]%s*(%d+)")
-                    or string.match(clean, "(%d+)%s+" .. matName)
-                if qMatch and tonumber(qMatch) and tonumber(qMatch) > 0 and tonumber(qMatch) <= 100 then
+    -- Match Sign of the Porter / Grace of the Elves / Material Storage transporting:
+    -- e.g. "You transport to your material storage: Third Age iron."
+    -- "You transport to your material storage: 1 x Third Age iron."
+    -- "Your sign of the porter transports the following item to your material storage: Third Age iron."
+    local transported = string.match(clean, "material storage:%s*([^%.!]+)")
+        or string.match(clean, "storage:%s*([^%.!]+)")
+
+    local mat = nil
+    local qty = 1
+
+    if transported then
+        local trimmed = string.match(transported, "^%s*(.-)%s*$") or transported
+        local qStr, nameOnly = string.match(trimmed, "^(%d+)%s*[xX]%s*(.+)$")
+        if not qStr then
+            qStr, nameOnly = string.match(trimmed, "^(%d+)%s+(.+)$")
+        end
+        if qStr and nameOnly then
+            qty = tonumber(qStr) or 1
+            mat = Materials.get(nameOnly)
+        else
+            mat = Materials.get(trimmed)
+        end
+    end
+
+    -- Fallback: If not matched via prefix, search for any material name in the message
+    if not mat and (string.find(lower, "material storage") or string.find(lower, "porter") or string.find(lower, "grace of the elves") or string.find(lower, "transport")) then
+        for _, m in ipairs(Materials.LIST or {}) do
+            local mLow = string.lower(m.name)
+            if string.find(lower, mLow, 1, true) then
+                local esc = string.gsub(mLow, "([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+                local qMatch = string.match(lower, "(%d+)%s*[xX]%s*" .. esc)
+                    or string.match(lower, "(%d+)%s+" .. esc)
+                    or string.match(lower, esc .. "%s*[xX]%s*(%d+)")
+                if qMatch and tonumber(qMatch) and tonumber(qMatch) > 0 and tonumber(qMatch) <= 10000 then
                     qty = tonumber(qMatch)
                 end
-
-                self.storageMaterials[matDef.name] = (self.storageMaterials[matDef.name] or 0) + qty
-                found = true
+                mat = m
+                break
             end
         end
+    end
 
-        if found then
-            safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
-            self:recalculate()
-            return true
-        end
+    if mat then
+        self.storageMaterials[mat.name] = (self.storageMaterials[mat.name] or 0) + qty
+        self.storageHasCache = true
+        safeDbSet("arch_storage_materials", serializeCountMap(self.storageMaterials))
+        self:recalculate()
+        print(string.format("[Archaeology Assistant] Transported to Material Storage: +%d %s (Storage total: %d)", qty, mat.name, self.storageMaterials[mat.name]))
+        return true
     end
 
     -- Match collector artefact submission / contribution events:
@@ -2301,6 +2393,8 @@ function Tracker:recalculate(triggerInvType)
 
     -- Merge any targeted collections requirements into combinedArts
     local colTargets = self:getTargetedArtefactRequirements()
+    local hasTargeted = self:hasAnyTargetedCollections()
+
     for damagedName, targetInfo in pairs(colTargets) do
         local entry = combinedArts[damagedName]
         if entry then
@@ -2308,18 +2402,23 @@ function Tracker:recalculate(triggerInvType)
             entry.colNames = targetInfo.collections
             entry.ownedRestored = targetInfo.ownedRestored
             entry.neededToRestore = targetInfo.neededToRestore
-            if targetInfo.neededToRestore > (entry.rawCount or 0) then
-                entry.rawCount = targetInfo.neededToRestore
+            entry.isSubmitted = targetInfo.isSubmitted
+            entry.isTargetedCol = true
+            -- When targeting collections, base rawCount is the needed count (not inflated by bag dupes)
+            if not self.isPinned then
+                entry.rawCount = targetInfo.neededToRestore or 0
             end
         else
             combinedArts[damagedName] = {
                 inBag = self.backpackArtefacts[damagedName] or 0,
                 inBank = self.bankArtefacts[damagedName] or 0,
-                rawCount = targetInfo.neededToRestore,
-                colTarget = targetInfo.count,
+                rawCount = targetInfo.neededToRestore or 0,
+                colTarget = targetInfo.count or 0,
                 colNames = targetInfo.collections,
                 ownedRestored = targetInfo.ownedRestored,
-                neededToRestore = targetInfo.neededToRestore
+                neededToRestore = targetInfo.neededToRestore or 0,
+                isSubmitted = targetInfo.isSubmitted,
+                isTargetedCol = true
             }
         end
     end
@@ -2338,18 +2437,35 @@ function Tracker:recalculate(triggerInvType)
         -- Apply Artefact Source Filter (All / Tracked / Owned)
         local keep = true
         if self.artefactFilter == "TARGETED" then
-            keep = (info.colTarget and info.colTarget > 0)
+            keep = info.isTargetedCol or (info.colTarget and info.colTarget > 0)
         elseif self.artefactFilter == "OWNED" then
             keep = ((info.inBag or 0) + (info.inBank or 0)) > 0
+        elseif hasTargeted then
+            -- When collections are actively targeted, show all artefacts in the targeted collections,
+            -- as well as any damaged artefacts the player owns.
+            keep = info.isTargetedCol or ((info.inBag or 0) + (info.inBank or 0)) > 0
         end
 
-        if keep and (rawCount > 0 or minTarget > 0) then
+        if keep and (info.isTargetedCol or rawCount > 0 or minTarget > 0) then
             local art = Artefacts.findByName(damagedName)
             if art then
                 uniqueArtefacts = uniqueArtefacts + 1
                 local isExcluded = (self.excludedArtefacts[art.damagedName] ~= nil)
                 local defaultQty
-                if minTarget > 0 then
+                if self.customArtefactCounts[art.damagedName] ~= nil then
+                    defaultQty = self.customArtefactCounts[art.damagedName]
+                elseif info.isTargetedCol then
+                    -- When targeting a collection, the goal is to complete the collection requirement.
+                    -- If already submitted or already restored, default quantity is 0!
+                    -- Excavating duplicate damaged artefacts does NOT automatically increment the quantity!
+                    if info.isSubmitted then
+                        defaultQty = 0
+                    elseif (info.neededToRestore or 0) > 0 then
+                        defaultQty = info.neededToRestore
+                    else
+                        defaultQty = 0
+                    end
+                elseif minTarget > 0 then
                     defaultQty = minTarget
                 elseif self.includeMode == "ZERO" then
                     defaultQty = 0
@@ -2358,6 +2474,7 @@ function Tracker:recalculate(triggerInvType)
                 else
                     defaultQty = math.max(1, rawCount)
                 end
+
                 local targetCount = self.customArtefactCounts[art.damagedName] or defaultQty
                 local effectiveCount = isExcluded and 0 or targetCount
 
@@ -2401,14 +2518,21 @@ function Tracker:recalculate(triggerInvType)
                     colTarget = info.colTarget or 0,
                     colNames = info.colNames,
                     ownedRestored = info.ownedRestored or 0,
-                    neededToRestore = info.neededToRestore or 0
+                    neededToRestore = info.neededToRestore or 0,
+                    isSubmitted = info.isSubmitted or false,
+                    isTargetedCol = info.isTargetedCol or false
                 })
             end
         end
     end
 
-    -- Sort artefacts by level then order
+    -- Sort artefacts: unsubmitted (active) items first, submitted items at bottom, then by level
     table.sort(artefactsList, function(a, b)
+        local aSub = a.isSubmitted and 1 or 0
+        local bSub = b.isSubmitted and 1 or 0
+        if aSub ~= bSub then
+            return aSub < bSub
+        end
         if a.artefact.level ~= b.artefact.level then
             return a.artefact.level < b.artefact.level
         end

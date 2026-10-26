@@ -2846,15 +2846,27 @@ function Window:refresh()
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
 
             if item.excluded or item.effectiveCount == 0 then
-                rowUI.nameTxt.colour = COL_MUTED
-                rowUI.lvlTxt.colour = COL_MUTED
                 rowUI.qtyTxt.colour = COL_MUTED
-                if item.maxPossibleNow >= 1 then
+                if item.isSubmitted then
+                    rowUI.statusTxt.content = "Submitted"
+                    rowUI.statusTxt.colour = COL_GREEN
+                    rowUI.nameTxt.colour = COL_GREEN
+                    rowUI.lvlTxt.colour = COL_GREEN
+                elseif (item.ownedRestored or 0) > 0 then
+                    rowUI.statusTxt.content = "Ready (Restored)"
+                    rowUI.statusTxt.colour = COL_GREEN
+                    rowUI.nameTxt.colour = COL_GREEN
+                    rowUI.lvlTxt.colour = COL_GREEN
+                elseif item.maxPossibleNow >= 1 then
                     rowUI.statusTxt.content = "0 (Can Repair)"
                     rowUI.statusTxt.colour = COL_MUTED
+                    rowUI.nameTxt.colour = COL_MUTED
+                    rowUI.lvlTxt.colour = COL_MUTED
                 else
                     rowUI.statusTxt.content = "Excluded"
                     rowUI.statusTxt.colour = COL_MUTED
+                    rowUI.nameTxt.colour = COL_MUTED
+                    rowUI.lvlTxt.colour = COL_MUTED
                 end
             else
                 rowUI.qtyTxt.colour = COL_WHITE

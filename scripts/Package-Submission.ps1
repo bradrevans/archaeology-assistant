@@ -6,7 +6,7 @@
     1. Validates plugin manifest and Lua syntax via scripts/Build-Plugin.ps1.
     2. Stages a clean runtime bundle in dist/archaeology-assistant.
     3. Compresses files so main.lua and plugin.json are strictly at the ROOT of the archive.
-    4. Names the package archaeology-assistant-v<version>.zip (and archaeology-assistant-<ver>.zip).
+    4. Names the package archaeology-assistant-v<version>.zip.
     5. Verifies top-level archive structure as required by the RuneScape Mod.io guidelines.
 #>
 [CmdletBinding()]
@@ -23,20 +23,20 @@ Write-Host "--- Step 1: Building and Validating Plugin ---" -ForegroundColor Cya
 $manifestPath = Join-Path $RepoRoot "plugin.json"
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 $version = $manifest.version
-$verClean = $version -replace '\.', ''
 
 $DistDir = Join-Path $RepoRoot "dist\archaeology-assistant"
 $DistRoot = Join-Path $RepoRoot "dist"
 
-# Output zip paths
+# Output zip path
 $zipName = "archaeology-assistant-v$version.zip"
 $zipPath = Join-Path $DistRoot $zipName
-$altZipName = "archaeology-assistant-$verClean.zip"
-$altZipPath = Join-Path $DistRoot $altZipName
 
 Write-Host "`n--- Step 2: Creating Submission Zip Archive ---" -ForegroundColor Cyan
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
-if (Test-Path $altZipPath) { Remove-Item -Force $altZipPath }
+
+# Clean up any legacy alias zip if present
+$legacyAltZip = Join-Path $DistRoot "archaeology-assistant-$($version -replace '\.', '').zip"
+if (Test-Path $legacyAltZip) { Remove-Item -Force $legacyAltZip }
 
 # Add-Type for zip compression to ensure forward slashes and root-level packaging
 Add-Type -AssemblyName System.IO.Compression
@@ -54,12 +54,8 @@ try {
     $zipArchive.Dispose()
 }
 
-# Create alias copy matching Mod.io naming guidance (e.g. archaeology-assistant-100.zip)
-Copy-Item -Path $zipPath -Destination $altZipPath -Force
-
 Write-Host "Archive created successfully:" -ForegroundColor Green
 Write-Host "  -> $zipPath" -ForegroundColor White
-Write-Host "  -> $altZipPath" -ForegroundColor White
 
 Write-Host "`n--- Step 3: Verifying Mod.io Archive Structure ---" -ForegroundColor Cyan
 $verifyArchive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)

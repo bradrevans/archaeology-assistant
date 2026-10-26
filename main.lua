@@ -80,53 +80,69 @@ end
 
 -- Handle Sign of the Porter / Material Storage chat messages while excavating
 local function onChatMessage(event)
-    if not event or not tracker or not window then return end
+    if not tracker then return end
     xpcall(function()
-        local msg = event.chatMessage or event.text or event.message or (type(event) == "string" and event)
-        if msg and tracker:onChatMessage(msg) then
-            window:refresh()
+        local msg = (type(event) == "table" and (event.chatMessage or event.text or event.message))
+            or (type(event) == "string" and event)
+
+        if not msg and type(event) == "table" then
+            for _, v in pairs(event) do
+                if type(v) == "string" and (string.find(string.lower(v), "transport") or string.find(string.lower(v), "storage")) then
+                    msg = v
+                    break
+                end
+            end
+        end
+
+        if msg then
+            local lower = string.lower(tostring(msg))
+            if string.find(lower, "transport") or string.find(lower, "storage") or string.find(lower, "porter") or string.find(lower, "grace of the elves") then
+                print("[Archaeology Assistant CHAT] " .. tostring(msg))
+            end
+            if tracker:onChatMessage(msg) then
+                if window then
+                    window:refresh()
+                end
+            end
         end
     end, function(e)
         recordError("onChatMessage", e)
     end)
 end
 
-local chatSubscribed = false
-local function updateChatSubscription()
-    local hasPerm = true
-    if Plugin and Plugin.HasPermission and PluginPermissions and PluginPermissions.chatAccess then
-        local ok, granted = pcall(Plugin.HasPermission, PluginPermissions.chatAccess)
-        if ok then
-            hasPerm = granted
-        end
-    end
-
-    if hasPerm and not chatSubscribed then
-        if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
-            local ok, err = pcall(function()
-                Event.ChatMessage.Subscribe("arch_assistant_chat", onChatMessage)
-            end)
-            if ok then
-                chatSubscribed = true
-            else
-                recordError("ChatMessage.Subscribe", err)
+if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
+    local ok, err = pcall(function()
+        Event.ChatMessage.Subscribe("arch_assistant_chat", onChatMessage)
+    end)
+    if ok then
+        local hasChatPerm = false
+        pcall(function()
+            if Plugin and Plugin.HasPermission then
+                if PluginPermissions and PluginPermissions.chatAccess then
+                    hasChatPerm = Plugin.HasPermission(PluginPermissions.chatAccess)
+                else
+                    hasChatPerm = Plugin.HasPermission("chatAccess")
+                end
             end
+        end)
+
+        if hasChatPerm then
+            print("[Archaeology Assistant] Chat event listener active (chatAccess GRANTED).")
+        else
+            print("[Archaeology Assistant] Chat event listener active.")
+            print("[Archaeology Assistant] NOTE: In dev mode, enable chatAccess in developer console (Alt + `):")
+            print("    ppe archaeology-assistant chatAccess")
         end
-    elseif not hasPerm and chatSubscribed then
-        if Event and Event.ChatMessage and Event.ChatMessage.Unsubscribe then
-            pcall(function()
-                Event.ChatMessage.Unsubscribe("arch_assistant_chat")
-            end)
-        end
-        chatSubscribed = false
+    else
+        print("[Archaeology Assistant WARNING] Event.ChatMessage.Subscribe failed: " .. tostring(err))
     end
 end
 
-updateChatSubscription()
-
 if Event and Event.OptionalPermissionChanged and Event.OptionalPermissionChanged.Subscribe then
-    Event.OptionalPermissionChanged.Subscribe("arch_assistant_perm_changed", function(ev)
-        updateChatSubscription()
+    Event.OptionalPermissionChanged.Subscribe("arch_assistant_perm_changed", function(perm)
+        pcall(function()
+            print("[Archaeology Assistant] Permission status changed: " .. tostring(perm))
+        end)
     end)
 end
 
