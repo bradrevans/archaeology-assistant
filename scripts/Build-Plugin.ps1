@@ -140,11 +140,7 @@ if ($Deploy) {
             if ($_.PSIsContainer) {
                 if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
             } else {
-                try {
-                    Copy-Item -Path $_.FullName -Destination $dest -Force -ErrorAction Stop
-                } catch {
-                    # If locked by running client, skip if unchanged
-                }
+                Copy-Item -Path $_.FullName -Destination $dest -Force
             }
         }
         Write-Host "Deployed clean plugin bundle to: $targetDir" -ForegroundColor Green

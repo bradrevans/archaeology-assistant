@@ -11,7 +11,7 @@ local Artefacts = require("data/artefacts")
 local Overlay = {}
 Overlay.__index = Overlay
 
-local MAX_INDICATORS = 12
+local MAX_INDICATORS = 16
 local MAX_SLOTS_PER_INDICATOR = 6
 local SCAN_INTERVAL_TICKS = 30 -- ~1.2s between background spot checks
 local DEFAULT_PILL_W = 110
@@ -425,12 +425,27 @@ function Overlay:scanWorldSpots(force)
     -- 2. LIVE IN-PLACE UPDATE FOR EXISTING ACTIVE SPOTS
     -- Immediately updates exact live counts and prunes satisfied artefacts/materials in real time
     if #self.activeSpots > 0 then
+        local p = nil
+        pcall(function()
+            p = (Player and Player.GetEntity and Player.GetEntity())
+                or (PlayerList and PlayerList.Self and PlayerList.Self())
+        end)
+        local curPCoord = p and p.coordGrid
+
         local kept = {}
         for _, spot in ipairs(self.activeSpots) do
             if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+                if curPCoord and spot.coordGrid and spot.coordGrid.x and spot.coordGrid.z and curPCoord.x and curPCoord.z then
+                    local dx = spot.coordGrid.x - curPCoord.x
+                    local dz = spot.coordGrid.z - curPCoord.z
+                    spot.distSq = (dx * dx) + (dz * dz)
+                end
                 table.insert(kept, spot)
             end
         end
+        table.sort(kept, function(a, b)
+            return (a.distSq or 999999) < (b.distSq or 999999)
+        end)
         self.activeSpots = kept
     end
 
@@ -513,9 +528,16 @@ function Overlay:scanWorldSpots(force)
                             local def = deficits[lowerCache]
                             if def then
                                 seenCoords[coordKey] = true
+                                local dSq = 999999
+                                if pCoord and loc.coordGrid and loc.coordGrid.x and loc.coordGrid.z and pCoord.x and pCoord.z then
+                                    local dx = loc.coordGrid.x - pCoord.x
+                                    local dz = loc.coordGrid.z - pCoord.z
+                                    dSq = (dx * dx) + (dz * dz)
+                                end
                                 table.insert(matched, {
                                     entity = loc,
                                     coordGrid = loc.coordGrid,
+                                    distSq = dSq,
                                     displayName = def.name,
                                     isCache = true,
                                     hasArtefacts = false,
@@ -568,9 +590,17 @@ function Overlay:scanWorldSpots(force)
                                         table.insert(displayItems, matItem)
                                     end
 
+                                    local dSq = 999999
+                                    if pCoord and loc.coordGrid and loc.coordGrid.x and loc.coordGrid.z and pCoord.x and pCoord.z then
+                                        local dx = loc.coordGrid.x - pCoord.x
+                                        local dz = loc.coordGrid.z - pCoord.z
+                                        dSq = (dx * dx) + (dz * dz)
+                                    end
+
                                     table.insert(matched, {
                                         entity = loc,
                                         coordGrid = loc.coordGrid,
+                                        distSq = dSq,
                                         displayName = matchedName or clean,
                                         isCache = false,
                                         hotspotDef = hotspotDef,
@@ -585,6 +615,11 @@ function Overlay:scanWorldSpots(force)
                 end
             end
         end
+    end)
+
+    -- Sort all candidate world spots by proximity to player (closest spots get overhead indicators first!)
+    table.sort(matched, function(a, b)
+        return (a.distSq or 999999) < (b.distSq or 999999)
     end)
 
     self.activeSpots = matched

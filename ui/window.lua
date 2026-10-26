@@ -1071,6 +1071,7 @@ function Window:buildContentComponents(container)
     colHReward.maxLines = 1
     colHReward:SetPos(-327, 2, 1.0, 0)
     colHReward:SetSize(230, 20, 0, 0)
+    self.colHReward = colHReward
 
     local colHReady = ui.Text.new(colLayer)
     colHReady.font = id.Font.MUSEO_SANS_15PT_REGULAR
@@ -2050,10 +2051,11 @@ function Window:onHoverCollectionRow(rowIdx)
     local colLoc = (Collections and Collections.getCollectorLocation) and Collections.getCollectorLocation(col.collector) or "Archaeology Guild"
     local isColSynced = (self.tracker and self.tracker.isCollectorSynced) and self.tracker:isCollectorSynced(col.collector)
     local syncTag = isColSynced and "Synced" or "Unsynced"
-    local sub = string.format("Collector: %s [%s] | %s", col.collector, syncTag, statusStr)
+    local sub = string.format("Collector: %s (%s) [%s]", col.collector, colLoc, syncTag)
 
     local details = {}
-    table.insert(details, string.format("Hand-In Location: %s", colLoc))
+    table.insert(details, string.format("Collector Location: %s", colLoc))
+    table.insert(details, string.format("Collection Status: %s", statusStr))
     table.insert(details, "")
     if not isColSynced then
         table.insert(details, string.format("Notice: %s is not yet synced.", col.collector))
@@ -2562,6 +2564,13 @@ function Window:refresh()
     if self.btnClearTargets then
         self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Clear")
         self.btnClearTargets.setActive(targetedCols > 0)
+    end
+    if self.colHReward then
+        if targetedCols > 0 and chronoteTotal > 0 then
+            self.colHReward.content = string.format("Reward (+%s Chronotes)", formatInt(chronoteTotal))
+        else
+            self.colHReward.content = "Reward"
+        end
     end
     if self.btnArtFilter then
         self.btnArtFilter.setLabel(t:getArtefactFilterLabel())
