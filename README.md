@@ -106,6 +106,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 ### Build & Data Generation Scripts (Excluded from Plugin Bundle)
 - [`launch-beta.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/launch-beta.cmd) / [`scripts/Launch-Beta.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Launch-Beta.ps1) — One-step command (or double-clickable batch file) that builds, deploys to `C:\ProgramData\Jagex\RuneScape-BETA\dev_plugins\archaeology-assistant`, syncs the `PrettyUI` (`6398181`) dependency, and launches the RS3 Plugin Developer Beta client via the Jagex Launcher.
 - [`deploy.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/deploy.cmd) — Quick command (or double-clickable batch file) to rebuild and deploy updated files while the Beta client is already running.
+- [`package.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/package.cmd) / [`scripts/Package-Submission.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Package-Submission.ps1) — Validates syntax and packages the clean plugin into a Mod.io submission ZIP (`dist/archaeology-assistant-v1.0.0.zip`) with root-level structure verification.
 - [`scripts/Update-WikiData.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Update-WikiData.ps1) — Replayable script that fetches live Archaeology materials, artefact tables, and excavation hotspots from the official RuneScape Wiki, validates recipe integrity, and regenerates `data/materials.lua`, `data/artefacts.lua`, and `data/hotspots.lua`.
 - [`scripts/Build-Plugin.ps1`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/Build-Plugin.ps1) — Validates `plugin.json` and Lua modules, stages a clean runtime-only plugin bundle in `dist/archaeology-assistant` (excluding `scripts/`, `.cmd` files, `README.md`, and git files), deploys to `C:\ProgramData\Jagex\RuneScape-BETA\dev_plugins\archaeology-assistant`, and ensures `PrettyUI` (`6398181`) is synced into `RuneScape-BETA\plugins`.
 
@@ -138,4 +139,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Update-WikiData.ps1
 
 > **Note on `requiredPermissions` in Dev Mode:**
 > For store-installed plugins, the client prompts players to accept required permissions during installation. Because `dev_plugins` are loaded directly from disk without going through the store install prompt, the client lists required permissions as non-toggleable in the UI. Running `ppr archaeology-assistant` followed by `ppe archaeology-assistant chatAccess` in the developer console grants the permission immediately.
+
+### 4. Package for Mod.io Submission
+To generate a clean, validated submission archive ready for upload to [Mod.io](https://mod.io/g/runescape), run (or double-click):
+```powershell
+.\package.cmd
+```
+This script:
+1. Validates `plugin.json` fields, manifest dependencies, and Lua syntax balance.
+2. Stages a production bundle in `dist/archaeology-assistant` excluding all build scripts, tests, and documentation.
+3. Compresses the bundle into `dist/archaeology-assistant-v1.0.0.zip` (and `dist/archaeology-assistant-100.zip`).
+4. Verifies that `main.lua` and `plugin.json` are placed strictly at the root level of the ZIP archive as required by the RuneScape Mod.io guidelines.
 
