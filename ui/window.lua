@@ -801,7 +801,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
     curY = curY + descH + 5
 
     local tableHeaderY = curY
-    local numTiles = (self.activeTab == "collections") and 4 or ((self.activeTab == "artefacts") and 3 or 2)
+    local numTiles = (self.activeTab == "collections") and 4 or 2
 
     if forceReflow
         or self._lastHeaderAvailW ~= availW
@@ -1148,15 +1148,13 @@ function Window:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, comp
         local totalInc = waitingToRestore + readyRestored
         local totalReady = readyToRepairNow + readyRestored
 
-        local incCol = (totalInc > 0) and Theme.COL_GOLD or Theme.COL_MUTED
         local readyCol = (totalInc > 0 and totalReady == totalInc) and Theme.COL_GREEN
-            or ((totalReady > 0) and Theme.COL_GREEN or Theme.COL_MUTED)
+            or ((totalReady > 0) and Theme.COL_GOLD or Theme.COL_MUTED)
         local xpVal = Utils.formatInt(res.totalXp or 0) .. " XP"
         local xpCol = ((res.totalXp or 0) > 0) and Theme.COL_CREAM or Theme.COL_MUTED
 
-        self.statTiles[1].setData("INCLUDED", tostring(totalInc), incCol, incCol)
-        self.statTiles[2].setData("READY", tostring(totalReady), readyCol, readyCol)
-        self.statTiles[3].setData("RESTORE XP", xpVal, xpCol, xpCol)
+        self.statTiles[1].setData("READY", string.format("%d / %d", totalReady, totalInc), readyCol, readyCol)
+        self.statTiles[2].setData("RESTORE XP", xpVal, xpCol, xpCol)
 
         if #self.currentArtefacts == 0 then
             self.pageDescStrip.setContent(
@@ -1187,7 +1185,7 @@ function Window:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, comp
             or ((reqTypes > 0) and Theme.COL_GOLD or Theme.COL_MUTED)
         local missCol = (totalShort == 0) and ((reqTypes > 0) and Theme.COL_GREEN or Theme.COL_MUTED) or Theme.COL_RED
 
-        self.statTiles[1].setData("READY TYPES", string.format("%d / %d", readyTypes, reqTypes), readyCol, readyCol)
+        self.statTiles[1].setData("READY", string.format("%d / %d", readyTypes, reqTypes), readyCol, readyCol)
         self.statTiles[2].setData("MISSING MATS", Utils.formatInt(totalShort), missCol, missCol)
 
         if (res.totalArtefacts or 0) == 0 then
