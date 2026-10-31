@@ -11,12 +11,12 @@ Planned for upcoming updates:
 ### 1. Archaeology Level Filtering & Highlighting
 * **Description**: Option to filter collections and damaged artefacts to only those at or below the player's current Archaeology level.
 * **Value**: Prevents novice and mid-level players from having their lists cluttered by high-level 100+ collections and artefacts they cannot yet excavate or restore.
-* **Implementation Note**: Read player Archaeology level from the skills interface/engine stats and apply a `col.level <= playerLevel` filter option.
+* **Implementation Note**: Read player Archaeology level from the skills interface/engine stats in `tracker.lua` and apply a `col.level <= playerLevel` filter option in `ui/window.lua`.
 
 ### 2. In-Game Search Bar (Collections & Artefacts)
 * **Description**: A search input box at the top of the Collections, Artefacts, and Materials tables allowing quick typing (e.g. typing "gobbo", "zaros", "cadmium", or "falador").
 * **Value**: Enables instantaneous lookup among 79 collections and hundreds of artefacts without manual scrolling.
-* **Implementation Note**: Utilize PrettyUI text input hooks or character filter buffer to match against item and collection names in real time.
+* **Implementation Note**: Add a reusable search widget in `ui/widgets.lua` using PrettyUI text input hooks to filter rows in `ui/window.lua` in real time.
 
 ### 3. Grand Exchange / Buy Cost Material Calculator
 * **Description**: Estimates the total GP cost to purchase all missing materials from the Grand Exchange.
