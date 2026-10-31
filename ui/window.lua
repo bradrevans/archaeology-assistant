@@ -530,8 +530,8 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
 
     Widgets.createText(artLayer, Theme.COL_GOLD, 36,  2, 132, 20, "Artefact")
     Widgets.createText(artLayer, Theme.COL_GOLD, 170, 2, 30,  20, "Lvl")
-    self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202,  2, -496, 20, "Location", 0, 0, 1.0, 0)
-    self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -288, 2, 54,   20, "Owned",    1.0, 0, 0, 0)
+    self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202,  2, -524, 20, "Location", 0, 0, 1.0, 0)
+    self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -316, 2, 82,   20, "Owned",    1.0, 0, 0, 0)
     self.colArtQty    = Widgets.createText(artLayer, Theme.COL_GOLD, -228, 2, 64,   20, "Include",  1.0, 0, 0, 0)
     self.colArtStatus = Widgets.createText(artLayer, Theme.COL_GOLD, -143, 2, 135,  20, "Status",   1.0, 0, 0, 0)
 
@@ -852,18 +852,21 @@ function Window:reflowDynamicContent(availW, forceReflow)
     end
 
     if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
-        local statusW = math.min(215, math.max(135, math.floor(135 + ((availW or 480) - 520) * 0.25)))
+        local statusW = math.min(215, math.max(135, math.floor(135 + ((availW or 480) - 520) * 0.22)))
+        local ownedW = math.min(115, math.max(82, math.floor(82 + ((availW or 480) - 520) * 0.15)))
         local statusOffset = statusW + 8
         local qtyOffset = statusOffset + 70
-        local ownedOffset = qtyOffset + 60
+        local ownedOffset = qtyOffset + ownedW + 6
         local locNegOffset = ownedOffset + 6
 
-        if forceReflow or self._lastStatusW ~= statusW then
+        if forceReflow or self._lastStatusW ~= statusW or self._lastOwnedW ~= ownedW then
             self._lastStatusW = statusW
+            self._lastOwnedW = ownedW
             self.colArtStatus:SetPos(-statusOffset, 2, 1.0, 0)
             self.colArtStatus:SetSize(statusW, 20, 0, 0)
             self.colArtQty:SetPos(-qtyOffset, 2, 1.0, 0)
             self.colArtOwned:SetPos(-ownedOffset, 2, 1.0, 0)
+            self.colArtOwned:SetSize(ownedW, 20, 0, 0)
             self.colArtLoc:SetSize(-(202 + locNegOffset), 20, 1.0, 0)
 
             if self.artefactRows then
@@ -880,6 +883,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         row.minusBg:SetPos(-qtyOffset, rY + 3, 1.0, 0)
                         if row.minusTxt then row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0) end
                         row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
+                        row.ownedTxt:SetSize(ownedW, Theme.ROW_HEIGHT - 2, 0, 0)
                         row.locTxt:SetSize(-(202 + locNegOffset), Theme.ROW_HEIGHT - 2, 1.0, 0)
                     end
                 end
