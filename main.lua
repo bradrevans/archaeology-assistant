@@ -131,6 +131,7 @@ if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
         else
             print("[Archaeology Assistant] Chat event listener active.")
             print("[Archaeology Assistant] NOTE: In dev mode, enable chatAccess in developer console (Alt + `):")
+            print("    ppr archaeology-assistant")
             print("    ppe archaeology-assistant chatAccess")
         end
     else
