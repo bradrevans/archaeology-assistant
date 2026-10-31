@@ -146,7 +146,7 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
         height = h,
         minWidth = Theme.MIN_W,
         minHeight = Theme.MIN_H,
-        resizable = false,
+        resizable = true,
         scrollable = true,
         scrollStep = 28,
         onClose = function()
@@ -165,7 +165,30 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self.tooltip = Tooltip.new(parent, function(comp, delta)
         return self:handleScrollWheel(comp, delta)
     end)
-    Widgets.setupResizeHandles(self, parent, win)
+    Widgets.addCornerResizeGrip(win.root)
+
+    -- Expand PrettyUI's south-east ('se') corner resize handle to a generous 26x26 click box
+    if win.resize and win.resize._Refresh and win.resize.handles and win.resize.handles.se then
+        local origRefresh = win.resize._Refresh
+        win.resize._Refresh = function(resSelf, raise)
+            origRefresh(resSelf, raise)
+            local drag = resSelf.dragState
+            local expanded = drag and drag.captureExpanded
+            local se = resSelf.handles and resSelf.handles.se
+            if se and not expanded and resSelf.root and not se.hidden then
+                local cornerSize = 26
+                local rx = resSelf.root.x or 0
+                local ry = resSelf.root.y or 0
+                local rw = resSelf.root.width or 0
+                local rh = resSelf.root.height or 0
+                se:SetPos(rx + rw - cornerSize + 4, ry + rh - cornerSize + 4)
+                se:SetSize(cornerSize, cornerSize)
+                se:MoveToFront()
+            end
+        end
+        win.resize:Refresh()
+    end
+
     self:updateToolbarLayout(true)
 
     if win._onScrollWheel then
@@ -173,6 +196,14 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
         win._onScrollWheel = function(component, delta)
             self:hideRowTooltip()
             return origOnWheel(component, delta)
+        end
+    end
+
+    if win._scroll then
+        local origOnLayout = win._scroll.onLayout
+        win._scroll.onLayout = function(cw, ch)
+            if origOnLayout then origOnLayout(cw, ch) end
+            self:onWindowGeometryChanged()
         end
     end
 
@@ -235,53 +266,63 @@ end
 
 function Window:buildContentComponents(container)
     local function forwardScrollWheel(comp)
-        if not comp or not ui or not ui.Hook or not ui.Hook.ONSCROLLWHEEL then return end
-        comp:Subscribe(ui.Hook.ONSCROLLWHEEL, function(component, delta)
-            return self:handleScrollWheel(component, delta)
+        if not comp or not comp.Subscribe or not ui or not ui.Hook or not ui.Hook.ONSCROLLWHEEL then return end
+        pcall(function()
+            comp:Subscribe(ui.Hook.ONSCROLLWHEEL, function(component, delta)
+                return self:handleScrollWheel(component, delta)
+            end)
         end)
     end
 
     local function bindRowHover(comp, onOver)
-        if not comp or not ui or not ui.Hook then return end
-        if ui.Hook.ONMOUSEOVER then
-            comp:Subscribe(ui.Hook.ONMOUSEOVER, function()
-                onOver()
-                return false
-            end)
-        end
-        if ui.Hook.ONMOUSELEAVE then
-            comp:Subscribe(ui.Hook.ONMOUSELEAVE, function()
-                self:hideRowTooltip()
-                return false
-            end)
-        end
+        if not comp or not comp.Subscribe or not ui or not ui.Hook then return end
+        pcall(function()
+            if ui.Hook.ONMOUSEOVER then
+                comp:Subscribe(ui.Hook.ONMOUSEOVER, function()
+                    onOver()
+                    return false
+                end)
+            end
+            if ui.Hook.ONMOUSELEAVE then
+                comp:Subscribe(ui.Hook.ONMOUSELEAVE, function()
+                    self:hideRowTooltip()
+                    return false
+                end)
+            end
+        end)
         forwardScrollWheel(comp)
     end
 
-    -- 1. Top View Tabs
-    self.btnTabCollections = self:createToolbarButton(
+    -- 1. Top View Tabs (PrettyUI RS3 TEXT_TAB 3-slice tabs + Divider)
+    local onWheelPassthrough = function(comp, delta)
+        return self:handleScrollWheel(comp, delta)
+    end
+
+    self.btnTabCollections = Widgets.createTabButton(
         container,
         "Collections",
         "View Archaeology collections, rewards, relic powers, turn-in readiness, and target collections for farming.",
-        true,
-        function() self:switchTab("collections") end
+        function() self:switchTab("collections") end,
+        onWheelPassthrough
     )
 
-    self.btnTabArtefacts = self:createToolbarButton(
+    self.btnTabArtefacts = Widgets.createTabButton(
         container,
         "Artefacts",
         "View damaged artefacts in your Backpack & Bank, toggle which ones to track, and set quantities.",
-        true,
-        function() self:switchTab("artefacts") end
+        function() self:switchTab("artefacts") end,
+        onWheelPassthrough
     )
 
-    self.btnTabMaterials = self:createToolbarButton(
+    self.btnTabMaterials = Widgets.createTabButton(
         container,
         "Materials",
         "View required materials, levels, locations, owned counts, and remaining deficits.",
-        true,
-        function() self:switchTab("materials") end
+        function() self:switchTab("materials") end,
+        onWheelPassthrough
     )
+
+    self.btnMaterialsTab = self.btnTabMaterials
 
     -- 2. Contextual Control Toolbar
     self.btnSource = self:createToolbarButton(
@@ -404,7 +445,7 @@ function Window:buildContentComponents(container)
                 end
             end
         end
-    end)
+    end, onWheelPassthrough)
 
     self.badgeStorage = Widgets.createSyncBadge(container, "Stor", Theme.STORAGE_ICON_OBJ_ID, bindRowHover, function()
         self:onHoverSyncBadge("storage")
@@ -414,24 +455,15 @@ function Window:buildContentComponents(container)
         self:onHoverSyncBadge("bank")
     end)
 
-    -- 4. Summary Card
-    local summaryBg = ui.Rectangle.new(container)
-    summaryBg.colour = Theme.COL_BG_CARD
-    summaryBg.fill = true
-    summaryBg.clickthrough = false
-    summaryBg:SetPos(8, 68)
-    summaryBg:SetSize(-16, 46, 1.0, 0)
-    self.summaryBg = summaryBg
-    forwardScrollWheel(summaryBg)
-    summaryBg:Subscribe(ui.Hook.ONCLICK, function()
-        if self.activeTab == "collections" then
-            self.tracker:syncCollectionsDoneStatus()
-            self:refresh()
-        end
-    end)
-
-    self.summaryTitle   = Widgets.createWrappingText(container, Theme.COL_GOLD, 14, 71)
-    self.deficitSummary = Widgets.createWrappingText(container, Theme.COL_AMBER, 14, 91)
+    -- 4. Prominent Unsynced Notice Banner + KPI Stat Tiles + Page Context Strip
+    self.syncNotice = Widgets.createSyncNoticeBanner(container, forwardScrollWheel)
+    self.statTiles = {
+        Widgets.createStatTile(container, forwardScrollWheel),
+        Widgets.createStatTile(container, forwardScrollWheel),
+        Widgets.createStatTile(container, forwardScrollWheel),
+        Widgets.createStatTile(container, forwardScrollWheel),
+    }
+    self.pageDescStrip = Widgets.createPageDescStrip(container, forwardScrollWheel)
 
     -- 5. Build the three Tab Table Layers
     self:buildCollectionsTable(container, bindRowHover, forwardScrollWheel)
@@ -457,10 +489,10 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
     colHeaderBg:SetSize(-16, 22, 1.0, 0)
     forwardScrollWheel(colHeaderBg)
 
-    Widgets.createText(colLayer, Theme.COL_GOLD, 12,   2, 50,   20, "Track")
-    Widgets.createText(colLayer, Theme.COL_GOLD, 66,   2, 40,   20, "Done")
-    Widgets.createText(colLayer, Theme.COL_GOLD, 110,  2, 32,   20, "Lvl")
-    Widgets.createText(colLayer, Theme.COL_GOLD, 146,  2, -478, 20, "Collection", 0, 0, 1.0, 0)
+    Widgets.createText(colLayer, Theme.COL_GOLD, 12,   2, 42,   20, "Track")
+    Widgets.createText(colLayer, Theme.COL_GOLD, 58,   2, 46,   20, "Done")
+    Widgets.createText(colLayer, Theme.COL_GOLD, 108,  2, 32,   20, "Lvl")
+    Widgets.createText(colLayer, Theme.COL_GOLD, 144,  2, -476, 20, "Collection", 0, 0, 1.0, 0)
     self.colHReward = Widgets.createText(colLayer, Theme.COL_GOLD, -327, 2, 230, 20, "Reward", 1.0, 0, 0, 0)
     Widgets.createText(colLayer, Theme.COL_GOLD, -93,  2, 85,   20, "Progress", 1.0, 0, 0, 0)
 
@@ -679,9 +711,9 @@ function Window:updateToolbarLayout(forceReflow)
         local gap = 6
 
         local tabW = math.floor((availW - (gap * 2)) / 3)
-        self.btnTabCollections.setBounds(8, 6, tabW, 26)
-        self.btnTabArtefacts.setBounds(8 + tabW + gap, 6, tabW, 26)
-        self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 6, availW - (tabW * 2) - (gap * 2), 26)
+        self.btnTabCollections.setBounds(8, 5, tabW, 26)
+        self.btnTabArtefacts.setBounds(8 + tabW + gap, 5, tabW, 26)
+        self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 5, availW - (tabW * 2) - (gap * 2), 26)
 
         self.btnColFilter.setHidden(not isColTab)
         if self.btnCollectorsSync then self.btnCollectorsSync.setHidden(not isColTab) end
@@ -743,27 +775,74 @@ function Window:updateToolbarLayout(forceReflow)
 end
 
 function Window:reflowDynamicContent(availW, forceReflow)
-    if not self.summaryBg or not self.tableLayer or not self.artefactTableLayer then
+    if not self.pageDescStrip or not self.statTiles or not self.tableLayer or not self.artefactTableLayer then
         return
     end
 
-    local textWrapWidth = math.max(160, (availW or 480) - 12)
-    local summaryY = 68
-    local hSumTitle = Theme.measureWrappedTextHeight(self.summaryTitle.content, textWrapWidth)
-    local hDeficit  = Theme.measureWrappedTextHeight(self.deficitSummary.content, textWrapWidth)
-    local summaryBgH = 5 + hSumTitle + 3 + hDeficit + 5
-    local tableHeaderY = summaryY + summaryBgH + 6
+    local curY = 66
+    local noticeVisible = self.syncNotice and not self.syncNotice.root.hidden
+    local noticeH = 0
+    local hNoticeBody = 0
+    if noticeVisible then
+        local noticeWrapW = math.max(160, (availW or 480) - 24)
+        hNoticeBody = Theme.measureWrappedTextHeight(self.syncNotice.body.content, noticeWrapW)
+        noticeH = 24 + hNoticeBody + 5
+        curY = curY + noticeH + 5
+    end
 
-    if forceReflow or self._lastSummaryBgH ~= summaryBgH or self._lastTableHeaderY ~= tableHeaderY then
-        self._lastSummaryBgH = summaryBgH
+    local tilesY = curY
+    local tileH = 44
+    curY = curY + tileH + 5
+
+    local descY = curY
+    local descWrapW = math.max(160, (availW or 480) - 20)
+    local hDesc = Theme.measureWrappedTextHeight(self.pageDescStrip.text.content, descWrapW)
+    local descH = hDesc + 6
+    curY = curY + descH + 5
+
+    local tableHeaderY = curY
+    local numTiles = (self.activeTab == "collections") and 4 or ((self.activeTab == "artefacts") and 3 or 2)
+
+    if forceReflow
+        or self._lastHeaderAvailW ~= availW
+        or self._lastNumTiles ~= numTiles
+        or self._lastNoticeH ~= noticeH
+        or self._lastDescH ~= descH
+        or self._lastTableHeaderY ~= tableHeaderY then
+        self._lastHeaderAvailW = availW
+        self._lastNumTiles = numTiles
+        self._lastNoticeH = noticeH
+        self._lastDescH = descH
         self._lastTableHeaderY = tableHeaderY
 
-        self.summaryBg:SetPos(8, summaryY)
-        self.summaryBg:SetSize(-16, summaryBgH, 1.0, 0)
-        self.summaryTitle:SetPos(14, summaryY + 4)
-        self.summaryTitle:SetSize(-28, hSumTitle, 1.0, 0)
-        self.deficitSummary:SetPos(14, summaryY + 4 + hSumTitle + 3)
-        self.deficitSummary:SetSize(-28, hDeficit, 1.0, 0)
+        if noticeVisible and self.syncNotice then
+            self.syncNotice.root:SetPos(8, 66)
+            self.syncNotice.root:SetSize(-16, noticeH, 1.0, 0)
+            self.syncNotice.body:SetPos(12, 24)
+            self.syncNotice.body:SetSize(-20, hNoticeBody, 1.0, 0)
+        end
+
+        local gap = 6
+        local totalGap = gap * (numTiles - 1)
+        local tileW = math.floor(((availW or 480) - totalGap) / numTiles)
+        for i = 1, #self.statTiles do
+            local tile = self.statTiles[i]
+            if tile then
+                if i <= numTiles then
+                    tile.setHidden(false)
+                    local tx = 8 + (i - 1) * (tileW + gap)
+                    local tw = (i == numTiles) and ((availW or 480) - (tileW * (numTiles - 1)) - totalGap) or tileW
+                    tile.setBounds(tx, tilesY, tw, tileH)
+                else
+                    tile.setHidden(true)
+                end
+            end
+        end
+
+        self.pageDescStrip.root:SetPos(8, descY)
+        self.pageDescStrip.root:SetSize(-16, descH, 1.0, 0)
+        self.pageDescStrip.text:SetPos(10, 3)
+        self.pageDescStrip.text:SetSize(-16, hDesc, 1.0, 0)
 
         if self.collectionsTableLayer then
             self.collectionsTableLayer:SetPos(0, tableHeaderY)
@@ -795,11 +874,11 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         local rY = artStartY + (i - 1) * Theme.ROW_HEIGHT
                         row.statusTxt:SetPos(-statusOffset, rY + 2, 1.0, 0)
                         row.statusTxt:SetSize(statusW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.plusBg:SetPos(-qtyOffset + 46, rY + 2, 1.0, 0)
-                        row.plusTxt:SetPos(-qtyOffset + 46, rY + 2, 1.0, 0)
+                        row.plusBg:SetPos(-qtyOffset + 46, rY + 3, 1.0, 0)
+                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 46, rY + 2, 1.0, 0) end
                         row.qtyTxt:SetPos(-qtyOffset + 20, rY + 2, 1.0, 0)
-                        row.minusBg:SetPos(-qtyOffset, rY + 2, 1.0, 0)
-                        row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0)
+                        row.minusBg:SetPos(-qtyOffset, rY + 3, 1.0, 0)
+                        if row.minusTxt then row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0) end
                         row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
                         row.locTxt:SetSize(-(202 + locNegOffset), Theme.ROW_HEIGHT - 2, 1.0, 0)
                     end
@@ -905,11 +984,39 @@ function Window:populateRibbonHub(parent)
     self.hubParent = parent
     pcall(function() parent:DeleteAll() end)
 
+    local toggleLabel = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
+    if prettyui and prettyui.SimpleButton then
+        local btn = prettyui.SimpleButton.new(parent, toggleLabel, function()
+            if self:tryMount() then
+                self:setWindowVisible(not self.isVisible)
+            end
+        end, {
+            x = 12,
+            y = 12,
+            height = 30
+        })
+        btn.root:SetPos(12, 12)
+        btn.root:SetSize(-24, 30, 1.0, 0)
+        self.hubToggleBtn = btn
+
+        local btnClear = prettyui.SimpleButton.new(parent, "Clear All Cache & Saved Data", function()
+            self.tracker:clearAllCache()
+            self:refresh()
+        end, {
+            x = 12,
+            y = 48,
+            height = 30
+        })
+        btnClear.root:SetPos(12, 48)
+        btnClear.root:SetSize(-24, 30, 1.0, 0)
+        return
+    end
+
     local btn = ui.Button.new(parent)
     btn.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
     btn:SetPos(12, 12)
     btn:SetSize(-24, 30, 1.0, 0)
-    btn.label = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
+    btn.label = toggleLabel
     btn:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
         if self:tryMount() then
             self:setWindowVisible(not self.isVisible)
@@ -931,7 +1038,14 @@ end
 function Window:refreshHub()
     if self.hubToggleBtn then
         pcall(function()
-            self.hubToggleBtn.label = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
+            local label = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
+            if self.hubToggleBtn.content then
+                self.hubToggleBtn.content.content = label
+            elseif self.hubToggleBtn.SetText then
+                self.hubToggleBtn:SetText(label)
+            else
+                self.hubToggleBtn.label = label
+            end
         end)
     end
 end
@@ -940,75 +1054,156 @@ end
 -- Data Refresh & Table Population
 -- ============================================================================
 
-function Window:updateSummaryCard(isColTab, res, mode, totalCols, completedCols, targetedCols, readyCols)
-    local t = self.tracker
-    if isColTab then
-        local _, syncedCollectors, totalCollectors = t:getCollectorSyncStatuses()
-        local syncRatio = (totalCollectors and totalCollectors > 0)
-            and string.format("  |  Collectors: %d/%d Synced", syncedCollectors, totalCollectors)
-            or ""
-        self.summaryTitle.content = string.format(
-            "Collections: %d / %d Completed  |  %d Tracked%s",
-            completedCols, totalCols, targetedCols, syncRatio
-        )
-        self.summaryTitle.colour = Theme.COL_GOLD
-        if readyCols > 0 then
-            self.deficitSummary.content = string.format(
-                "%d Collection(s) Ready to Turn In!  (Filter: %s)",
-                readyCols, COL_FILTER_MODES[self.colFilterIndex].label
-            )
-            self.deficitSummary.colour = Theme.COL_GREEN
-        elseif syncedCollectors and totalCollectors and syncedCollectors < totalCollectors then
-            self.deficitSummary.content = string.format(
-                "%d collector(s) unsynced. Click noticeboard or right-click Arch Journal -> 'Collector information' to sync!",
-                totalCollectors - syncedCollectors
-            )
-            self.deficitSummary.colour = Theme.COL_AMBER
+function Window:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, completedCols, targetedCols, readyCols, chronoteTotal, syncStatus, syncedCount, totalCount)
+    -- 1. Prominent In-UI Unsynced Notice Banner
+    if self.syncNotice then
+        if isColTab then
+            if (totalCount or 0) > 0 and (syncedCount or 0) == 0 then
+                self.syncNotice.update(
+                    true,
+                    "red",
+                    string.format("COLLECTORS NOT SYNCED (0 / %d)", totalCount),
+                    "Right-click your Archaeology Journal -> 'Collector information' (or use the Guild Noticeboard) and click each collector to sync."
+                )
+            elseif (totalCount or 0) > 0 and (syncedCount or 0) < totalCount then
+                self.syncNotice.update(
+                    true,
+                    "amber",
+                    string.format("%d OF %d COLLECTORS UNSYNCED", totalCount - syncedCount, totalCount),
+                    string.format("Click 'Collectors: %d/%d' above to filter unsynced collections, or open 'Collector information' in your Archaeology Journal.", syncedCount, totalCount)
+                )
+            else
+                self.syncNotice.update(false)
+            end
         else
-            self.deficitSummary.content = string.format(
-                "Target collections to automatically set required artefacts & materials.  (Filter: %s)",
-                COL_FILTER_MODES[self.colFilterIndex].label
-            )
-            self.deficitSummary.colour = Theme.COL_CREAM
+            local needStor = syncStatus and syncStatus.storage and syncStatus.storage.enabled
+                and not syncStatus.storage.synced and not syncStatus.storage.cached
+            local needBank = syncStatus and syncStatus.bank and syncStatus.bank.enabled
+                and not syncStatus.bank.synced and not syncStatus.bank.cached
+            if needStor and needBank then
+                self.syncNotice.update(
+                    true,
+                    "red",
+                    "MATERIAL STORAGE & BANK NOT SYNCED",
+                    "Open Material Storage (or via Archaeology Journal) and your Bank in-game so stored items are included."
+                )
+            elseif needStor then
+                self.syncNotice.update(
+                    true,
+                    "red",
+                    "MATERIAL STORAGE NOT SYNCED",
+                    "Open Material Storage (or check 'Material storage' in your Archaeology Journal) to include stored materials."
+                )
+            elseif needBank then
+                self.syncNotice.update(
+                    true,
+                    "red",
+                    "BANK NOT SYNCED",
+                    "Open your Bank in-game so banked artefacts and materials are included in calculations."
+                )
+            else
+                self.syncNotice.update(false)
+            end
         end
-    elseif #self.currentArtefacts == 0 then
-        local noArtsMsg = "No Damaged Artefacts Found in " .. ((mode.id == "BAG_ONLY") and "Backpack" or "Backpack or Bank")
-        self.summaryTitle.content = t.isPinned and "No Pinned Artefacts" or noArtsMsg
-        self.summaryTitle.colour = Theme.COL_MUTED
-        self.deficitSummary.content = string.format("Carry damaged artefacts to calculate materials | Source: %s", mode.label)
-        self.deficitSummary.colour = Theme.COL_CREAM
-    elseif res.totalArtefacts == 0 then
-        self.summaryTitle.content = string.format("0 of %d Artefact Types Included (All Toggled Off)", #self.currentArtefacts)
-        self.summaryTitle.colour = Theme.COL_MUTED
-        self.deficitSummary.content = "Toggle artefacts On or click '+' in the Artefacts tab to calculate materials."
-        self.deficitSummary.colour = Theme.COL_CREAM
-    else
-        local pinTag = t.isPinned and "[Pinned] " or ""
-        self.summaryTitle.content = string.format(
-            "%s%d Included (%d Repairable Now) | %s XP | %s Chronotes",
-            pinTag,
-            res.totalArtefacts,
-            res.restorableArtefacts,
-            Utils.formatInt(res.totalXp),
-            Utils.formatInt(res.totalChronotes)
-        )
-        self.summaryTitle.colour = (res.distinctMaterialsShort == 0) and Theme.COL_GREEN or Theme.COL_GOLD
+    end
 
-        if res.distinctMaterialsShort == 0 then
-            self.deficitSummary.content = string.format(
-                "All %d required material types ready! (%s)",
-                res.distinctMaterialsRequired, mode.label
+    -- 2. KPI Stat Tiles + Page Description Strip
+    if isColTab then
+        local doneCol = (completedCols == totalCols and totalCols > 0) and Theme.COL_GREEN or Theme.COL_GOLD
+        local trackCol = (targetedCols > 0) and Theme.COL_GOLD or Theme.COL_MUTED
+        local readyCol = (readyCols > 0) and Theme.COL_GREEN or Theme.COL_MUTED
+        local chronoVal = (targetedCols > 0 and (chronoteTotal or 0) > 0) and ("+" .. Utils.formatInt(chronoteTotal)) or "0"
+        local chronoCol = ((chronoteTotal or 0) > 0) and Theme.COL_GOLD or Theme.COL_MUTED
+
+        self.statTiles[1].setData("COMPLETED", string.format("%d / %d", completedCols, totalCols), doneCol, doneCol)
+        self.statTiles[2].setData("TRACKED", tostring(targetedCols), trackCol, trackCol)
+        self.statTiles[3].setData("READY", tostring(readyCols), readyCol, readyCol)
+        self.statTiles[4].setData("CHRONOTES LEFT", chronoVal, chronoCol, chronoCol)
+
+        if readyCols > 0 then
+            self.pageDescStrip.setContent(
+                string.format(
+                    "%d %scollection(s) have all artefacts restored and ready to hand in.",
+                    readyCols,
+                    (targetedCols > 0) and "tracked " or ""
+                ),
+                Theme.COL_GREEN,
+                Theme.COL_GREEN
             )
-            self.deficitSummary.colour = Theme.COL_GREEN
         else
-            self.deficitSummary.content = string.format(
-                "Short: %d of %d material types (%s total missing) | %s",
-                res.distinctMaterialsShort,
-                res.distinctMaterialsRequired,
-                Utils.formatInt(res.totalMaterialsShort),
-                mode.label
+            self.pageDescStrip.setContent(
+                "Check 'Track' on collections you want to complete to automatically include their missing artefacts & materials.",
+                Theme.COL_CREAM,
+                Theme.COL_GOLD
             )
-            self.deficitSummary.colour = Theme.COL_AMBER
+        end
+    elseif isArtTab then
+        local waitingToRestore = res.totalArtefacts or 0
+        local readyRestored = res.readyRestoredArtefacts or 0
+        local readyToRepairNow = res.restorableArtefacts or 0
+        local totalInc = waitingToRestore + readyRestored
+        local totalReady = readyToRepairNow + readyRestored
+
+        local incCol = (totalInc > 0) and Theme.COL_GOLD or Theme.COL_MUTED
+        local readyCol = (totalInc > 0 and totalReady == totalInc) and Theme.COL_GREEN
+            or ((totalReady > 0) and Theme.COL_GREEN or Theme.COL_MUTED)
+        local xpVal = Utils.formatInt(res.totalXp or 0) .. " XP"
+        local xpCol = ((res.totalXp or 0) > 0) and Theme.COL_CREAM or Theme.COL_MUTED
+
+        self.statTiles[1].setData("INCLUDED", tostring(totalInc), incCol, incCol)
+        self.statTiles[2].setData("READY", tostring(totalReady), readyCol, readyCol)
+        self.statTiles[3].setData("RESTORE XP", xpVal, xpCol, xpCol)
+
+        if #self.currentArtefacts == 0 then
+            self.pageDescStrip.setContent(
+                "No damaged artefacts in Backpack/Bank or Tracked Collections. Track a collection or carry damaged artefacts.",
+                Theme.COL_MUTED,
+                Theme.COL_MUTED
+            )
+        elseif totalInc == 0 then
+            self.pageDescStrip.setContent(
+                "All artefacts are set to 0. Click '+' on any row or change 'Dupes' above to include artefacts in your plan.",
+                Theme.COL_AMBER,
+                Theme.COL_AMBER
+            )
+        else
+            self.pageDescStrip.setContent(
+                "Adjust 'Include' quantities (+/-) below to choose which damaged artefacts to calculate restoration materials for.",
+                Theme.COL_CREAM,
+                Theme.COL_GOLD
+            )
+        end
+    else
+        local reqTypes = res.distinctMaterialsRequired or 0
+        local shortTypes = res.distinctMaterialsShort or 0
+        local readyTypes = math.max(0, reqTypes - shortTypes)
+        local totalShort = res.totalMaterialsShort or 0
+
+        local readyCol = (reqTypes > 0 and shortTypes == 0) and Theme.COL_GREEN
+            or ((reqTypes > 0) and Theme.COL_GOLD or Theme.COL_MUTED)
+        local missCol = (totalShort == 0) and ((reqTypes > 0) and Theme.COL_GREEN or Theme.COL_MUTED) or Theme.COL_RED
+
+        self.statTiles[1].setData("READY TYPES", string.format("%d / %d", readyTypes, reqTypes), readyCol, readyCol)
+        self.statTiles[2].setData("MISSING MATS", Utils.formatInt(totalShort), missCol, missCol)
+
+        if (res.totalArtefacts or 0) == 0 then
+            self.pageDescStrip.setContent(
+                "No active artefacts selected. Track a collection or include damaged artefacts to calculate required materials.",
+                Theme.COL_MUTED,
+                Theme.COL_MUTED
+            )
+        elseif shortTypes == 0 then
+            self.pageDescStrip.setContent(
+                string.format("All %d required material types are ready to restore your %d selected artefact(s)!", reqTypes, res.totalArtefacts),
+                Theme.COL_GREEN,
+                Theme.COL_GREEN
+            )
+        else
+            self.pageDescStrip.setContent(
+                "Materials needed to restore your included artefacts and tracked collections. Hover any row for cache locations.",
+                Theme.COL_CREAM,
+                Theme.COL_GOLD
+            )
         end
     end
 end
@@ -1027,37 +1222,32 @@ function Window:populateCollectionRows(colList)
                 local col = item.data
                 local prog = item.progress
 
-                rowUI.bg.hidden = false
-                rowUI.bg.colour = (slotIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
+                rowUI.setRowHidden(false)
+                rowUI.setTargetState(prog.isTargeted)
+                rowUI.setDoneState(prog.isCompleted)
 
-                rowUI.targetBtnBg.hidden = false
-                rowUI.targetBtnTxt.hidden = false
                 if prog.isTargeted then
-                    rowUI.targetBtnBg.colour = Theme.COL_GOLD
-                    rowUI.targetBtnTxt.colour = Theme.COL_DARK_TEXT
-                    rowUI.targetBtnTxt.content = "Tracked"
+                    rowUI.bg.colour = Theme.COL_BG_TRACKED
+                    rowUI.accentBar.colour = Theme.COL_GOLD
+                    rowUI.accentBar.hidden = false
+                    rowUI.nameTxt.colour = Theme.COL_GOLD
+                    rowUI.lvlTxt.colour = Theme.COL_GOLD
+                elseif prog.isCompleted then
+                    rowUI.bg.colour = Theme.COL_BG_DONE
+                    rowUI.accentBar.colour = Theme.COL_GREEN
+                    rowUI.accentBar.hidden = false
+                    rowUI.nameTxt.colour = Theme.COL_GREEN
+                    rowUI.lvlTxt.colour = Theme.COL_CREAM
                 else
-                    rowUI.targetBtnBg.colour = Theme.COL_BTN_STEP
-                    rowUI.targetBtnTxt.colour = Theme.COL_MUTED
-                    rowUI.targetBtnTxt.content = "Track"
+                    rowUI.bg.colour = (slotIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
+                    rowUI.accentBar.hidden = true
+                    rowUI.nameTxt.colour = Theme.COL_WHITE
+                    rowUI.lvlTxt.colour = Theme.COL_MUTED
                 end
 
-                rowUI.doneTxt.hidden = false
-                if prog.isCompleted then
-                    rowUI.doneTxt.colour = Theme.COL_GREEN
-                    rowUI.doneTxt.content = "Done"
-                else
-                    rowUI.doneTxt.colour = Theme.COL_MUTED
-                    rowUI.doneTxt.content = "-"
-                end
-
-                rowUI.lvlTxt.hidden = false
                 rowUI.lvlTxt.content = tostring(col.level)
-
-                rowUI.nameTxt.hidden = false
                 rowUI.nameTxt.content = col.name
 
-                rowUI.rewardTxt.hidden = false
                 local isTetra = string.find(string.lower(col.recurringReward or ""), "tetra", 1, true)
                     or string.find(string.lower(col.specialBenefit or ""), "tetra", 1, true)
                 if col.benefitType == "relic" then
@@ -1078,7 +1268,6 @@ function Window:populateCollectionRows(colList)
                         or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
                 end
 
-                rowUI.readyTxt.hidden = false
                 local have = prog.haveCount or (prog.readyCount + (prog.damagedCount or 0))
                 local total = prog.totalCount or 0
                 if prog.isReady then
@@ -1095,14 +1284,7 @@ function Window:populateCollectionRows(colList)
                     rowUI.readyTxt.content = string.format("0 / %d", total)
                 end
             else
-                rowUI.bg.hidden = true
-                rowUI.targetBtnBg.hidden = true
-                rowUI.targetBtnTxt.hidden = true
-                rowUI.doneTxt.hidden = true
-                rowUI.lvlTxt.hidden = true
-                rowUI.nameTxt.hidden = true
-                rowUI.rewardTxt.hidden = true
-                rowUI.readyTxt.hidden = true
+                rowUI.setRowHidden(true)
             end
         end
     end
@@ -1127,10 +1309,10 @@ function Window:populateArtefactRows(artList)
             rowUI.locTxt.hidden = false
             rowUI.ownedTxt.hidden = false
             rowUI.minusBg.hidden = false
-            rowUI.minusTxt.hidden = false
+            if rowUI.minusTxt then rowUI.minusTxt.hidden = false end
             rowUI.qtyTxt.hidden = false
             rowUI.plusBg.hidden = false
-            rowUI.plusTxt.hidden = false
+            if rowUI.plusTxt then rowUI.plusTxt.hidden = false end
             rowUI.statusTxt.hidden = false
 
             rowUI.nameTxt.content = item.artefact.name
@@ -1139,16 +1321,31 @@ function Window:populateArtefactRows(artList)
             rowUI.locTxt.colour = Theme.COL_MUTED
 
             local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0))
+            local bagRestored = item.bagRestored or 0
+            local bankRestored = item.bankRestored or 0
+            local totalRestored = bagRestored + bankRestored
             if item.inBag > 0 and item.inBank > 0 then
                 rowUI.ownedTxt.content = string.format("%d (%d/%d)", ownedDamaged, item.inBag, item.inBank)
+                rowUI.ownedTxt.colour = Theme.COL_WHITE
             elseif item.inBag > 0 then
                 rowUI.ownedTxt.content = string.format("%d (Bag)", item.inBag)
+                rowUI.ownedTxt.colour = Theme.COL_WHITE
             elseif item.inBank > 0 then
                 rowUI.ownedTxt.content = string.format("%d (Bank)", item.inBank)
+                rowUI.ownedTxt.colour = Theme.COL_WHITE
+            elseif totalRestored > 0 then
+                if bagRestored > 0 and bankRestored > 0 then
+                    rowUI.ownedTxt.content = string.format("%d (%d/%d)", totalRestored, bagRestored, bankRestored)
+                elseif bagRestored > 0 then
+                    rowUI.ownedTxt.content = string.format("%d (Bag)", bagRestored)
+                else
+                    rowUI.ownedTxt.content = string.format("%d (Bank)", bankRestored)
+                end
+                rowUI.ownedTxt.colour = Theme.COL_GREEN
             else
                 rowUI.ownedTxt.content = "0"
+                rowUI.ownedTxt.colour = Theme.COL_MUTED
             end
-            rowUI.ownedTxt.colour = (ownedDamaged > 0) and Theme.COL_WHITE or Theme.COL_MUTED
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
 
             if item.excluded or item.effectiveCount == 0 then
@@ -1218,10 +1415,10 @@ function Window:populateArtefactRows(artList)
             rowUI.locTxt.hidden = true
             rowUI.ownedTxt.hidden = true
             rowUI.minusBg.hidden = true
-            rowUI.minusTxt.hidden = true
+            if rowUI.minusTxt then rowUI.minusTxt.hidden = true end
             rowUI.qtyTxt.hidden = true
             rowUI.plusBg.hidden = true
-            rowUI.plusTxt.hidden = true
+            if rowUI.plusTxt then rowUI.plusTxt.hidden = true end
             rowUI.statusTxt.hidden = true
         end
     end
@@ -1312,11 +1509,7 @@ function Window:refresh()
     self.currentCollections = colList
 
     local chronoteTotal = (t.getTargetedChronotesTotal and t:getTargetedChronotesTotal()) or 0
-    if targetedCols > 0 and chronoteTotal > 0 then
-        self.btnTabCollections.setLabel(string.format("Collections (%d | +%s)", #colList, Utils.formatInt(chronoteTotal)))
-    else
-        self.btnTabCollections.setLabel(string.format("Collections (%d)", #colList))
-    end
+    self.btnTabCollections.setLabel(string.format("Collections (%d)", #colList))
     self.btnTabCollections.setActive(isColTab)
     self.btnTabArtefacts.setLabel(string.format("Artefacts (%d)", #artList))
     self.btnTabArtefacts.setActive(isArtTab)
@@ -1337,9 +1530,7 @@ function Window:refresh()
         self.btnClearTargets.setActive(targetedCols > 0)
     end
     if self.colHReward then
-        self.colHReward.content = (targetedCols > 0 and chronoteTotal > 0)
-            and string.format("Reward (+%s Chronotes)", Utils.formatInt(chronoteTotal))
-            or "Reward"
+        self.colHReward.content = "Reward"
     end
     if self.btnArtFilter then
         self.btnArtFilter.setLabel(t:getArtefactFilterLabel())
@@ -1373,12 +1564,15 @@ function Window:refresh()
         self.badgeBank.setState(getBadgeState(syncStatus.bank))
         self.badgeBank.setIcon(Theme.BANK_ICON_OBJ_ID)
     end
-    if self.btnCollectorsSync and t.getCollectorSyncStatuses then
-        local _, syncedCount, totalCount = t:getCollectorSyncStatuses()
-        self.btnCollectorsSync.setStatus(syncedCount, totalCount)
+    local syncedCount, totalCount, liveCount = 0, 0, 0
+    if t.getCollectorSyncStatuses then
+        _, syncedCount, totalCount, liveCount = t:getCollectorSyncStatuses()
+        if self.btnCollectorsSync then
+            self.btnCollectorsSync.setStatus(syncedCount, totalCount, liveCount)
+        end
     end
 
-    self:updateSummaryCard(isColTab, res, mode, totalCols, completedCols, targetedCols, readyCols)
+    self:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, completedCols, targetedCols, readyCols, chronoteTotal, syncStatus, syncedCount, totalCount)
     self:populateCollectionRows(colList)
     self:populateArtefactRows(artList)
     self:populateMaterialRows(matList)
@@ -1401,14 +1595,6 @@ function Window:shutdown()
         self.tooltip:destroy()
         self.tooltip = nil
     end
-    for _, h in ipairs({ self.resizeRight, self.resizeBottom, self.resizeCorner }) do
-        if h and h.Destroy then
-            pcall(function() h:Destroy() end)
-        end
-    end
-    self.resizeRight = nil
-    self.resizeBottom = nil
-    self.resizeCorner = nil
     if self.overlay and self.overlay.destroy then
         pcall(function() self.overlay:destroy() end)
         self.overlay = nil

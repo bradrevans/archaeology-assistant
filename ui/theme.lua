@@ -5,6 +5,8 @@
 local Utils = require("core/utils")
 
 local Theme = {}
+Theme.prettyui = prettyui
+Theme.Sprites  = (prettyui and prettyui.Sprites) or nil
 
 --- Creates a Vector4 RGBA colour (or fallback table when Vector4 is unavailable).
 function Theme.makeColour(r, g, b, a)
@@ -14,23 +16,25 @@ function Theme.makeColour(r, g, b, a)
     return { r = r, g = g, b = b, a = a or 1.0 }
 end
 
--- Core Text & Accent Colours
-Theme.COL_WHITE        = Theme.makeColour(0.95, 0.95, 0.95, 1.0)
+-- Core Text & Accent Colours (Matched to PrettyUI warm parchment/stone palette)
+Theme.COL_WHITE        = Theme.makeColour(0.92, 0.90, 0.87, 1.0)
 Theme.COL_CREAM        = Theme.makeColour(0.91, 0.84, 0.69, 1.0)
-Theme.COL_MUTED        = Theme.makeColour(0.72, 0.76, 0.80, 1.0)
+Theme.COL_MUTED        = Theme.makeColour(0.62, 0.59, 0.54, 1.0)
 Theme.COL_GOLD         = Theme.makeColour(1.00, 0.82, 0.28, 1.0)
-Theme.COL_GREEN        = Theme.makeColour(0.30, 0.92, 0.45, 1.0)
+Theme.COL_GREEN        = Theme.makeColour(0.32, 0.90, 0.45, 1.0)
 Theme.COL_AMBER        = Theme.makeColour(1.00, 0.72, 0.24, 1.0)
 Theme.COL_RED          = Theme.makeColour(1.00, 0.40, 0.40, 1.0)
 Theme.COL_CYAN         = Theme.makeColour(0.38, 0.86, 1.00, 1.0)
 
--- Window & Table Backgrounds
-Theme.COL_BG_CARD      = Theme.makeColour(0.07, 0.10, 0.14, 0.72)
-Theme.COL_BG_HEADER    = Theme.makeColour(0.10, 0.14, 0.19, 0.85)
-Theme.COL_BG_ROW       = Theme.makeColour(0.08, 0.11, 0.15, 0.55)
-Theme.COL_BG_ALT       = Theme.makeColour(0.13, 0.17, 0.22, 0.55)
-Theme.COL_BG_TOOLTIP   = Theme.makeColour(0.05, 0.08, 0.12, 0.96)
-Theme.COL_BTN_STEP     = Theme.makeColour(0.18, 0.24, 0.32, 0.90)
+-- Window & Table Backgrounds (Matched to PrettyUI warm dark stone/charcoal palette)
+Theme.COL_BG_CARD      = Theme.makeColour(0.09, 0.08, 0.07, 0.88)
+Theme.COL_BG_HEADER    = Theme.makeColour(0.18, 0.16, 0.14, 0.92)
+Theme.COL_BG_ROW       = Theme.makeColour(0.09, 0.08, 0.07, 0.55)
+Theme.COL_BG_ALT       = Theme.makeColour(0.14, 0.13, 0.11, 0.65)
+Theme.COL_BG_TRACKED   = Theme.makeColour(0.27, 0.22, 0.10, 0.78)
+Theme.COL_BG_DONE      = Theme.makeColour(0.09, 0.18, 0.11, 0.65)
+Theme.COL_BG_TOOLTIP   = Theme.makeColour(0.09, 0.08, 0.07, 0.96)
+Theme.COL_BTN_STEP     = Theme.makeColour(0.22, 0.20, 0.18, 0.92)
 Theme.COL_DARK_TEXT    = Theme.makeColour(0.08, 0.08, 0.08, 1.0)
 
 -- Sync Badge Backgrounds

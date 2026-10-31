@@ -52,7 +52,9 @@ def main() -> int:
     p_pkg.add_argument("--update-data", action="store_true", help="Refresh Wiki data before packaging")
 
     # launch-beta
-    subparsers.add_parser("launch-beta", help="Launch the RuneScape 3 Plugin Beta client")
+    p_launch = subparsers.add_parser("launch-beta", help="Build, deploy, and launch the RuneScape 3 Plugin Beta client")
+    p_launch.add_argument("--skip-build", action="store_true", help="Launch RS3 Beta without building and deploying first")
+    p_launch.add_argument("--deploy-dir", type=Path, default=None, help="Custom deployment directory")
 
     args = parser.parse_args()
 
@@ -80,7 +82,15 @@ def main() -> int:
             package_submission(update_data=args.update_data)
             return 0
         if args.command == "launch-beta":
-            launch_rs3_beta()
+            if not args.skip_build:
+                run_build(
+                    update_data=False,
+                    deploy=True,
+                    deploy_dir=args.deploy_dir,
+                    launch_beta=True,
+                )
+            else:
+                launch_rs3_beta()
             return 0
     except Exception as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)

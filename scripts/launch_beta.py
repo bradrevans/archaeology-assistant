@@ -14,11 +14,11 @@ import subprocess
 import sys
 import webbrowser
 
-BETA_URI = "rs-launch://www.runescape.com/k=5/l=$(Language:0)/jav_config_beta.ws"
+BETA_URI = "jagex:launch=runescape,args=[configURI=rs-launch://www.runescape.com/jav_config_beta.ws]"
 
 
 def launch_rs3_beta() -> None:
-    print(f"Launching RuneScape 3 Plugin Beta Client ({BETA_URI})...")
+    print("Launching RS3 Plugin Developer Beta via Jagex Launcher...")
     sys_name = platform.system().lower()
     if sys_name == "windows":
         os.startfile(BETA_URI)  # type: ignore[attr-defined]

@@ -8,7 +8,8 @@ print("[Archaeology Assistant] Initializing plugin v1.0.0...")
 
 
 local function recordError(context, err)
-    local msg = string.format("[%s] %s", tostring(context), tostring(err))
+    local trace = (debug and debug.traceback) and debug.traceback(tostring(err), 2) or tostring(err)
+    local msg = string.format("[%s] %s", tostring(context), tostring(trace))
     print("[Archaeology Assistant ERROR] " .. msg)
     if PersistentDB then
         pcall(function() PersistentDB:Set("arch_last_error", msg) end)
@@ -110,51 +111,67 @@ local function onChatMessage(event)
     end)
 end
 
-if Event and Event.ChatMessage and Event.ChatMessage.Subscribe then
+local function checkHasChatPermission()
+    local hasChatPerm = false
+    pcall(function()
+        if Plugin and Plugin.HasPermission then
+            if PluginPermissions and PluginPermissions.chatAccess then
+                hasChatPerm = Plugin.HasPermission(PluginPermissions.chatAccess)
+            else
+                hasChatPerm = Plugin.HasPermission("chatAccess")
+            end
+        end
+    end)
+    return hasChatPerm
+end
+
+local function subscribeChatEvents()
+    if not Event or not Event.ChatMessage or not Event.ChatMessage.Subscribe then
+        return false
+    end
     local ok, err = pcall(function()
+        Event.ChatMessage.Unsubscribe("arch_assistant_chat")
+    end)
+    ok, err = pcall(function()
         Event.ChatMessage.Subscribe("arch_assistant_chat", onChatMessage)
     end)
-    if ok then
-        local hasChatPerm = false
-        pcall(function()
-            if Plugin and Plugin.HasPermission then
-                if PluginPermissions and PluginPermissions.chatAccess then
-                    hasChatPerm = Plugin.HasPermission(PluginPermissions.chatAccess)
-                else
-                    hasChatPerm = Plugin.HasPermission("chatAccess")
-                end
-            end
-        end)
-
-        if hasChatPerm then
-            print("[Archaeology Assistant] Chat event listener active (chatAccess GRANTED).")
-        else
-            print("[Archaeology Assistant] Chat event listener active.")
-            print("[Archaeology Assistant] NOTE: In dev mode, enable chatAccess in developer console (Alt + `):")
-            print("    ppr archaeology-assistant")
-            print("    ppe archaeology-assistant chatAccess")
-        end
-    else
+    if not ok then
         print("[Archaeology Assistant WARNING] Event.ChatMessage.Subscribe failed: " .. tostring(err))
+        return false
+    end
+    return true
+end
+
+if subscribeChatEvents() then
+    if checkHasChatPermission() then
+        print("[Archaeology Assistant] Chat event listener active (chatAccess GRANTED).")
+    else
+        print("[Archaeology Assistant] Chat event listener active (waiting for chatAccess permission).")
+        print("[Archaeology Assistant] NOTE: Run 'ppr archaeology-assistant' in console, then open the Plugin Hub UI and tick the chatAccess checkbox.")
     end
 end
 
 if Event and Event.OptionalPermissionChanged and Event.OptionalPermissionChanged.Subscribe then
     Event.OptionalPermissionChanged.Subscribe("arch_assistant_perm_changed", function(perm)
         pcall(function()
-            print("[Archaeology Assistant] Permission status changed: " .. tostring(perm))
+            subscribeChatEvents()
+            local granted = checkHasChatPermission()
+            print(string.format(
+                "[Archaeology Assistant] Permission status changed (%s) -> chatAccess %s",
+                tostring(perm),
+                granted and "GRANTED" or "NOT GRANTED"
+            ))
         end)
     end)
 end
 
--- Track player player actions like Drop vs Deposit from the MiniMenu
+-- Track player actions like Drop vs Deposit from the MiniMenu
 local function onMiniMenuSelected(event)
     if not event or not event.entry or not tracker then return end
     xpcall(function()
         local verb = event.entry.verbText or ""
         local full = event.entry.fullText or ""
         tracker:onMiniMenuAction(verb, full)
-        if window then window:refresh() end
     end, function(e)
         recordError("onMiniMenuSelected", e)
     end)

@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 PLUGIN_SLUG = "archaeology-assistant"
@@ -23,19 +24,30 @@ RUNTIME_DIRS = ("core", "data", "ui")
 ROOT_RUNTIME_FILES = ("plugin.json", "main.lua", "tracker.lua")
 
 
-def resolve_default_deploy_dir() -> Path:
-    """Resolves the default RS3 Lua plugin directory across Windows, macOS, and Linux."""
+def resolve_default_deploy_dirs() -> list[Path]:
+    """Resolves the default RS3 Lua dev_plugins directories across Windows, macOS, and Linux."""
     env_override = os.environ.get("RS3_PLUGIN_DIR")
     if env_override:
-        return Path(env_override) / PLUGIN_SLUG
+        return [Path(env_override) / PLUGIN_SLUG]
 
     sys_name = platform.system().lower()
     if sys_name == "windows":
-        prog_data = os.environ.get("ProgramData", r"C:\ProgramData")
-        return Path(prog_data) / "Jagex" / "RuneScape" / "plugins" / PLUGIN_SLUG
+        prog_data = Path(os.environ.get("ProgramData", r"C:\ProgramData"))
+        return [
+            prog_data / "Jagex" / "RuneScape-BETA" / "dev_plugins" / PLUGIN_SLUG,
+            prog_data / "Jagex" / "RuneScape" / "dev_plugins" / PLUGIN_SLUG,
+        ]
     if sys_name == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Jagex" / "RuneScape" / "plugins" / PLUGIN_SLUG
-    return Path.home() / ".local" / "share" / "Jagex" / "RuneScape" / "plugins" / PLUGIN_SLUG
+        base = Path.home() / "Library" / "Application Support" / "Jagex"
+        return [
+            base / "RuneScape-BETA" / "dev_plugins" / PLUGIN_SLUG,
+            base / "RuneScape" / "dev_plugins" / PLUGIN_SLUG,
+        ]
+    base = Path.home() / ".local" / "share" / "Jagex"
+    return [
+        base / "RuneScape-BETA" / "dev_plugins" / PLUGIN_SLUG,
+        base / "RuneScape" / "dev_plugins" / PLUGIN_SLUG,
+    ]
 
 
 def collect_runtime_files(repo_root: Path) -> list[str]:
@@ -173,23 +185,41 @@ def stage_bundle(repo_root: Path, rel_files: list[str]) -> Path:
     return dist_dir
 
 
-def deploy_bundle(dist_dir: Path, deploy_dir: Path, rel_files: list[str]) -> None:
-    print(f"[Deploy] Copying plugin files to: {deploy_dir}")
-    if deploy_dir.exists():
-        # Clean existing subdirectories so stale files do not linger
-        for sub in RUNTIME_DIRS:
-            sub_target = deploy_dir / sub
-            if sub_target.exists():
-                shutil.rmtree(sub_target)
-    deploy_dir.mkdir(parents=True, exist_ok=True)
+def deploy_bundle(dist_dir: Path, deploy_dirs: list[Path], rel_files: list[str]) -> None:
+    for deploy_dir in deploy_dirs:
+        print(f"[Deploy] Copying plugin files to: {deploy_dir}")
+        if deploy_dir.exists():
+            # Clean existing subdirectories so stale files do not linger
+            for sub in RUNTIME_DIRS:
+                sub_target = deploy_dir / sub
+                if sub_target.exists():
+                    shutil.rmtree(sub_target)
+        deploy_dir.mkdir(parents=True, exist_ok=True)
 
-    for rel in rel_files:
-        src = dist_dir / rel
-        dst = deploy_dir / rel
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        for rel in rel_files:
+            src = dist_dir / rel
+            dst = deploy_dir / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
 
-    print("[Deploy] Successfully deployed to RS3 plugins folder.")
+    # Ensure PrettyUI (6398181) is unpacked into dev_plugins/prettyui so local dependency resolves
+    if platform.system().lower() == "windows":
+        prog_data = Path(os.environ.get("ProgramData", r"C:\ProgramData"))
+        pretty_zips = [
+            prog_data / "Jagex" / "RuneScape-BETA" / "plugins" / "6398181" / "6398181.zip",
+            prog_data / "Jagex" / "RuneScape" / "plugins" / "6398181" / "6398181.zip",
+        ]
+        found_zip = next((z for z in pretty_zips if z.is_file()), None)
+        if found_zip:
+            for deploy_dir in deploy_dirs:
+                dev_pretty_dir = deploy_dir.parent / "prettyui"
+                if not (dev_pretty_dir / "main.lua").is_file():
+                    dev_pretty_dir.mkdir(parents=True, exist_ok=True)
+                    with zipfile.ZipFile(found_zip, "r") as zf:
+                        zf.extractall(dev_pretty_dir)
+                    print(f"[Deploy] Unpacked PrettyUI dependency to: {dev_pretty_dir}")
+
+    print("[Deploy] Successfully deployed to RS3 dev_plugins.")
 
 
 def run_build(
@@ -219,8 +249,8 @@ def run_build(
     dist_dir = stage_bundle(repo_root, rel_files)
 
     if deploy:
-        target_dir = deploy_dir or resolve_default_deploy_dir()
-        deploy_bundle(dist_dir, target_dir, rel_files)
+        target_dirs = [deploy_dir] if deploy_dir else resolve_default_deploy_dirs()
+        deploy_bundle(dist_dir, target_dirs, rel_files)
 
     if launch_beta:
         from launch_beta import launch_rs3_beta

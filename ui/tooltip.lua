@@ -4,6 +4,7 @@
 
 local Utils = require("core/utils")
 local Theme = require("ui/theme")
+local Widgets = require("ui/widgets")
 local Collections = require("data/collections")
 
 local Tooltip = {}
@@ -45,29 +46,24 @@ function Tooltip.new(parent, onScrollWheel)
     local self = setmetatable({}, Tooltip)
     self.parent = parent
 
-    local tipRoot = ui.Layer.new(parent)
-    tipRoot.clickthrough = true
+    local tipRoot = Widgets.createContentFrame(parent, 0, 0, 400, 90, 0, 0, true)
     tipRoot.hidden = true
-    tipRoot:SetSize(400, 90)
 
-    local border = ui.Rectangle.new(tipRoot)
-    border.colour = Theme.COL_GOLD
-    border.fill = true
-    border.clickthrough = true
-    border:SetPos(0, 0)
-    border:SetSize(0, 0, 1.0, 1.0)
-
-    local bg = ui.Rectangle.new(tipRoot)
-    bg.colour = Theme.COL_BG_TOOLTIP
-    bg.fill = true
-    bg.clickthrough = true
-    bg:SetPos(1, 1)
-    bg:SetSize(-2, -2, 1.0, 1.0)
+    local iconSlot = nil
+    local Sprites = (prettyui and prettyui.Sprites) or Theme.Sprites
+    if Sprites and Sprites.ITEM_SLOT_BACKGROUND then
+        iconSlot = ui.Sprite.new(tipRoot)
+        iconSlot.spriteID = Sprites.ITEM_SLOT_BACKGROUND
+        iconSlot.clickthrough = true
+        iconSlot.hidden = true
+        iconSlot:SetPos(8, 8)
+        iconSlot:SetSize(36, 36)
+    end
 
     local tipIcon = ui.Sprite.new(tipRoot)
     tipIcon.clickthrough = true
     tipIcon.hidden = true
-    tipIcon:SetPos(8, 8)
+    tipIcon:SetPos(10, 10)
     tipIcon:SetSize(32, 32)
 
     local function makeTipText(colour, yPos)
@@ -82,8 +78,8 @@ function Tooltip.new(parent, onScrollWheel)
                 txt.alignVertical = ui.AlignMode.TOPLEFT
             end)
         end
-        txt:SetPos(8, yPos)
-        txt:SetSize(-16, 18, 1.0, 0)
+        txt:SetPos(10, yPos)
+        txt:SetSize(-20, 18, 1.0, 0)
         return txt
     end
 
@@ -92,10 +88,10 @@ function Tooltip.new(parent, onScrollWheel)
     end
 
     self.root = tipRoot
-    self.border = border
+    self.iconSlot = iconSlot
     self.icon = tipIcon
-    self.title = makeTipText(Theme.COL_GOLD, 6)
-    self.sub = makeTipText(Theme.COL_WHITE, 26)
+    self.title = makeTipText(Theme.COL_GOLD, 8)
+    self.sub = makeTipText(Theme.COL_WHITE, 28)
     self.lines = {}
 
     for i = 1, MAX_TOOLTIP_LINES do
@@ -114,22 +110,24 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
 
     local tipW = 460
     local hasIcon = Theme.bindItemSprite(self.icon, objId, (tonumber(objId) == 995) and 10000 or 1)
+    if self.iconSlot then
+        self.iconSlot.hidden = not hasIcon
+    end
 
-    local textX = hasIcon and 46 or 8
-    local availTxtW = tipW - textX - 8
+    local textX = hasIcon and 50 or 10
+    local availTxtW = tipW - textX - 10
     local hTitle = Theme.measureWrappedTextHeight(titleText, availTxtW)
     local hSub = Theme.measureWrappedTextHeight(subText, availTxtW)
 
-    self.border.colour = titleCol or Theme.COL_GOLD
     self.title.colour = titleCol or Theme.COL_GOLD
     self.title.content = titleText
-    self.title:SetPos(textX, 6)
-    self.title:SetSize(-(textX + 8), hTitle, 1.0, 0)
+    self.title:SetPos(textX, 8)
+    self.title:SetSize(-(textX + 10), hTitle, 1.0, 0)
 
-    local subY = 6 + hTitle + 3
+    local subY = 8 + hTitle + 3
     self.sub.content = subText
     self.sub:SetPos(textX, subY)
-    self.sub:SetSize(-(textX + 8), hSub, 1.0, 0)
+    self.sub:SetSize(-(textX + 10), hSub, 1.0, 0)
 
     local currentY = subY + hSub + 4
     local lines = {}
@@ -143,15 +141,17 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
 
     for i = 1, #self.lines do
         local lineTxt = self.lines[i]
-        local text = lines[i]
+        local entry = lines[i]
+        local text = type(entry) == "table" and entry.text or entry
+        local explicitCol = type(entry) == "table" and entry.colour or nil
         if text ~= nil and text ~= "" then
             lineTxt.hidden = false
             lineTxt.content = text
-            lineTxt.colour = getDetailLineColour(text)
+            lineTxt.colour = explicitCol or getDetailLineColour(text)
 
             local hLine = Theme.measureWrappedTextHeight(text, availTxtW)
             lineTxt:SetPos(textX, currentY)
-            lineTxt:SetSize(-(textX + 8), hLine, 1.0, 0)
+            lineTxt:SetSize(-(textX + 10), hLine, 1.0, 0)
             currentY = currentY + hLine + 2
         elseif text == "" then
             lineTxt.hidden = true
@@ -161,8 +161,8 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
         end
     end
 
-    local minH = hasIcon and 48 or 36
-    local tipH = math.max(minH, currentY + 6)
+    local minH = hasIcon and 52 or 40
+    local tipH = math.max(minH, currentY + 8)
 
     local fallbackX = (windowRoot and windowRoot.x or 100) + 120
     local fallbackY = (windowRoot and windowRoot.y or 100) + 120
@@ -188,6 +188,9 @@ end
 function Tooltip:hide()
     if self.root and not self.root.hidden then
         self.root.hidden = true
+    end
+    if self.iconSlot and not self.iconSlot.hidden then
+        self.iconSlot.hidden = true
     end
     if self.icon and not self.icon.hidden then
         self.icon.hidden = true
@@ -255,27 +258,29 @@ function Tooltip.buildSyncBadgeTooltip(tracker, badgeKind)
 end
 
 function Tooltip.buildCollectorsStatusTooltip(tracker)
-    local list, syncedCount, totalCount = tracker:getCollectorSyncStatuses()
+    local list, syncedCount, totalCount, liveCount = tracker:getCollectorSyncStatuses()
+    liveCount = liveCount or 0
 
-    local titleText = string.format("Collector Sync Status (%d of %d Synced)", syncedCount, totalCount)
-    local titleCol = (syncedCount == totalCount and totalCount > 0) and Theme.COL_GREEN
+    local titleText = string.format("Collector Sync Status (%d / %d)", syncedCount, totalCount)
+    local titleCol = (liveCount == totalCount and totalCount > 0) and Theme.COL_GREEN
         or ((syncedCount > 0) and Theme.COL_AMBER or Theme.COL_RED)
 
-    local subText = (syncedCount == totalCount)
-        and "All collectors synced! Handed-in artefacts and collections are fully up to date."
-        or "Noticeboard scan needed to track turned-in artefacts for unsynced collectors."
+    local subText
+    if liveCount == totalCount and totalCount > 0 then
+        subText = "All collectors synced live this session!"
+    elseif syncedCount == totalCount and totalCount > 0 then
+        subText = "Using cached collector data from a previous session. Resync via Journal or Noticeboard if changed."
+    else
+        subText = "Noticeboard or Journal scan needed to track turned-in artefacts for unsynced collectors."
+    end
 
     local lines = { "COLLECTORS:" }
     for _, c in ipairs(list or {}) do
-        local subTag = c.submittedCount > 0 and string.format(", %d turned in", c.submittedCount) or ""
-        local statusTxt = c.synced and "Synced" or "Not synced"
-        table.insert(lines, string.format("  • %s (%d col%s%s) - %s",
-            c.name,
-            c.collectionsCount,
-            c.collectionsCount == 1 and "" or "s",
-            subTag,
-            statusTxt
-        ))
+        local col = c.synced and Theme.COL_GREEN or (c.cached and Theme.COL_AMBER or Theme.COL_RED)
+        table.insert(lines, {
+            text   = "  • " .. tostring(c.name),
+            colour = col,
+        })
     end
 
     table.insert(lines, "")
@@ -316,20 +321,13 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
         statusStr = statusStr .. " [Completed]"
     end
 
-    local isColSynced = (tracker and tracker.isCollectorSynced) and tracker:isCollectorSynced(col.collector)
-    local syncTag = isColSynced and "Synced" or "Unsynced"
-    local sub = string.format("Collector: %s [%s] | %s", col.collector, syncTag, statusStr)
+    local sub = string.format("Collector: %s | %s", col.collector, statusStr)
 
     local details = {}
     local colLoc = col.location or (Collections and Collections.getCollectorLocation and Collections.getCollectorLocation(col.collector)) or "Archaeology Guild"
     table.insert(details, string.format("Hand-In Location: %s", colLoc))
     table.insert(details, string.format("Collection Status: %s", statusStr))
     table.insert(details, "")
-    if not isColSynced then
-        table.insert(details, string.format("Notice: %s is not yet synced.", col.collector))
-        table.insert(details, string.format("Click '%s' on noticeboard or via Arch Journal to sync.", col.collector))
-        table.insert(details, "")
-    end
 
     local isTetra = string.find(string.lower(col.recurringReward or ""), "tetra", 1, true)
         or string.find(string.lower(col.oneTimeReward or ""), "tetra", 1, true)
@@ -400,10 +398,32 @@ function Tooltip.buildArtefactRowTooltip(tracker, item)
         art.name, art.level or 1, Utils.formatInt(art.xp), Utils.formatInt(art.chronotes))
     local locStr = art.location or "Archaeology"
     local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0))
+    local bagRestored = item.bagRestored or (tracker and tracker.backpackRestored and tracker.backpackRestored[art.name]) or 0
+    local bankRestored = item.bankRestored or (tracker and tracker.bankRestored and tracker.bankRestored[art.name]) or 0
+    local totalRestored = bagRestored + bankRestored
     local statusStr = item.statusText or (item.excluded and "Excluded" or "Ready")
+
+    local ownedBreakdown
+    if totalRestored > 0 and ownedDamaged > 0 then
+        ownedBreakdown = string.format(
+            "Restored: %d (Bag: %d, Bank: %d) | Damaged: %d (Bag: %d, Bank: %d)",
+            totalRestored, bagRestored, bankRestored, ownedDamaged, item.inBag or 0, item.inBank or 0
+        )
+    elseif totalRestored > 0 then
+        ownedBreakdown = string.format(
+            "Restored: %d (Bag: %d, Bank: %d)",
+            totalRestored, bagRestored, bankRestored
+        )
+    else
+        ownedBreakdown = string.format(
+            "Damaged: %d (Bag: %d, Bank: %d)",
+            ownedDamaged, item.inBag or 0, item.inBank or 0
+        )
+    end
+
     local sub = string.format(
-        "Status: %s | Location: %s | Damaged: %d (Bag: %d, Bank: %d)",
-        statusStr, locStr, ownedDamaged, item.inBag or 0, item.inBank or 0
+        "Status: %s | Location: %s | %s",
+        statusStr, locStr, ownedBreakdown
     )
     local reqParts = {}
     local mult = math.max(1, item.effectiveCount > 0 and item.effectiveCount or 1)

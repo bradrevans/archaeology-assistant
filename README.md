@@ -123,7 +123,7 @@ python manage.py build
 ```
 
 ### 3. Deploy Locally to the RS3 Client
-To build and copy the staged files directly into your local RS3 `plugins/archaeology-assistant` directory:
+To build and copy the staged files directly into your local RS3 `dev_plugins/archaeology-assistant` directories (`RuneScape-BETA\dev_plugins` and `RuneScape\dev_plugins`):
 ```bash
 python manage.py deploy
 ```
@@ -144,10 +144,12 @@ This command:
 1. In the Beta lobby, click **Import Save** to copy your live character into the Beta world, then enter the game.
 2. Open the RS3 Developer Console (`Alt` + `` ` ``) and run:
    - `prf` — Refresh the plugin list
-   - `ppr archaeology-assistant` — Reset/initialize plugin permissions in dev mode (must be run before `ppe`)
-   - `ppe archaeology-assistant chatAccess` — Grant the required `chatAccess` permission (required for Sign of the Porter & Grace of the Elves excavation tracking)
+   - `pon prettyui` — Enable the `PrettyUI` dependency
+   - `ppr archaeology-assistant` — Unlock the permissions checkbox for `archaeology-assistant` in Dev Mode
+3. Open the in-game **Plugin Hub** menu, select **Archaeology Assistant**, and manually tick the **`chatAccess`** permission checkbox (required for Sign of the Porter & Grace of the Elves excavation tracking).
+4. Enable or reload the plugin from the Developer Console (`Alt` + `` ` ``):
    - `pon archaeology-assistant` — Enable the plugin
    - `prl archaeology-assistant` — Reload the plugin after running `python manage.py deploy`
 
 > **Note on `requiredPermissions` in Dev Mode:**
-> For store-installed plugins, the client prompts players to accept required permissions during installation. Because local/dev plugins are loaded directly from disk without going through the store install prompt, the client lists required permissions as non-toggleable in the UI. Running `ppr archaeology-assistant` followed by `ppe archaeology-assistant chatAccess` in the developer console grants the permission immediately.
+> For store-installed plugins, the client prompts players to accept required permissions during installation. For local `dev_plugins`, required permissions start locked in the Plugin Hub UI. Running `ppr archaeology-assistant` in the developer console unlocks the checkbox so you can manually tick `chatAccess` in the in-game Plugin Hub settings.

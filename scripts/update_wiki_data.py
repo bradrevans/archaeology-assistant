@@ -625,7 +625,7 @@ def scrape_collector_locations(collector_names: list[str], collections_raw: str)
             flags=re.IGNORECASE,
         )
         if loc_m:
-            loc_clean = loc_m.group(1).strip()
+            loc_clean = loc_m.group(1).strip().rstrip(" ,.;")
             if loc_clean:
                 loc_clean = loc_clean[0].upper() + loc_clean[1:]
                 locations[sec_title] = loc_clean

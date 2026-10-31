@@ -171,7 +171,9 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
     end
 
     local consumedMats = {}
+    local hadBackpackDelta = false
     for artName, countRestored in pairs(artsRestored) do
+        hadBackpackDelta = true
         if tracker.isPinned and tracker.pinnedArtefactCounts and tracker.pinnedArtefactCounts[artName] then
             tracker.pinnedArtefactCounts[artName] = math.max(0, tracker.pinnedArtefactCounts[artName] - countRestored)
             if tracker.pinnedArtefactCounts[artName] == 0 then
@@ -215,6 +217,7 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
         local currentCount = bagMats[matName] or 0
         local delta = currentCount - prevCount
         if delta < 0 then
+            hadBackpackDelta = true
             local removedCount = -delta
             local consumed = consumedMats[matName] or 0
             local depositedCount = removedCount
@@ -247,24 +250,35 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
         DB.set("arch_bank_materials", DB.serializeCountMap(tracker.bankMaterials))
     end
 
-    tracker.lastAction = nil
+    if hadBackpackDelta then
+        tracker.lastAction = nil
+    end
 end
 
 --- Scans the Bank inventory if open/available and updates cached bank counts.
 local function scanBankContainer(tracker, triggerInvType)
     local checkedBank = false
     local bankInv = nil
+    local triggeredByBank = (triggerInvType ~= nil and config.Inv.BANK and triggerInvType == config.Inv.BANK)
+        or (tracker.lastAction == "bank")
+
+    if tracker.cacheCleared and not triggeredByBank then
+        if config.Inv.BANK then
+            bankInv = InventoryScanner.findInventory(config.Inv.BANK)
+        end
+        return false, bankInv
+    end
 
     if config.Inv.BANK then
         bankInv = InventoryScanner.findInventory(config.Inv.BANK)
         if bankInv then
             local bankMats, archKinds, nonMatSlots, bankArts, bankRestored = tracker:extractMaterialsFromInv(bankInv)
-            local triggeredByBank = (triggerInvType ~= nil and triggerInvType == config.Inv.BANK)
             if triggeredByBank or archKinds > 0 or nonMatSlots > 0 then
                 tracker.bankMaterials = bankMats
                 tracker.bankArtefacts = bankArts
                 tracker.bankRestored = bankRestored or {}
                 tracker.bankSyncedLive = true
+                tracker.cacheCleared = false
                 checkedBank = true
                 local okId, invId = pcall(function() return config.Inv.BANK.id end)
                 if okId and type(invId) == "number" then
@@ -304,13 +318,13 @@ end
 --- Checks if a triggered inventory event is the player's Material Storage container.
 local function scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
     if not triggerInvType then
-        return
+        return false
     end
     local isBag = (config.Inv.INV and triggerInvType == config.Inv.INV)
     local isBank = (config.Inv.BANK and triggerInvType == config.Inv.BANK)
     local isWorn = (config.Inv.WORN and triggerInvType == config.Inv.WORN)
     if isBag or isBank or isWorn then
-        return
+        return false
     end
 
     local cfgName = ""
@@ -324,31 +338,297 @@ local function scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankI
         or tracker.lastAction == "loot"
 
     if isLoot then
-        return
+        return false
     end
 
     local customInv = InventoryScanner.findInventory(triggerInvType)
     if not customInv or customInv == bagInv or customInv == bankInv then
-        return
+        return false
     end
 
     local mats, archKinds, nonMatSlots, _, _, totalSlots = tracker:extractMaterialsFromInv(customInv)
     local isInspect = (totalSlots > 0 and totalSlots < 15)
         or InventoryScanner.isArtefactRecipeContainer(mats, archKinds)
 
-    local isStorage = (tracker.lastAction == "storage" or (totalSlots >= 35 and archKinds >= 3))
-        and archKinds >= 1
+    local isStorageAction = (tracker.lastAction == "storage") or ((tracker.storageActionTicks or 0) > 0)
+    local isStorage = (isStorageAction or (totalSlots >= 29 and archKinds >= 1) or (totalSlots >= 20 and archKinds >= 4))
+        and (archKinds >= 1 or (isStorageAction and totalSlots >= 25))
+        and totalSlots <= 90
         and nonMatSlots == 0
         and not isInspect
 
     local currentStorCount = InventoryScanner.countMapEntries(tracker.storageMaterials)
-    if isStorage and (tracker.lastAction == "storage" or archKinds >= math.min(5, currentStorCount)) then
+    if isStorage and (isStorageAction or archKinds >= math.min(5, currentStorCount)) then
         tracker.storageMaterials = mats
         tracker.storageSyncedLive = true
         tracker.storageHasCache = true
+        tracker.lastAction = nil
+        tracker.storageActionTicks = 0
+        tracker.pendingJournalStorageScan = false
+        local okId, invId = pcall(function() return triggerInvType.id end)
+        if okId and type(invId) == "number" and invId >= 0 then
+            tracker.storageInvId = invId
+            tracker._knownStorageInvId = invId
+            DB.set("arch_storage_inv_id", invId)
+        end
         DB.set("arch_storage_synced", 1)
         DB.set("arch_storage_materials", DB.serializeCountMap(tracker.storageMaterials))
+        return true
     end
+    return false
+end
+
+--- Scans known or in-memory Material Storage containers (e.g. when opened via Archaeology Journal's read-only view).
+local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
+    local wornInv = config and config.Inv and config.Inv.WORN and InventoryScanner.findInventory(config.Inv.WORN) or nil
+
+    local function tryApplyStorageInv(inv, candidateId)
+        if not inv or inv == bagInv or inv == bankInv or inv == wornInv then
+            return false
+        end
+        local mats, archKinds, nonMatSlots, _, _, totalSlots = tracker:extractMaterialsFromInv(inv)
+        local isInspect = (totalSlots > 0 and totalSlots < 15)
+            or InventoryScanner.isArtefactRecipeContainer(mats, archKinds)
+        if isInspect or nonMatSlots > 0 or totalSlots < 25 or totalSlots > 90 then
+            return false
+        end
+        local isStorageAction = (tracker.lastAction == "storage") or ((tracker.storageActionTicks or 0) > 0) or tracker.pendingJournalStorageScan
+        if archKinds >= 1 or isStorageAction then
+            local currentStorCount = InventoryScanner.countMapEntries(tracker.storageMaterials)
+            if isStorageAction or archKinds >= math.min(5, currentStorCount) then
+                tracker.storageMaterials = mats
+                tracker.storageSyncedLive = true
+                tracker.storageHasCache = true
+                tracker.pendingJournalStorageScan = false
+                if type(candidateId) == "number" and candidateId >= 0 then
+                    tracker.storageInvId = candidateId
+                    tracker._knownStorageInvId = candidateId
+                    DB.set("arch_storage_inv_id", candidateId)
+                end
+                DB.set("arch_storage_synced", 1)
+                DB.set("arch_storage_materials", DB.serializeCountMap(tracker.storageMaterials))
+                return true
+            end
+        end
+        return false
+    end
+
+    -- 1. Check known storageInvId or in-memory _knownStorageInvId if already discovered
+    local knownId = (tracker.storageInvId and tracker.storageInvId >= 0 and tracker.storageInvId)
+        or (tracker._knownStorageInvId and tracker._knownStorageInvId >= 0 and tracker._knownStorageInvId)
+    if knownId and knownId ~= tracker.bankInvId then
+        local storInv = InventoryScanner.findInventory(knownId)
+        if tryApplyStorageInv(storInv, knownId) then
+            return true
+        end
+    end
+
+    -- 2. Check candidate config.Inv keys
+    local candidateKeys = {
+        "ARCHAEOLOGY_MATERIAL_STORAGE",
+        "MATERIAL_STORAGE",
+        "ARCH_MATERIAL_STORAGE",
+        "ARCH_STORAGE",
+        "MAT_STORAGE"
+    }
+    for _, key in ipairs(candidateKeys) do
+        local okRef, ref = pcall(function() return config.Inv[key] end)
+        if okRef and ref then
+            local storInv = InventoryScanner.findInventory(ref)
+            local okId, refId = pcall(function() return ref.id end)
+            if tryApplyStorageInv(storInv, okId and refId or nil) then
+                return true
+            end
+        end
+    end
+
+    -- 3. If user clicked Archaeology Journal -> Material storage information,
+    -- probe loaded client inventories for the 30-50 slot Archaeology Material Storage container.
+    if tracker.pendingJournalStorageScan then
+        local bagId  = (config.Inv.INV and config.Inv.INV.id) or 93
+        local wornId = (config.Inv.WORN and config.Inv.WORN.id) or 94
+        local bankId = (config.Inv.BANK and config.Inv.BANK.id) or 95
+        for invId = 1, 950 do
+            if invId ~= bagId and invId ~= wornId and invId ~= bankId and invId ~= tracker.bankInvId then
+                local inv = InventoryScanner.findInventory(invId)
+                if inv and tryApplyStorageInv(inv, invId) then
+                    return true
+                end
+            end
+        end
+    end
+
+    -- 4. Fallback: check Archaeology UI interfaces (650..670) in case the journal view renders via UI components.
+    if tracker.pendingJournalStorageScan then
+        if InventoryScanner.scanMaterialStorageInterface(tracker) then
+            return true
+        end
+    end
+
+    return false
+end
+
+--- Scans open UI interfaces for the Archaeology Journal's "Material storage information" view.
+function InventoryScanner.scanMaterialStorageInterface(tracker)
+    if not ui or not ui.Interfaces then return false end
+
+    local function getCompText(c)
+        if not c then return nil end
+        local t = nil
+        pcall(function()
+            t = c.content or c.text or (c.GetText and c:GetText()) or c.textFormatted or c.rawText
+        end)
+        if t and type(t) ~= "string" then t = tostring(t) end
+        return t
+    end
+
+    local function extractChild(a, b)
+        if type(a) == "table" or type(a) == "userdata" then return a end
+        if type(b) == "table" or type(b) == "userdata" then return b end
+        return nil
+    end
+
+    local function parsePureCount(rawTxt)
+        if not rawTxt or type(rawTxt) ~= "string" then return nil end
+        local clean = string.gsub(rawTxt, "<[^>]+>", "")
+        clean = string.match(clean, "^%s*([%d,]+)%s*$")
+        if clean then
+            local num = tonumber((string.gsub(clean, ",", "")))
+            if num and num >= 0 and num <= 10000000 then
+                return num
+            end
+        end
+        return nil
+    end
+
+    local function scanInterfaceId(ifId)
+        if ifId == 657 or ifId == 1477 then return false end
+        local okIf, iface = pcall(function() return ui.Interfaces:GetInterface(ifId) end)
+        if not okIf or not iface then return false end
+
+        local queue = {}
+        for rootIdx = 0, 4 do
+            local okC, c = pcall(function() return ui.Interfaces:GetComponent(ifId, rootIdx) end)
+            if okC and c then
+                table.insert(queue, { comp = c, depth = 1 })
+            end
+        end
+        if #queue == 0 then return false end
+
+        local hasStorageTitle = false
+        local seenArchMats = {}
+        local distinctArchMats = 0
+        local matCounts = {}
+        local lastMatchedMat = nil
+        local qHead = 1
+
+        while qHead <= #queue and qHead < 300 do
+            local node = queue[qHead]
+            qHead = qHead + 1
+            local comp = node.comp
+            local depth = node.depth
+
+            local rawTxt = getCompText(comp)
+            if rawTxt and rawTxt ~= "" then
+                local low = string.lower(rawTxt)
+                if string.find(low, "material storage", 1, true) then
+                    hasStorageTitle = true
+                end
+            end
+
+            local objId = nil
+            pcall(function() objId = comp.associatedObjectID or comp.objId or comp.itemId or comp.itemID end)
+            local propCount = nil
+            pcall(function()
+                propCount = comp.associatedObjectCount or comp.associatedObjectAmount
+                    or comp.itemCount or comp.itemAmount or comp.count or comp.quantity or comp.amount
+            end)
+
+            local mat = (objId and objId > 0 and Materials.getById(objId))
+                or (rawTxt and #rawTxt >= 4 and Materials.get(rawTxt))
+
+            if mat and mat.isArchMaterial then
+                if not seenArchMats[mat.name] then
+                    seenArchMats[mat.name] = true
+                    distinctArchMats = distinctArchMats + 1
+                end
+                lastMatchedMat = mat.name
+
+                local resolvedCount = nil
+                if type(propCount) == "number" and propCount >= 0 then
+                    resolvedCount = propCount
+                end
+                if resolvedCount == nil and rawTxt then
+                    resolvedCount = parsePureCount(rawTxt)
+                end
+
+                if resolvedCount == nil and comp.parent then
+                    local function checkSibling(a, b)
+                        local sib = extractChild(a, b)
+                        if sib and sib ~= comp and resolvedCount == nil then
+                            local sCount = parsePureCount(getCompText(sib))
+                            if sCount ~= nil then
+                                resolvedCount = sCount
+                            end
+                        end
+                        return false
+                    end
+                    if comp.parent.IterateStaticComponents then
+                        pcall(comp.parent.IterateStaticComponents, comp.parent, checkSibling)
+                    end
+                    if comp.parent.IterateDynamicComponents then
+                        pcall(comp.parent.IterateDynamicComponents, comp.parent, checkSibling)
+                    end
+                end
+
+                if resolvedCount and resolvedCount > 0 then
+                    matCounts[mat.name] = resolvedCount
+                end
+            elseif lastMatchedMat and rawTxt then
+                local num = parsePureCount(rawTxt)
+                if num ~= nil and matCounts[lastMatchedMat] == nil then
+                    if num > 0 then
+                        matCounts[lastMatchedMat] = num
+                    end
+                    lastMatchedMat = nil
+                end
+            end
+
+            if depth < 12 then
+                if comp.IterateStaticComponents then
+                    pcall(comp.IterateStaticComponents, comp, function(a, b)
+                        local child = extractChild(a, b)
+                        if child then table.insert(queue, { comp = child, depth = depth + 1 }) end
+                        return false
+                    end)
+                end
+                if comp.IterateDynamicComponents then
+                    pcall(comp.IterateDynamicComponents, comp, function(a, b)
+                        local child = extractChild(a, b)
+                        if child then table.insert(queue, { comp = child, depth = depth + 1 }) end
+                        return false
+                    end)
+                end
+            end
+        end
+
+        if distinctArchMats >= 15 or (hasStorageTitle and distinctArchMats >= 5) then
+            tracker.storageMaterials = matCounts
+            tracker.storageSyncedLive = true
+            tracker.storageHasCache = true
+            tracker.pendingJournalStorageScan = false
+            tracker.storageActionTicks = 0
+            DB.set("arch_storage_synced", 1)
+            DB.set("arch_storage_materials", DB.serializeCountMap(tracker.storageMaterials))
+            return true
+        end
+        return false
+    end
+
+    for ifId = 650, 670 do
+        if scanInterfaceId(ifId) then return true end
+    end
+    return false
 end
 
 --- Scans the player's Backpack, Bank, and any triggered Material Storage container.
@@ -391,8 +671,12 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
         tracker.prevBackpackRestored = bagRestored or {}
     end
 
-    -- 4. Check if triggerInvType is the Material Storage container
-    scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
+    -- 4. Check if triggerInvType is the Material Storage container, or scan known/in-memory storage when explicitly opened
+    if triggerInvType then
+        scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
+    elseif tracker.pendingJournalStorageScan then
+        scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
+    end
 end
 
 --- Checks if two count maps differ.

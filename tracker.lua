@@ -15,10 +15,10 @@ local Tracker = {}
 Tracker.__index = Tracker
 
 Tracker.SOURCE_MODES = {
-    { id = "ALL",        label = "Src: All",      useBag = true,  useStorage = true,  useBank = true  },
-    { id = "BAG_STOR",   label = "Src: Bag+Stor", useBag = true,  useStorage = true,  useBank = false },
-    { id = "STOR_ONLY",  label = "Src: Storage",  useBag = false, useStorage = true,  useBank = false },
-    { id = "BAG_ONLY",   label = "Src: Backpack", useBag = true,  useStorage = false, useBank = false },
+    { id = "ALL",        label = "All (Bag + Storage + Bank)", shortLabel = "Src: All",      useBag = true,  useStorage = true,  useBank = true  },
+    { id = "BAG_STOR",   label = "Backpack + Storage",         shortLabel = "Src: Bag+Stor", useBag = true,  useStorage = true,  useBank = false },
+    { id = "STOR_ONLY",  label = "Material Storage Only",      shortLabel = "Src: Storage",  useBag = false, useStorage = true,  useBank = false },
+    { id = "BAG_ONLY",   label = "Backpack Only",              shortLabel = "Src: Backpack", useBag = true,  useStorage = false, useBank = false },
 }
 
 local countMapEntries = InventoryScanner.countMapEntries
@@ -45,10 +45,11 @@ function Tracker.new()
     self.backpackRestored = {}
     self.bankRestored     = DB.deserializeCountMap(DB.get("arch_bank_restored", ""))
 
-    self.completedCollections = DB.deserializeCountMap(DB.get("arch_completed_collections", ""))
-    self.targetedCollections  = DB.deserializeCountMap(DB.get("arch_targeted_collections", ""))
-    self.submittedArtefacts   = DB.deserializeSubmittedMap(DB.get("arch_submitted_artefacts", ""))
-    self.scannedCollectors    = DB.deserializeCountMap(DB.get("arch_scanned_collectors", ""))
+    self.completedCollections  = DB.deserializeCountMap(DB.get("arch_completed_collections", ""))
+    self.targetedCollections   = DB.deserializeCountMap(DB.get("arch_targeted_collections", ""))
+    self.submittedArtefacts    = DB.deserializeSubmittedMap(DB.get("arch_submitted_artefacts", ""))
+    self.scannedCollectors     = DB.deserializeCountMap(DB.get("arch_scanned_collectors", ""))
+    self.liveScannedCollectors = {}
 
     self.backpackMaterials = {}
     self.storageMaterials  = DB.deserializeCountMap(DB.get("arch_storage_materials", ""))
@@ -57,9 +58,10 @@ function Tracker.new()
     local storEntries = countMapEntries(self.storageMaterials)
     local bankEntries = countMapEntries(self.bankMaterials) + countMapEntries(self.bankArtefacts)
 
-    self.storageInvId = -1
+    self.storageInvId = tonumber(DB.get("arch_storage_inv_id", -1)) or -1
     self.bankInvId    = tonumber(DB.get("arch_bank_inv_id", -1)) or -1
-    DB.set("arch_storage_inv_id", -1)
+    self.storageActionTicks        = 0
+    self.pendingJournalStorageScan = false
 
     -- Guard against cached storage corruption caused by inspecting a damaged artefact in an older session
     if storEntries > 0 and storEntries <= 5 then
@@ -324,7 +326,17 @@ function Tracker:clearAllCache()
     self.submittedArtefacts       = {}
     self.completedCollections     = {}
     self.scannedCollectors        = {}
+    self.liveScannedCollectors    = {}
     self.lastCollectorScanSummary = nil
+    if self.storageInvId and self.storageInvId >= 0 then
+        self._knownStorageInvId = self.storageInvId
+    end
+    self.storageInvId             = -1
+    self.bankInvId                = -1
+    self.lastAction               = nil
+    self.storageActionTicks       = 0
+    self.pendingJournalStorageScan = false
+    self.cacheCleared             = true
 
     DB.set("arch_storage_materials", "")
     DB.set("arch_storage_synced", 0)
@@ -711,16 +723,22 @@ function Tracker:getCollectionsForDisplay(filterMode)
         return list, 0, 0, 0, 0
     end
 
-    local totalCount     = #Collections.LIST
-    local completedTotal = 0
-    local readyTotal     = 0
-    local targetedTotal  = 0
+    local totalCount         = #Collections.LIST
+    local completedTotal     = 0
+    local readyAllTotal      = 0
+    local readyTargetedTotal = 0
+    local targetedTotal      = 0
 
     for _, col in ipairs(Collections.LIST) do
         local progress = self:getCollectionProgress(col)
         if progress.isCompleted then completedTotal = completedTotal + 1 end
-        if progress.isReady then readyTotal = readyTotal + 1 end
-        if progress.isTargeted then targetedTotal = targetedTotal + 1 end
+        if progress.isReady then readyAllTotal = readyAllTotal + 1 end
+        if progress.isTargeted then
+            targetedTotal = targetedTotal + 1
+            if progress.isReady then
+                readyTargetedTotal = readyTargetedTotal + 1
+            end
+        end
 
         local include = true
         if filterMode == "incomplete" then
@@ -745,6 +763,7 @@ function Tracker:getCollectionsForDisplay(filterMode)
         end
     end
 
+    local readyTotal = (targetedTotal > 0) and readyTargetedTotal or readyAllTotal
     return list, totalCount, completedTotal, targetedTotal, readyTotal
 end
 
@@ -756,7 +775,22 @@ function Tracker:getTargetedChronotesTotal()
             local col = Collections.BY_NAME[colName]
             if col and col.chronotes then
                 local numStr = string.gsub(string.match(col.chronotes, "[%d,]+") or "0", ",", "")
-                total = total + (tonumber(numStr) or 0)
+                local colTotal = tonumber(numStr) or 0
+                local submittedChronotes = 0
+                local unsubmittedCount = 0
+                for _, artName in ipairs(col.artefacts or {}) do
+                    if self:isArtefactSubmitted(col.name, artName) then
+                        local art = Artefacts and Artefacts.findByName and Artefacts.findByName(artName)
+                        if art and art.chronotes then
+                            submittedChronotes = submittedChronotes + art.chronotes
+                        end
+                    else
+                        unsubmittedCount = unsubmittedCount + 1
+                    end
+                end
+                if unsubmittedCount > 0 then
+                    total = total + math.max(0, colTotal - submittedChronotes)
+                end
             end
         end
     end
@@ -764,7 +798,10 @@ function Tracker:getTargetedChronotesTotal()
 end
 
 function Tracker:isCollectorSynced(collectorName)
-    if not collectorName or collectorName == "" or collectorName == "Giles" then return true end
+    if not collectorName or collectorName == "" then return true end
+    if collectorName == "Giles" then
+        return self.scannedCollectors ~= nil and next(self.scannedCollectors) ~= nil
+    end
     if self.scannedCollectors and (self.scannedCollectors[collectorName] or 0) > 0 then
         return true
     end
@@ -779,24 +816,6 @@ function Tracker:isCollectorSynced(collectorName)
                     end
                 end
             end
-        end
-    end
-    if self.completedCollections and Collections and Collections.LIST then
-        local hasAny  = false
-        local allDone = true
-        for _, col in ipairs(Collections.LIST) do
-            if col.collector == collectorName then
-                hasAny = true
-                if not self.completedCollections[col.name] then
-                    allDone = false
-                    break
-                end
-            end
-        end
-        if hasAny and allDone then
-            self.scannedCollectors[collectorName] = 1
-            DB.set("arch_scanned_collectors", DB.serializeCountMap(self.scannedCollectors))
-            return true
         end
     end
     return false
@@ -837,25 +856,37 @@ function Tracker:getCollectorSyncStatuses()
         end
     end
 
-    local list             = {}
-    local totalCollectors  = #order
-    local syncedCollectors = 0
+    local list              = {}
+    local totalCollectors   = #order
+    local syncedCollectors  = 0
+    local liveCollectors    = 0
+    local cachedCollectors  = 0
 
     for _, cName in ipairs(order) do
         local ent = map[cName]
-        ent.synced = self:isCollectorSynced(cName)
-        if ent.synced then syncedCollectors = syncedCollectors + 1 end
+        local hasAnyData = self:isCollectorSynced(cName)
+        local isLive = self.liveScannedCollectors and (self.liveScannedCollectors[cName] or 0) > 0
+        ent.synced = isLive
+        ent.cached = (not isLive) and hasAnyData
+        if hasAnyData then syncedCollectors = syncedCollectors + 1 end
+        if isLive then
+            liveCollectors = liveCollectors + 1
+        elseif ent.cached then
+            cachedCollectors = cachedCollectors + 1
+        end
         table.insert(list, ent)
     end
 
     table.sort(list, function(a, b)
-        if a.synced ~= b.synced then
-            return (a.synced and not b.synced)
+        local aState = a.synced and 2 or (a.cached and 1 or 0)
+        local bState = b.synced and 2 or (b.cached and 1 or 0)
+        if aState ~= bState then
+            return aState > bState
         end
         return a.name < b.name
     end)
 
-    return list, syncedCollectors, totalCollectors
+    return list, syncedCollectors, totalCollectors, liveCollectors, cachedCollectors
 end
 
 function Tracker:savePersistentState()
@@ -923,6 +954,8 @@ function Tracker:syncCollectorBoard(forceLog)
     local cScanned = collectorScanned or self:detectActiveCollector()
     if success and cScanned and cScanned ~= "" and cScanned ~= "Noticeboard" then
         self.scannedCollectors[cScanned] = 1
+        self.liveScannedCollectors = self.liveScannedCollectors or {}
+        self.liveScannedCollectors[cScanned] = 1
         DB.set("arch_scanned_collectors", DB.serializeCountMap(self.scannedCollectors))
     end
     self:recalculate()
@@ -932,6 +965,23 @@ end
 function Tracker:onLogicTick()
     self._logicTicks = (self._logicTicks or 0) + 1
     local updated = false
+
+    if (self.storageActionTicks or 0) > 0 then
+        self.storageActionTicks = self.storageActionTicks - 1
+        if self.storageActionTicks == 0 then
+            self.pendingJournalStorageScan = false
+            if self.lastAction == "storage" then
+                self.lastAction = nil
+            end
+        elseif self.pendingJournalStorageScan and (self.storageActionTicks == 18 or self.storageActionTicks == 6) then
+            local wasSynced = self.storageSyncedLive
+            local prevCount = countMapEntries(self.storageMaterials)
+            self:recalculate()
+            if (not wasSynced and self.storageSyncedLive) or countMapEntries(self.storageMaterials) ~= prevCount then
+                updated = true
+            end
+        end
+    end
 
     self._bagCheckTicks = (self._bagCheckTicks or 0) + 1
     if self._bagCheckTicks >= 25 then
@@ -963,6 +1013,8 @@ function Tracker:onLogicTick()
                 local cScanned = collectorScanned or (activeCollector ~= "Noticeboard" and activeCollector)
                 if cScanned and cScanned ~= "" then
                     self.scannedCollectors[cScanned] = 1
+                    self.liveScannedCollectors = self.liveScannedCollectors or {}
+                    self.liveScannedCollectors[cScanned] = 1
                     DB.set("arch_scanned_collectors", DB.serializeCountMap(self.scannedCollectors))
                 end
                 self:recalculate()
@@ -1027,10 +1079,14 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "drop"
     elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box") then
         self.lastAction = "bank"
-    elseif string.find(fLower, "cart") or string.find(fLower, "material storage") or string.find(fLower, "storage") then
+    elseif string.find(fLower, "material storage") or string.find(vLower, "material storage")
+        or string.find(fLower, "storage") then
         self.lastAction = "storage"
-    elseif string.find(fLower, "deposit") then
+        self.storageActionTicks = 24
+        self.pendingJournalStorageScan = true
+    elseif string.find(fLower, "cart") or string.find(fLower, "deposit") then
         self.lastAction = "storage"
+        self.storageActionTicks = 45
     elseif string.find(vLower, "loot") or string.find(fLower, "loot")
         or string.find(vLower, "take") or string.find(fLower, "take")
         or string.find(vLower, "pick") or string.find(fLower, "pick") then
@@ -1315,11 +1371,17 @@ function Tracker:recalculate(triggerInvType)
                 if matPossibleNow == 999999 then matPossibleNow = 0 end
                 local maxPossibleNow = math.min(ownedDamaged, matPossibleNow)
 
+                local bagRestored   = (self.backpackRestored and self.backpackRestored[art.name]) or 0
+                local bankRestored  = (self.bankRestored and self.bankRestored[art.name]) or 0
+                local ownedRestored = bagRestored + bankRestored
+
                 table.insert(artefactsList, {
                     artefact        = art,
                     inBag           = info.inBag or 0,
                     inBank          = info.inBank or 0,
                     ownedDamaged    = ownedDamaged,
+                    bagRestored     = bagRestored,
+                    bankRestored    = bankRestored,
                     rawCount        = rawCount,
                     targetCount     = targetCount,
                     effectiveCount  = effectiveCount,
@@ -1329,7 +1391,7 @@ function Tracker:recalculate(triggerInvType)
                     missingMatTypes = missingMatTypes,
                     colTarget       = info.colTarget or 0,
                     colNames        = info.colNames,
-                    ownedRestored   = info.ownedRestored or 0,
+                    ownedRestored   = math.max(info.ownedRestored or 0, ownedRestored),
                     neededToRestore = info.neededToRestore or 0,
                     isSubmitted     = info.isSubmitted or false,
                     isTargetedCol   = info.isTargetedCol or false,
@@ -1349,6 +1411,12 @@ function Tracker:recalculate(triggerInvType)
     local materialsList, filteredMaterials, distinctMaterialsRequired, distinctMaterialsShort, totalMaterialsShort =
         buildMaterialRows(self, requiredByMat, mode)
     local restorableArtefacts = computeSequentialRestorableCounts(artefactsList, materialsList)
+    local readyRestoredArtefacts = 0
+    for _, item in ipairs(artefactsList) do
+        if not item.excluded and not item.isSubmitted and item.effectiveCount == 0 and (item.ownedRestored or 0) > 0 then
+            readyRestoredArtefacts = readyRestoredArtefacts + math.min(math.max(1, item.colTarget or 1), item.ownedRestored)
+        end
+    end
 
     self.lastResult = {
         artefacts                 = artefactsList,
@@ -1357,6 +1425,7 @@ function Tracker:recalculate(triggerInvType)
         totalArtefacts            = totalArtefacts,
         uniqueArtefacts           = uniqueArtefacts,
         restorableArtefacts       = restorableArtefacts,
+        readyRestoredArtefacts    = readyRestoredArtefacts,
         totalXp                   = totalXp,
         totalChronotes            = totalChronotes,
         distinctMaterialsRequired = distinctMaterialsRequired,

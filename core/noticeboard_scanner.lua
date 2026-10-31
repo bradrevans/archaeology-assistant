@@ -430,18 +430,25 @@ function NoticeboardScanner.scanCollectorInterface(tracker)
         DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(tracker.submittedArtefacts))
         if activeCollectorName and activeCollectorName ~= "" and activeCollectorName ~= "Noticeboard" then
             tracker.scannedCollectors[activeCollectorName] = 1
+            tracker.liveScannedCollectors = tracker.liveScannedCollectors or {}
+            tracker.liveScannedCollectors[activeCollectorName] = 1
             DB.set("arch_scanned_collectors", DB.serializeCountMap(tracker.scannedCollectors))
         end
+        NoticeboardScanner.syncCollectionsDoneStatus(tracker)
         tracker:recalculate()
     end
 
     return (artsFound > 0), detected, activeCollectorName
 end
 
---- Synchronizes completed collections and submitted artefacts from in-game achievements (config.Achievement.FromID).
+--- Synchronizes completed collections and submitted artefacts from in-game achievements (config.Achievement.FromID)
+--- strictly for collectors that have already been synced by the user.
 function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
     local syncedCount = 0
     if not Collections or not Collections.LIST then return 0 end
+    if not tracker or not tracker.scannedCollectors or next(tracker.scannedCollectors) == nil then
+        return 0
+    end
     if not config or not config.Achievement or not config.Achievement.FromID then
         return 0
     end
@@ -449,7 +456,9 @@ function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
     local submittedChanged = false
 
     for _, col in ipairs(Collections.LIST) do
-        local achId = col.achievementId
+        local isCollectorScanned = (tracker.scannedCollectors[col.collector] or 0) > 0
+            or (col.collector == "Giles" and next(tracker.scannedCollectors) ~= nil)
+        local achId = isCollectorScanned and col.achievementId or nil
         if achId and achId > 0 then
             local ok, ach = pcall(config.Achievement.FromID, achId)
             if ok and ach and type(ach.progress) == "number" then
