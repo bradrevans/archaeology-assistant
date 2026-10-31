@@ -4,7 +4,11 @@ cd /d "%~dp0"
 echo ===================================================
 echo Packaging Archaeology Assistant for Mod.io Upload
 echo ===================================================
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Package-Submission.ps1"
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" "%~dp0manage.py" package %*
+) else (
+    python "%~dp0manage.py" package %*
+)
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo Packaging failed with error code %ERRORLEVEL%.

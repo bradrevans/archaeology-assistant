@@ -1,3 +1,5 @@
 dist/
 *.bak
 *.tmp
+__pycache__/
+*.pyc
