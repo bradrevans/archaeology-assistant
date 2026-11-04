@@ -1322,11 +1322,18 @@ function Window:populateArtefactRows(artList)
             rowUI.locTxt.content = item.artefact.location or "Archaeology"
             rowUI.locTxt.colour = Theme.COL_MUTED
 
-            local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0))
+            local inBench = item.inBench or 0
+            local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0) + inBench)
             local bagRestored = item.bagRestored or 0
             local bankRestored = item.bankRestored or 0
             local totalRestored = bagRestored + bankRestored
-            if item.inBag > 0 and item.inBank > 0 then
+            if inBench > 0 and (item.inBag > 0 or item.inBank > 0) then
+                rowUI.ownedTxt.content = string.format("%d (Multi)", ownedDamaged)
+                rowUI.ownedTxt.colour = Theme.COL_WHITE
+            elseif inBench > 0 then
+                rowUI.ownedTxt.content = string.format("%d (Bench)", inBench)
+                rowUI.ownedTxt.colour = Theme.COL_WHITE
+            elseif item.inBag > 0 and item.inBank > 0 then
                 rowUI.ownedTxt.content = string.format("%d (%d/%d)", ownedDamaged, item.inBag, item.inBank)
                 rowUI.ownedTxt.colour = Theme.COL_WHITE
             elseif item.inBag > 0 then

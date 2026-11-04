@@ -1,5 +1,6 @@
 -- core/inventory_scanner.lua
--- Single-responsibility module for scanning RS3 inventories (Backpack, Bank, Material Storage)
+-- Single-responsibility module for scanning RS3 inventories (Backpack, Bank, Material Storage,
+-- Archaeologist's workbench damaged artefact storage)
 -- while isolating Area Loot and artefact restoration recipe preview containers.
 
 local Materials = require("data/materials")
@@ -136,8 +137,254 @@ function InventoryScanner.extractMaterialsFromInv(inv)
     return matCounts, archMatKinds, nonMatSlots, artCounts, restoredCounts, totalSlots
 end
 
---- Reconciles items leaving the backpack (restorations at a workbench vs deposits into Bank/Storage).
-local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored)
+--- Classifies every occupied slot of an inventory for Workbench damaged-artefact storage detection.
+--- Returns: damagedCounts, damagedSlots, matSlots, otherSlots
+function InventoryScanner.extractDamagedArtefactsFromInv(inv)
+    local damagedCounts = {}
+    local damagedSlots, matSlots, otherSlots = 0, 0, 0
+    for _, slot in ipairs(InventoryScanner.getInventorySlots(inv)) do
+        local _, count, rawName = InventoryScanner.getSlotItemInfo(slot)
+        if rawName and count > 0 then
+            if Materials.get(rawName) then
+                matSlots = matSlots + 1
+            else
+                local art, isDamaged = Artefacts.findByName(rawName)
+                if art and isDamaged ~= false then
+                    damagedSlots = damagedSlots + 1
+                    damagedCounts[art.damagedName] = (damagedCounts[art.damagedName] or 0) + count
+                else
+                    otherSlots = otherSlots + 1
+                end
+            end
+        end
+    end
+    return damagedCounts, damagedSlots, matSlots, otherSlots
+end
+
+--- Returns true if an inventory config name looks like the Archaeologist's workbench artefact storage.
+local function isWorkbenchStorageName(cfgName)
+    if not cfgName or cfgName == "" then return false end
+    local up = string.upper(cfgName)
+    if string.find(up, "LOOT", 1, true) or string.find(up, "BANK", 1, true) then
+        return false
+    end
+    if string.find(up, "WORKBENCH", 1, true) then
+        return true
+    end
+    if string.find(up, "DAMAGED", 1, true) then
+        return true
+    end
+    local hasArtefact = string.find(up, "ARTEFACT", 1, true) or string.find(up, "ARTIFACT", 1, true)
+    local hasStore = string.find(up, "STORAGE", 1, true) or string.find(up, "STORE", 1, true)
+    return (hasArtefact and hasStore) and true or false
+end
+
+--- Lazily discovers candidate Workbench artefact storage InvTypes from the client's id.Inv name table.
+local workbenchCandidateRefs = nil
+local function getWorkbenchCandidateRefs()
+    if workbenchCandidateRefs then return workbenchCandidateRefs end
+    workbenchCandidateRefs = {}
+    if not (id and id.Inv and config and config.Inv) then return workbenchCandidateRefs end
+    pcall(function()
+        for _, name in pairs(id.Inv) do
+            local sName = tostring(name)
+            if isWorkbenchStorageName(sName) then
+                local okRef, ref = pcall(function() return config.Inv[sName] end)
+                if okRef and ref then
+                    table.insert(workbenchCandidateRefs, ref)
+                end
+            end
+        end
+    end)
+    return workbenchCandidateRefs
+end
+
+--- Stores a freshly read Workbench storage snapshot.
+--- Returns per-artefact count increases (deposits) and decreases (withdrawals/restores) since the last snapshot.
+local function applyWorkbenchSnapshot(tracker, damagedCounts, invId)
+    local increases, decreases = {}, {}
+    local prev = tracker.workbenchArtefacts or {}
+    for name, count in pairs(damagedCounts) do
+        local delta = count - (prev[name] or 0)
+        if delta > 0 then increases[name] = delta end
+    end
+    for name, prevCount in pairs(prev) do
+        local delta = (tonumber(prevCount) or 0) - (damagedCounts[name] or 0)
+        if delta > 0 then decreases[name] = delta end
+    end
+    tracker.workbenchArtefacts = damagedCounts
+    tracker.workbenchSyncedLive = true
+    tracker.workbenchHasCache = true
+    if type(invId) == "number" and invId >= 0 and tracker.workbenchInvId ~= invId then
+        tracker.workbenchInvId = invId
+        DB.set("arch_workbench_inv_id", invId)
+    end
+    DB.set("arch_workbench_synced", 1)
+    DB.set("arch_workbench_artefacts", DB.serializeCountMap(tracker.workbenchArtefacts))
+    return increases, decreases
+end
+
+--- Dumps all currently loaded inventories in the client to find the workbench container.
+function InventoryScanner.dumpLoadedInventories(tracker)
+    print("[Archaeology Assistant] === Scanning Loaded Client Inventories (1..1100) ===")
+    local bagId  = (config.Inv.INV and config.Inv.INV.id) or 93
+    local wornId = (config.Inv.WORN and config.Inv.WORN.id) or 94
+    local bankId = (config.Inv.BANK and config.Inv.BANK.id) or 95
+    local found = 0
+
+    for invId = 1, 1100 do
+        local inv = InventoryScanner.findInventory(invId)
+        if inv then
+            local slots = InventoryScanner.getInventorySlots(inv)
+            local occupied = 0
+            local sample = {}
+            local hasDamaged = false
+            for _, slot in ipairs(slots) do
+                local _, count, name = InventoryScanner.getSlotItemInfo(slot)
+                if name and count > 0 then
+                    occupied = occupied + 1
+                    local art, isDamaged = Artefacts.findByName(name)
+                    if art and isDamaged ~= false then
+                        hasDamaged = true
+                    end
+                    if #sample < 6 then
+                        table.insert(sample, string.format("%dx '%s' (isDmg=%s)", count, name, tostring(isDamaged)))
+                    end
+                end
+            end
+            if occupied > 0 or (slots and #slots > 0 and invId ~= bagId and invId ~= wornId) or invId == 1008 or invId == 885 then
+                found = found + 1
+                local isBag = (invId == bagId) and " [Backpack]" or ""
+                local isBank = (invId == bankId) and " [Bank]" or ""
+                local isWorn = (invId == wornId) and " [Worn]" or ""
+                local isBench = (invId == 1008) and " [ARCH_RESTORATION_WORKBENCH_STORAGE]" or ""
+                local isMat = (invId == 885) and " [ARCH_MATERIAL_STORAGE]" or ""
+                local dmgFlag = hasDamaged and " *** CONTAINS DAMAGED ARTEFACTS ***" or ""
+                print(string.format("[Archaeology Assistant] Inv[%d]%s%s%s%s%s: %d/%d slots. Samples: %s%s",
+                    invId, isBag, isBank, isWorn, isBench, isMat, occupied, #slots, table.concat(sample, ", "), dmgFlag))
+                if (hasDamaged or invId == 1008) and invId ~= bagId and invId ~= bankId then
+                    if tracker then
+                        local counts = InventoryScanner.extractDamagedArtefactsFromInv(inv)
+                        applyWorkbenchSnapshot(tracker, counts, invId)
+                        print(string.format("[Archaeology Assistant] Successfully synced Workbench storage from Inv[%d] (%d items)!", invId, occupied))
+                    end
+                end
+            end
+        end
+    end
+    print(string.format("[Archaeology Assistant] === Finished Scan: %d Inventories Located ===", found))
+end
+
+--- Scans the Archaeologist's workbench damaged-artefact storage via (1) the triggering inventory,
+--- (2) a previously discovered inventory id, (3) config.Inv candidates, or (4) probing loaded inventories.
+--- Returns maps of damaged artefact count increases (deposits) and decreases, and whether it was triggered.
+local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
+    if not config or not config.Inv then return nil end
+    local bagId  = (config.Inv.INV and config.Inv.INV.id) or 93
+    local wornId = (config.Inv.WORN and config.Inv.WORN.id) or 94
+    local bankId = (config.Inv.BANK and config.Inv.BANK.id) or 95
+
+    local function isPlayerContainer(ref)
+        if not ref then return false end
+        local okId, rid = pcall(function() return ref.id end)
+        if okId and (rid == bagId or rid == bankId or rid == wornId) then
+            return true
+        end
+        return (config.Inv.INV and ref == config.Inv.INV)
+            or (config.Inv.BANK and ref == config.Inv.BANK)
+            or (config.Inv.WORN and ref == config.Inv.WORN)
+    end
+
+    local isWorkbenchAction = (tracker.lastAction == "workbench_storage")
+        or tracker.pendingWorkbenchScan
+        or ((tracker.workbenchActionTicks or 0) > 0)
+
+    -- 0. Direct check for known ARCH_RESTORATION_WORKBENCH_STORAGE (inventory 1008)
+    local benchRef = (config.Inv and config.Inv.ARCH_RESTORATION_WORKBENCH_STORAGE)
+        or (tracker.workbenchInvId and tracker.workbenchInvId > 0 and tracker.workbenchInvId)
+        or 1008
+    local benchInv = InventoryScanner.findInventory(benchRef)
+    if benchInv then
+        local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(benchInv)
+        if matSlots == 0 and otherSlots == 0 then
+            local inc, dec = applyWorkbenchSnapshot(tracker, counts, 1008)
+            tracker.pendingWorkbenchScan = false
+            return inc, dec, isWorkbenchAction
+        end
+    end
+
+    -- 1. Triggering inventory
+    if triggerInvType and not isPlayerContainer(triggerInvType) then
+        local cfgName = ""
+        pcall(function() cfgName = tostring(triggerInvType.configName or "") end)
+        local okId, trigId = pcall(function() return triggerInvType.id end)
+        trigId = okId and trigId or nil
+        local isKnown = (type(trigId) == "number" and trigId >= 0 and trigId == tracker.workbenchInvId)
+            or isWorkbenchStorageName(cfgName)
+        local upName = string.upper(cfgName)
+        local isLoot = string.find(upName, "LOOT", 1, true) or string.find(upName, "AREA", 1, true)
+            or tracker.lastAction == "loot"
+
+        if isKnown or not isLoot then
+            local inv = InventoryScanner.findInventory(triggerInvType)
+            if inv then
+                local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(inv)
+                local looksLikeStorage = dmgSlots >= 1 and matSlots == 0 and otherSlots == 0
+                if (isKnown and matSlots == 0 and otherSlots == 0) or looksLikeStorage then
+                    local inc, dec = applyWorkbenchSnapshot(tracker, counts, trigId)
+                    return inc, dec, true
+                end
+            end
+        end
+    end
+
+    -- 2. Previously discovered workbench storage inventory id (only accept non-empty reads when not triggered)
+    local function tryRead(inv, invId)
+        if not inv then return nil end
+        if invId and (invId == bagId or invId == bankId or invId == wornId) then return nil end
+        local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(inv)
+        if dmgSlots >= 1 and matSlots == 0 and otherSlots == 0 then
+            return applyWorkbenchSnapshot(tracker, counts, invId)
+        end
+        return nil
+    end
+
+    if tracker.workbenchInvId and tracker.workbenchInvId >= 0 then
+        local inc, dec = tryRead(InventoryScanner.findInventory(tracker.workbenchInvId), tracker.workbenchInvId)
+        if inc then return inc, dec, false end
+    end
+
+    -- 3. Named config.Inv candidates (discovered once from id.Inv)
+    for _, ref in ipairs(getWorkbenchCandidateRefs()) do
+        local okId, refId = pcall(function() return ref.id end)
+        local inc, dec = tryRead(InventoryScanner.findInventory(ref), okId and refId or nil)
+        if inc then return inc, dec, false end
+    end
+
+    -- 4. Probe loaded client inventories for workbench damaged-artefact storage
+    if tracker.pendingWorkbenchScan or (tracker.workbenchActionTicks and tracker.workbenchActionTicks > 0) then
+        for invId = 1, 1100 do
+            if invId ~= bagId and invId ~= wornId and invId ~= bankId
+                and invId ~= tracker.bankInvId and invId ~= tracker.storageInvId then
+                local inv = InventoryScanner.findInventory(invId)
+                if inv then
+                    local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(inv)
+                    if dmgSlots >= 1 and matSlots == 0 and otherSlots == 0 then
+                        print(string.format("[Archaeology Assistant] Workbench artefact storage found via probe at inventory %d (%d types).", invId, dmgSlots))
+                        local inc, dec = applyWorkbenchSnapshot(tracker, counts, invId)
+                        tracker.pendingWorkbenchScan = false
+                        return inc, dec, false
+                    end
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+--- Reconciles items leaving the backpack (restorations at a workbench vs deposits into Bank/Storage/Workbench storage).
+local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored, benchDeposits, benchWithdrawals)
     if not tracker.prevBackpackMaterials then
         return
     end
@@ -145,8 +392,10 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
     local artsRestored = {}
     for artName, prevArtCount in pairs(tracker.prevBackpackArtefacts or {}) do
         local currentArtCount = bagArts[artName] or 0
-        if currentArtCount < prevArtCount then
-            local diff = prevArtCount - currentArtCount
+        -- Damaged artefacts deposited into the Workbench storage are not restorations
+        local deposited = (benchDeposits and benchDeposits[artName]) or 0
+        local diff = prevArtCount - currentArtCount - deposited
+        if diff > 0 then
             local artDef = Artefacts.findByName(artName)
             local isActuallyRestored = false
 
@@ -161,11 +410,28 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
                 isActuallyRestored = true
             end
 
-            if isActuallyRestored and tracker.lastAction ~= "drop" and tracker.lastAction ~= "bank" and tracker.lastAction ~= "loot" then
+            if isActuallyRestored and tracker.lastAction ~= "drop" and tracker.lastAction ~= "bank" and tracker.lastAction ~= "loot" and tracker.lastAction ~= "workbench_storage" then
                 artsRestored[artName] = diff
             elseif tracker.lastAction == "bank" then
                 tracker.bankArtefacts[artName] = (tracker.bankArtefacts[artName] or 0) + diff
                 DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
+            elseif tracker.lastAction == "workbench_storage" then
+                tracker.workbenchArtefacts[artName] = (tracker.workbenchArtefacts[artName] or 0) + diff
+                DB.set("arch_workbench_artefacts", DB.serializeCountMap(tracker.workbenchArtefacts))
+            end
+        end
+    end
+
+    -- Artefacts restored straight out of the Workbench storage: storage count drops while a restored copy appears in the bag
+    for artName, withdrawn in pairs(benchWithdrawals or {}) do
+        local artDef = Artefacts.findByName(artName)
+        if artDef and artDef.name then
+            local prevR = (tracker.prevBackpackRestored and tracker.prevBackpackRestored[artDef.name]) or 0
+            local currR = (bagRestored and bagRestored[artDef.name]) or 0
+            local unattributed = (currR - prevR) - (artsRestored[artName] or 0)
+            local extra = math.min(withdrawn, unattributed)
+            if extra > 0 then
+                artsRestored[artName] = (artsRestored[artName] or 0) + extra
             end
         end
     end
@@ -637,13 +903,18 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
         return
     end
 
-    -- 1. Scan Backpack (config.Inv.INV)
+    -- 1. Scan Backpack (config.Inv.INV), reading the Workbench artefact storage first so that
+    --    deposits into / restorations from it are not mistaken for backpack restorations.
     local bagInv = InventoryScanner.findInventory(config.Inv.INV)
     local bagMats, bagArts, bagRestored
+    local benchDeposits, benchWithdrawals, benchTriggered
     if bagInv then
         bagMats, _, _, bagArts, bagRestored = tracker:extractMaterialsFromInv(bagInv)
+    end
+    benchDeposits, benchWithdrawals, benchTriggered = scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
+    if bagInv then
         tracker.backpackRestored = bagRestored or {}
-        reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored)
+        reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored, benchDeposits, benchWithdrawals)
     end
 
     -- 2. Scan Bank (config.Inv.BANK or bankInvId)
@@ -672,7 +943,7 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
     end
 
     -- 4. Check if triggerInvType is the Material Storage container, or scan known/in-memory storage when explicitly opened
-    if triggerInvType then
+    if triggerInvType and not benchTriggered then
         scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
     elseif tracker.pendingJournalStorageScan then
         scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)

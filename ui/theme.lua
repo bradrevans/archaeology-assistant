@@ -68,6 +68,7 @@ Theme.BADGE_W             = 42
 Theme.BANK_ICON_OBJ_ID    = 995
 Theme.STORAGE_ICON_OBJ_ID = 49429
 Theme.BOARD_ICON_OBJ_ID   = 49430
+Theme.WORKBENCH_ICON_OBJ_ID = 49921 -- Venator dagger (damaged): represents the Workbench damaged artefact storage
 
 -- Font & Text Measurement
 local cachedBodyFont = nil
