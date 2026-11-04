@@ -52,9 +52,10 @@ function Tracker.new()
     self.backpackRestored = {}
     self.bankRestored     = DB.deserializeCountMap(DB.get("arch_bank_restored", ""))
 
-    self.completedCollections  = DB.deserializeCountMap(DB.get("arch_completed_collections", ""))
-    self.targetedCollections   = DB.deserializeCountMap(DB.get("arch_targeted_collections", ""))
-    self.submittedArtefacts    = DB.deserializeSubmittedMap(DB.get("arch_submitted_artefacts", ""))
+    self.completedCollections        = DB.deserializeCountMap(DB.get("arch_completed_collections", ""))
+    self.targetedCollections         = DB.deserializeCountMap(DB.get("arch_targeted_collections", ""))
+    self.collectionRememberedCounts  = DB.deserializeCountMap(DB.get("arch_col_remembered_counts", ""))
+    self.submittedArtefacts          = DB.deserializeSubmittedMap(DB.get("arch_submitted_artefacts", ""))
     self.scannedCollectors     = DB.deserializeCountMap(DB.get("arch_scanned_collectors", ""))
     self.liveScannedCollectors = {}
 
@@ -339,6 +340,7 @@ function Tracker:clearAllCache()
     self.workbenchSyncedLive      = false
     self.workbenchHasCache        = false
     self.targetedCollections      = {}
+    self.collectionRememberedCounts = {}
     self.excludedArtefacts        = {}
     self.customArtefactCounts     = {}
     self.pinnedArtefactCounts     = {}
@@ -377,6 +379,7 @@ function Tracker:clearAllCache()
     DB.set("arch_workbench_synced", 0)
     DB.set("arch_workbench_inv_id", -1)
     DB.set("arch_targeted_collections", "")
+    DB.set("arch_col_remembered_counts", "")
     DB.set("arch_excluded_artefacts", "")
     DB.set("arch_custom_art_counts", "")
     DB.set("arch_pinned_artefacts", "")
@@ -468,20 +471,93 @@ function Tracker:isCollectionTargeted(colName)
     return (self.targetedCollections[colName] or 0) > 0
 end
 
+function Tracker:getCollectionTargetCount(colName)
+    if not colName then return 0 end
+    return tonumber(self.targetedCollections[colName]) or 0
+end
+
+function Tracker:getCollectionRememberedCount(colName)
+    if not colName then return 1 end
+    local rem = self.collectionRememberedCounts and self.collectionRememberedCounts[colName]
+    return math.max(1, tonumber(rem) or 1)
+end
+
+function Tracker:getCollectionMaxOwned(colName)
+    if not colName or not Collections or not Collections.BY_NAME then return 1 end
+    local col = Collections.BY_NAME[colName]
+    if not col or not col.artefacts then return 1 end
+    local maxOwned = 0
+    for _, artName in ipairs(col.artefacts) do
+        local damagedName = artName .. " (damaged)"
+        local bagDamaged = (self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0
+        local bankDamaged = (self.bankArtefacts and self.bankArtefacts[damagedName]) or 0
+        local benchDamaged = (self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0
+        local totalDamaged = bagDamaged + bankDamaged + benchDamaged
+
+        local bagRestored = (self.backpackRestored and self.backpackRestored[artName]) or 0
+        local bankRestored = (self.bankRestored and self.bankRestored[artName]) or 0
+        local totalRestored = bagRestored + bankRestored
+
+        local total = totalDamaged + totalRestored
+        if total > maxOwned then
+            maxOwned = total
+        end
+    end
+    return math.max(1, maxOwned)
+end
+
+function Tracker:setCollectionTargetCount(colName, count)
+    if not colName then return self.lastResult end
+    count = math.max(1, math.floor(tonumber(count) or 1))
+    self.collectionRememberedCounts = self.collectionRememberedCounts or {}
+    self.collectionRememberedCounts[colName] = count
+    DB.set("arch_col_remembered_counts", DB.serializeCountMap(self.collectionRememberedCounts))
+
+    -- Max, Reset, and Stepper do not activate tracking; only update targetedCollections if already tracked
+    if self:isCollectionTargeted(colName) then
+        self.targetedCollections[colName] = count
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+    end
+    return self:recalculate()
+end
+
+function Tracker:adjustCollectionTargetCount(colName, delta)
+    if not colName then return self.lastResult end
+    local current = self.targetedCollections[colName]
+    if not current or current <= 0 then
+        current = self:getCollectionRememberedCount(colName)
+    end
+    local newCount = math.max(1, current + (delta or 1))
+    return self:setCollectionTargetCount(colName, newCount)
+end
+
+function Tracker:setCollectionTargetToMax(colName)
+    local maxCount = self:getCollectionMaxOwned(colName)
+    return self:setCollectionTargetCount(colName, maxCount)
+end
+
+function Tracker:resetCollectionTarget(colName)
+    return self:setCollectionTargetCount(colName, 1)
+end
+
 function Tracker:toggleCollectionTargeted(colName)
     if not colName then return self.lastResult end
     if self:isCollectionTargeted(colName) then
         self.targetedCollections[colName] = nil
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+        return self:recalculate()
     else
-        self.targetedCollections[colName] = 1
+        local count = self:getCollectionRememberedCount(colName)
+        self.targetedCollections[colName] = count
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+        return self:recalculate()
     end
-    DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
-    return self:recalculate()
 end
 
 function Tracker:clearTargetedCollections()
     self.targetedCollections = {}
     DB.set("arch_targeted_collections", "")
+    DB.set("arch_col_remembered_counts", "")
     return self:recalculate()
 end
 
@@ -620,6 +696,21 @@ function Tracker:getCollectionProgress(col)
         })
     end
 
+    local maxOwned = 0
+    local setsReady = 999999
+    for _, art in ipairs(artStatuses) do
+        local totalOwned = (art.damagedCount or 0) + (art.restoredCount or 0)
+        if totalOwned > maxOwned then maxOwned = totalOwned end
+        local readyCountForArt = (art.restoredCount or 0) + (art.isSubmitted and 1 or 0)
+        if readyCountForArt < setsReady then setsReady = readyCountForArt end
+    end
+    if #artStatuses == 0 or setsReady == 999999 then setsReady = 0 end
+    if maxOwned == 0 then maxOwned = 1 end
+
+    local targetCount = self:getCollectionTargetCount(col.name)
+    local isTargeted = targetCount > 0
+    local effectiveTarget = isTargeted and targetCount or self:getCollectionRememberedCount(col.name)
+
     return {
         readyCount        = readyCount,
         damagedCount      = damagedCount,
@@ -628,9 +719,13 @@ function Tracker:getCollectionProgress(col)
         damagedOnlyCount  = damagedOnlyCount,
         haveCount         = haveCount,
         totalCount        = total,
-        isReady           = (readyCount >= total and total > 0),
+        isReady           = (targetCount > 1) and (setsReady >= targetCount) or (readyCount >= total and total > 0),
         isCompleted       = isCompleted,
-        isTargeted        = self:isCollectionTargeted(col.name),
+        isTargeted        = isTargeted,
+        targetCount       = targetCount,
+        effectiveTarget   = effectiveTarget,
+        setsReady         = setsReady,
+        maxOwned          = maxOwned,
         artefacts         = artStatuses,
     }
 end
@@ -641,27 +736,31 @@ function Tracker:getTargetedArtefactRequirements()
         return requirements
     end
 
-    for colName, _ in pairs(self.targetedCollections) do
+    for colName, targetMultiplier in pairs(self.targetedCollections) do
         if self:isCollectionTargeted(colName) then
+            local multiplier = math.max(1, tonumber(targetMultiplier) or 1)
             local col = Collections.BY_NAME[colName]
             if col and col.artefacts then
                 for _, artName in ipairs(col.artefacts) do
                     local isSubmitted = self:isArtefactSubmitted(col.name, artName)
                     local damagedName = artName .. " (damaged)"
+                    local neededForThisCol = isSubmitted and math.max(0, multiplier - 1) or multiplier
+                    local isFullySubmitted = (isSubmitted and multiplier == 1)
+
                     if not requirements[damagedName] then
                         requirements[damagedName] = {
                             artName         = artName,
                             damagedName     = damagedName,
-                            count           = isSubmitted and 0 or 1,
-                            neededToRestore = isSubmitted and 0 or 1,
-                            isSubmitted     = isSubmitted,
+                            count           = neededForThisCol,
+                            neededToRestore = neededForThisCol,
+                            isSubmitted     = isFullySubmitted,
                             collections     = { col.name },
                         }
                     else
-                        if not isSubmitted then
-                            requirements[damagedName].count           = requirements[damagedName].count + 1
-                            requirements[damagedName].neededToRestore = requirements[damagedName].neededToRestore + 1
-                            requirements[damagedName].isSubmitted     = false
+                        requirements[damagedName].count           = requirements[damagedName].count + neededForThisCol
+                        requirements[damagedName].neededToRestore = requirements[damagedName].neededToRestore + neededForThisCol
+                        if not isFullySubmitted then
+                            requirements[damagedName].isSubmitted = false
                         end
                         table.insert(requirements[damagedName].collections, col.name)
                     end
@@ -806,6 +905,7 @@ function Tracker:getTargetedChronotesTotal()
     if not Collections or not Collections.BY_NAME then return 0 end
     for colName, _ in pairs(self.targetedCollections or {}) do
         if self:isCollectionTargeted(colName) then
+            local multiplier = math.max(1, tonumber(self.targetedCollections[colName]) or 1)
             local col = Collections.BY_NAME[colName]
             if col and col.chronotes then
                 local numStr = string.gsub(string.match(col.chronotes, "[%d,]+") or "0", ",", "")
@@ -822,9 +922,9 @@ function Tracker:getTargetedChronotesTotal()
                         unsubmittedCount = unsubmittedCount + 1
                     end
                 end
-                if unsubmittedCount > 0 then
-                    total = total + math.max(0, colTotal - submittedChronotes)
-                end
+                local firstPassChronotes = (unsubmittedCount > 0) and math.max(0, colTotal - submittedChronotes) or 0
+                local extraPasses = math.max(0, multiplier - 1)
+                total = total + firstPassChronotes + (extraPasses * colTotal)
             end
         end
     end
@@ -1040,7 +1140,7 @@ function Tracker:onLogicTick()
     end
 
     self._bagCheckTicks = (self._bagCheckTicks or 0) + 1
-    if self._bagCheckTicks >= 25 then
+    if self._bagCheckTicks >= 2 then
         self._bagCheckTicks = 0
         if self:checkBackpackChanged() then
             updated = true
@@ -1141,13 +1241,17 @@ function Tracker:onMiniMenuAction(verb, full)
         self.storageActionTicks = 24
         self.pendingJournalStorageScan = true
         self.cacheCleared = false
+    elseif string.find(vLower, "restore") or string.find(fLower, "restore") then
+        self.lastAction = "restore"
     elseif string.find(fLower, "artefact storage") or string.find(fLower, "artifact storage")
-        or string.find(fLower, "damaged artefact") or string.find(fLower, "damaged artifact")
-        or string.find(fLower, "workbench") or string.find(vLower, "workbench") then
+        or string.find(fLower, "damaged artefact") or string.find(fLower, "damaged artifact") then
         self.lastAction = "workbench_storage"
         self.workbenchActionTicks = 30
         self.pendingWorkbenchScan = true
         self.cacheCleared = false
+    elseif string.find(fLower, "workbench") or string.find(vLower, "workbench") then
+        -- Interacting with the archaeologist's workbench itself defaults to restoration crafting
+        self.lastAction = "restore"
     elseif string.find(fLower, "storage") then
         self.lastAction = "storage"
         self.storageActionTicks = 24

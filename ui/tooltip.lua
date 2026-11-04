@@ -295,9 +295,16 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
     local prog = item.progress
 
     local title = string.format("%s (Level %d)", col.name, col.level)
+    local targetN = (prog.targetCount and prog.targetCount > 0) and prog.targetCount or 1
+    local isMultiTarget = targetN > 1
+
     local statusStr
     if prog.isReady then
-        statusStr = string.format("All %d Ready to Turn In!", prog.totalCount)
+        if isMultiTarget then
+            statusStr = string.format("All %d Sets Ready to Turn In! (%d/%d)", targetN, prog.setsReady or targetN, targetN)
+        else
+            statusStr = string.format("All %d Ready to Turn In!", prog.totalCount)
+        end
     else
         local parts = {}
         if (prog.submittedCount or 0) > 0 then
@@ -325,13 +332,24 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
     local colLoc = col.location or (Collections and Collections.getCollectorLocation and Collections.getCollectorLocation(col.collector)) or "Archaeology Guild"
     table.insert(details, string.format("Hand-In Location: %s", colLoc))
     table.insert(details, string.format("Collection Status: %s", statusStr))
+
+    if isMultiTarget then
+        table.insert(details, string.format("Planned Completions: %d target | %d sets ready to turn in", targetN, prog.setsReady or 0))
+        table.insert(details, string.format("Max Owned Piece: %d (damaged + restored)", prog.maxOwned or 0))
+    elseif (prog.maxOwned or 0) > 1 then
+        table.insert(details, string.format("Max Owned Piece: %d (click [Max] to target full stock)", prog.maxOwned))
+    end
     table.insert(details, "")
 
     local isTetra = string.find(string.lower(col.recurringReward or ""), "tetra", 1, true)
         or string.find(string.lower(col.oneTimeReward or ""), "tetra", 1, true)
         or string.find(string.lower(col.specialBenefit or ""), "tetra", 1, true)
     if isTetra then
-        table.insert(details, "Tetracompass: Awards a Tetracompass Piece on completion!")
+        if isMultiTarget then
+            table.insert(details, string.format("Tetracompass: Awards %d Tetracompass Pieces (%d per completion)!", targetN, 1))
+        else
+            table.insert(details, "Tetracompass: Awards a Tetracompass Piece on completion!")
+        end
     end
     if col.specialBenefit and col.specialBenefit ~= "" then
         table.insert(details, string.format("Power/Benefit: %s", col.specialBenefit))
@@ -350,27 +368,49 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
     table.insert(details, string.format("Required Artefacts (%d):", prog.totalCount))
 
     for _, a in ipairs(prog.artefacts or {}) do
-        if a.isSubmitted then
-            table.insert(details, string.format("  %s: Handed in to collector", a.name))
-        elseif a.restoredCount and a.restoredCount > 0 then
-            local locStr
-            if (a.bagRestored or 0) > 0 and (a.bankRestored or 0) > 0 then
-                locStr = string.format("%d in Bag, %d in Bank", a.bagRestored, a.bankRestored)
-            elseif (a.bagRestored or 0) > 0 then
-                locStr = string.format("%d in Bag", a.bagRestored)
+        local totalOwned = (a.damagedCount or 0) + (a.restoredCount or 0)
+        local locParts = {}
+        if (a.bagRestored or 0) > 0 then table.insert(locParts, string.format("%d restored bag", a.bagRestored)) end
+        if (a.bankRestored or 0) > 0 then table.insert(locParts, string.format("%d restored bank", a.bankRestored)) end
+        if (a.bagDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bag", a.bagDamaged)) end
+        if (a.bankDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bank", a.bankDamaged)) end
+        if (a.benchDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bench", a.benchDamaged)) end
+
+        local breakdown = (#locParts > 0) and (" (" .. table.concat(locParts, ", ") .. ")") or ""
+
+        if isMultiTarget then
+            local targetNeeded = targetN - (a.isSubmitted and 1 or 0)
+            local stillNeed = math.max(0, targetNeeded - totalOwned)
+            local subTag = a.isSubmitted and " [1 turned in]" or ""
+
+            if stillNeed == 0 then
+                table.insert(details, string.format("  • %s: %d owned%s%s -> Target met!", a.name, totalOwned, subTag, breakdown))
             else
-                locStr = string.format("%d in Bank", a.bankRestored or a.restoredCount)
+                table.insert(details, string.format("  • %s: %d owned%s%s -> Need %d more", a.name, totalOwned, subTag, breakdown, stillNeed))
             end
-            table.insert(details, string.format("  %s: Restored (%s)", a.name, locStr))
-        elseif a.damagedCount and a.damagedCount > 0 then
-            local parts = {}
-            if (a.bagDamaged or 0) > 0 then table.insert(parts, string.format("%d in Bag", a.bagDamaged)) end
-            if (a.bankDamaged or 0) > 0 then table.insert(parts, string.format("%d in Bank", a.bankDamaged)) end
-            if (a.benchDamaged or 0) > 0 then table.insert(parts, string.format("%d in Workbench", a.benchDamaged)) end
-            local locStr = (#parts > 0) and table.concat(parts, ", ") or string.format("%d in Bank", a.damagedCount)
-            table.insert(details, string.format("  %s: Damaged (%s)", a.name, locStr))
         else
-            table.insert(details, string.format("  %s: Missing", a.name))
+            if a.isSubmitted then
+                table.insert(details, string.format("  %s: Handed in to collector%s", a.name, breakdown))
+            elseif a.restoredCount and a.restoredCount > 0 then
+                local locStr
+                if (a.bagRestored or 0) > 0 and (a.bankRestored or 0) > 0 then
+                    locStr = string.format("%d in Bag, %d in Bank", a.bagRestored, a.bankRestored)
+                elseif (a.bagRestored or 0) > 0 then
+                    locStr = string.format("%d in Bag", a.bagRestored)
+                else
+                    locStr = string.format("%d in Bank", a.bankRestored or a.restoredCount)
+                end
+                table.insert(details, string.format("  %s: Restored (%s)", a.name, locStr))
+            elseif a.damagedCount and a.damagedCount > 0 then
+                local parts = {}
+                if (a.bagDamaged or 0) > 0 then table.insert(parts, string.format("%d in Bag", a.bagDamaged)) end
+                if (a.bankDamaged or 0) > 0 then table.insert(parts, string.format("%d in Bank", a.bankDamaged)) end
+                if (a.benchDamaged or 0) > 0 then table.insert(parts, string.format("%d in Workbench", a.benchDamaged)) end
+                local locStr = (#parts > 0) and table.concat(parts, ", ") or string.format("%d in Bank", a.damagedCount)
+                table.insert(details, string.format("  %s: Damaged (%s)", a.name, locStr))
+            else
+                table.insert(details, string.format("  %s: Missing", a.name))
+            end
         end
     end
 

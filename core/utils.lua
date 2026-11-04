@@ -82,6 +82,14 @@ function Utils.formatInt(n)
     return s
 end
 
+--- Strips bracketed/parenthesized descriptions from rewards (e.g. "Relic: Font of Life (Increases max health...)" -> "Relic: Font of Life").
+function Utils.getShortReward(value)
+    if not value or value == "" then return "" end
+    local s = Utils.cleanText(value)
+    s = string.gsub(s, "%s*%b()%s*", "")
+    return Utils.trim(s)
+end
+
 --- Counts how many keys in a { [name] = count } map have a positive numeric count.
 function Utils.countMapEntries(map)
     if not map then return 0 end

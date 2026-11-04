@@ -489,12 +489,13 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
     colHeaderBg:SetSize(-16, 22, 1.0, 0)
     forwardScrollWheel(colHeaderBg)
 
-    Widgets.createText(colLayer, Theme.COL_GOLD, 12,   2, 42,   20, "Track")
-    Widgets.createText(colLayer, Theme.COL_GOLD, 58,   2, 46,   20, "Done")
-    Widgets.createText(colLayer, Theme.COL_GOLD, 108,  2, 32,   20, "Lvl")
-    Widgets.createText(colLayer, Theme.COL_GOLD, 144,  2, -476, 20, "Collection", 0, 0, 1.0, 0)
-    self.colHReward = Widgets.createText(colLayer, Theme.COL_GOLD, -327, 2, 230, 20, "Reward", 1.0, 0, 0, 0)
-    Widgets.createText(colLayer, Theme.COL_GOLD, -93,  2, 85,   20, "Progress", 1.0, 0, 0, 0)
+    self.colHTrack   = Widgets.createText(colLayer, Theme.COL_GOLD, 8,    2, 44,   20, "Track")
+    self.colHTarget  = Widgets.createText(colLayer, Theme.COL_GOLD, 56,   2, 178,  20, "Target")
+    self.colHDone    = Widgets.createText(colLayer, Theme.COL_GOLD, 238,  2, 42,   20, "Done")
+    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 284,  2, 26,   20, "Lvl")
+    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 314,  2, 60,   20, "Collection", 0, 0, 0, 0)
+    self.colHReward  = Widgets.createText(colLayer, Theme.COL_GOLD, -156, 2, 88,   20, "Reward",     1.0, 0, 0, 0)
+    self.colHReady   = Widgets.createText(colLayer, Theme.COL_GOLD, -62,  2, 54,   20, "Ready",      1.0, 0, 0, 0)
 
     local startY = 24
     for i = 1, Theme.MAX_COLLECTION_ROWS do
@@ -506,7 +507,10 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
             bindRowHover,
             forwardScrollWheel,
             function(idx) self:onHoverCollectionRow(idx) end,
-            function(idx) self:onToggleCollectionTarget(idx) end
+            function(idx) self:onToggleCollectionTarget(idx) end,
+            function(idx, delta) self:onStepCollectionTarget(idx, delta) end,
+            function(idx) self:onSetCollectionTargetMax(idx) end,
+            function(idx) self:onResetCollectionTarget(idx) end
         )
     end
 end
@@ -627,6 +631,33 @@ function Window:onToggleCollectionTarget(rowIdx)
     if item and item.data and item.data.name then
         self.tracker:toggleCollectionTargeted(item.data.name)
         self:refresh()
+    end
+end
+
+function Window:onStepCollectionTarget(rowIdx, delta)
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if item and item.data and item.data.name and self.tracker then
+        self.tracker:adjustCollectionTargetCount(item.data.name, delta)
+        self:refresh()
+        self:onHoverCollectionRow(rowIdx)
+    end
+end
+
+function Window:onSetCollectionTargetMax(rowIdx)
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if item and item.data and item.data.name and self.tracker then
+        self.tracker:setCollectionTargetToMax(item.data.name)
+        self:refresh()
+        self:onHoverCollectionRow(rowIdx)
+    end
+end
+
+function Window:onResetCollectionTarget(rowIdx)
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if item and item.data and item.data.name and self.tracker then
+        self.tracker:resetCollectionTarget(item.data.name)
+        self:refresh()
+        self:onHoverCollectionRow(rowIdx)
     end
 end
 
@@ -849,6 +880,43 @@ function Window:reflowDynamicContent(availW, forceReflow)
         end
         self.artefactTableLayer:SetPos(0, tableHeaderY)
         self.tableLayer:SetPos(0, tableHeaderY)
+    end
+
+    if self.colHReward and self.colHTarget and self.colHReady and self.colHColName then
+        local wAvail = availW or 480
+        local totalFlexW = math.max(40, wAvail - 388)
+        local targetRewW = 265
+        local thresholdFlexW = 460
+        local rewW
+        if totalFlexW >= thresholdFlexW then
+            rewW = targetRewW
+        else
+            local drop = thresholdFlexW - totalFlexW
+            rewW = math.max(20, targetRewW - math.floor(drop * 0.50))
+        end
+        local nameW = math.max(20, totalFlexW - rewW)
+        local rewNegOffset = 68 + rewW
+
+        if forceReflow or self._lastColAvailW ~= wAvail then
+            self._lastColAvailW = wAvail
+            self.colHReward:SetPos(-rewNegOffset, 2, 1.0, 0)
+            self.colHReward:SetSize(rewW, 20, 0, 0)
+            self.colHColName:SetPos(314, 2, 0, 0)
+            self.colHColName:SetSize(nameW, 20, 0, 0)
+
+            if self.collectionRows then
+                for i = 1, Theme.MAX_COLLECTION_ROWS do
+                    local row = self.collectionRows[i]
+                    if row then
+                        local rY = 24 + (i - 1) * Theme.ROW_HEIGHT
+                        row.rewardTxt:SetPos(-rewNegOffset, rY + 2, 1.0, 0)
+                        row.rewardTxt:SetSize(rewW, Theme.ROW_HEIGHT - 2, 0, 0)
+                        row.nameTxt:SetPos(314, rY + 2, 0, 0)
+                        row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
+                    end
+                end
+            end
+        end
     end
 
     if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
@@ -1285,36 +1353,68 @@ function Window:populateCollectionRows(colList)
                     or string.find(string.lower(col.specialBenefit or ""), "tetra", 1, true)
                 if col.benefitType == "relic" then
                     rowUI.rewardTxt.colour = Theme.COL_CYAN
-                    rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    local raw = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = Utils.getShortReward(raw)
                 elseif col.benefitType == "weapon" then
                     rowUI.rewardTxt.colour = Theme.COL_GOLD
-                    rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    local raw = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = Utils.getShortReward(raw)
                 elseif col.benefitType == "mystery" then
                     rowUI.rewardTxt.colour = Theme.COL_AMBER
-                    rowUI.rewardTxt.content = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    local raw = (col.specialBenefit ~= "" and col.specialBenefit or col.oneTimeReward)
+                    rowUI.rewardTxt.content = Utils.getShortReward(raw)
                 elseif isTetra or col.benefitType == "tetra" then
                     rowUI.rewardTxt.colour = Theme.COL_CREAM
                     rowUI.rewardTxt.content = "Tetracompass piece"
                 else
                     rowUI.rewardTxt.colour = Theme.COL_MUTED
-                    rowUI.rewardTxt.content = col.chronotes ~= "" and col.chronotes
+                    local raw = col.chronotes ~= "" and col.chronotes
                         or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
+                    rowUI.rewardTxt.content = Utils.getShortReward(raw)
                 end
 
-                local have = prog.haveCount or (prog.readyCount + (prog.damagedCount or 0))
-                local total = prog.totalCount or 0
-                if prog.isReady then
-                    rowUI.readyTxt.colour = Theme.COL_GREEN
-                    rowUI.readyTxt.content = string.format("%d / %d", total, total)
-                elseif have == total and total > 0 then
-                    rowUI.readyTxt.colour = Theme.COL_GOLD
-                    rowUI.readyTxt.content = string.format("%d / %d", have, total)
-                elseif have > 0 then
-                    rowUI.readyTxt.colour = (prog.readyCount > 0) and Theme.COL_CREAM or Theme.COL_AMBER
-                    rowUI.readyTxt.content = string.format("%d / %d", have, total)
+                local isTargeted = prog.isTargeted
+                local targetCount = (prog.targetCount and prog.targetCount > 0) and prog.targetCount or (prog.effectiveTarget or 1)
+                if rowUI.targetTxt then
+                    rowUI.targetTxt.content = tostring(targetCount)
+                    rowUI.targetTxt.colour = isTargeted and Theme.COL_GOLD or Theme.COL_MUTED
+                end
+                if rowUI.maxBtn then
+                    rowUI.maxBtn.setActive(isTargeted)
+                end
+                if rowUI.resetBtn then
+                    rowUI.resetBtn.setActive(isTargeted and targetCount > 1)
+                end
+
+                if prog.targetCount and prog.targetCount > 1 then
+                    local sets = prog.setsReady or 0
+                    local target = prog.targetCount
+                    if prog.isReady or sets >= target then
+                        rowUI.readyTxt.colour = Theme.COL_GREEN
+                        rowUI.readyTxt.content = string.format("%d / %d", sets, target)
+                    elseif sets > 0 then
+                        rowUI.readyTxt.colour = Theme.COL_GOLD
+                        rowUI.readyTxt.content = string.format("%d / %d", sets, target)
+                    else
+                        rowUI.readyTxt.colour = Theme.COL_MUTED
+                        rowUI.readyTxt.content = string.format("0 / %d", target)
+                    end
                 else
-                    rowUI.readyTxt.colour = Theme.COL_MUTED
-                    rowUI.readyTxt.content = string.format("0 / %d", total)
+                    local have = prog.haveCount or (prog.readyCount + (prog.damagedCount or 0))
+                    local total = prog.totalCount or 0
+                    if prog.isReady then
+                        rowUI.readyTxt.colour = Theme.COL_GREEN
+                        rowUI.readyTxt.content = string.format("%d / %d", total, total)
+                    elseif have == total and total > 0 then
+                        rowUI.readyTxt.colour = Theme.COL_GOLD
+                        rowUI.readyTxt.content = string.format("%d / %d", have, total)
+                    elseif have > 0 then
+                        rowUI.readyTxt.colour = (prog.readyCount > 0) and Theme.COL_CREAM or Theme.COL_AMBER
+                        rowUI.readyTxt.content = string.format("%d / %d", have, total)
+                    else
+                        rowUI.readyTxt.colour = Theme.COL_MUTED
+                        rowUI.readyTxt.content = string.format("0 / %d", total)
+                    end
                 end
             else
                 rowUI.setRowHidden(true)

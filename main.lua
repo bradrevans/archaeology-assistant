@@ -27,6 +27,11 @@ end)
 local tracker = nil
 local window = nil
 
+if _G.__arch_assistant_window then
+    pcall(function() _G.__arch_assistant_window:shutdown() end)
+    _G.__arch_assistant_window = nil
+end
+
 if okTracker and Tracker then
     local okInitT, tInstance = xpcall(function() return Tracker.new() end, function(e)
         recordError("Tracker.new", e)
@@ -42,6 +47,7 @@ if tracker and okWindow and Window then
     end)
     if okInitW then
         window = wInstance
+        _G.__arch_assistant_window = window
     end
 end
 

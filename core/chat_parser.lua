@@ -193,6 +193,13 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
         return true
     end
 
+    -- 5. Restoration of an artefact at a workbench
+    if string.find(lower, "you restore") or string.find(lower, "you have restored") or string.find(lower, "restoring") then
+        tracker.lastAction = "restore"
+        tracker:recalculate(config and config.Inv and config.Inv.INV)
+        return true
+    end
+
     return false
 end
 

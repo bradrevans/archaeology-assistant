@@ -143,16 +143,18 @@ function Widgets.createTabButton(parent, label, tooltipText, onClick, onWheelFn)
 end
 
 --- Creates a PrettyUI `SimpleButton` (`RS3_BTN_ICON_RESIZABLE_*`) or native fallback toolbar button.
-function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onClick, onWheelFn)
+function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onClick, onWheelFn, width, height)
     local pui = getPrettyUI()
+    local btnW = width or 90
+    local btnH = height or 26
     if pui and pui.SimpleButton then
         local btn = pui.SimpleButton.new(parent, tostring(label or ""), function()
             if onClick then onClick() end
         end, {
             x = 0,
             y = 6,
-            width = 90,
-            height = 26,
+            width = btnW,
+            height = btnH,
             toggleable = toggleable == true,
             tooltip = tooltipText,
             _onScrollWheel = onWheelFn
@@ -172,14 +174,19 @@ function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onC
                     btn:SetActive(active == true)
                 end
             end,
+            setDisabled = function(disabled)
+                if btn.SetDisabled then
+                    btn:SetDisabled(disabled == true)
+                end
+            end,
             setHidden = function(hidden)
                 if btn.root then
                     btn.root.hidden = (hidden == true)
                 end
             end,
-            setBounds = function(x, y, w, h)
-                btn.root:SetPos(x, y)
-                btn.root:SetSize(w, h)
+            setBounds = function(x, y, w, h, relX, relY, relW, relH)
+                btn.root:SetPos(x, y, relX or 0, relY or 0)
+                btn.root:SetSize(w, h, relW or 0, relH or 0)
             end
         }
     end
@@ -187,7 +194,7 @@ function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onC
     local btn = ui.Button.new(parent)
     btn.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
     btn:SetPos(0, 6)
-    btn:SetSize(90, 26)
+    btn:SetSize(btnW, btnH)
     btn.label = label
     if onClick then
         btn:Subscribe(ui.Hook.ONBUTTONPRESSED, onClick)
@@ -203,12 +210,15 @@ function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onC
             btn.label = newText
         end,
         setActive = function() end,
+        setDisabled = function(disabled)
+            btn.enabled = not (disabled == true)
+        end,
         setHidden = function(hidden)
             btn.hidden = (hidden == true)
         end,
-        setBounds = function(x, y, w, h)
-            btn:SetPos(x, y)
-            btn:SetSize(w, h)
+        setBounds = function(x, y, w, h, relX, relY, relW, relH)
+            btn:SetPos(x, y, relX or 0, relY or 0)
+            btn:SetSize(w, h, relW or 0, relH or 0)
         end
     }
 end
@@ -540,7 +550,7 @@ end
 
 --- Builds a single row in the Collections table using `prettyui.Sprites.CHECKBOX_BUTTON` for `Track`
 --- and a read-only `Done` status indicator, plus a left accent bar for tracked/completed rows.
-function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwardScrollWheel, onHoverRow, onToggleTarget)
+function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwardScrollWheel, onHoverRow, onToggleTarget, onStepDelta, onSetMax, onReset)
     local Sprites = getSprites()
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
@@ -568,11 +578,32 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     local isTrackHovered = false
     local cbSprites = Sprites and Sprites.CHECKBOX_BUTTON
 
+    local FALLBACK_SIMPLE_BUTTON = nil
+    if id and id.Sprite and id.Sprite.RS3_BTN_ICON_RESIZABLE_18 then
+        FALLBACK_SIMPLE_BUTTON = {
+            neutral = {
+                topRight = id.Sprite.RS3_BTN_ICON_RESIZABLE_20, topLeft = id.Sprite.RS3_BTN_ICON_RESIZABLE_18, top = id.Sprite.RS3_BTN_ICON_RESIZABLE_19,
+                left = id.Sprite.RS3_BTN_ICON_RESIZABLE_21, centre = id.Sprite.RS3_BTN_ICON_RESIZABLE_22, right = id.Sprite.RS3_BTN_ICON_RESIZABLE_23,
+                bottomLeft = id.Sprite.RS3_BTN_ICON_RESIZABLE_24, bottom = id.Sprite.RS3_BTN_ICON_RESIZABLE_25, bottomRight = id.Sprite.RS3_BTN_ICON_RESIZABLE_26,
+            },
+            hovered = {
+                topRight = id.Sprite.RS3_BTN_ICON_RESIZABLE_11, topLeft = id.Sprite.RS3_BTN_ICON_RESIZABLE_9, top = id.Sprite.RS3_BTN_ICON_RESIZABLE_10,
+                left = id.Sprite.RS3_BTN_ICON_RESIZABLE_12, centre = id.Sprite.RS3_BTN_ICON_RESIZABLE_13, right = id.Sprite.RS3_BTN_ICON_RESIZABLE_14,
+                bottomLeft = id.Sprite.RS3_BTN_ICON_RESIZABLE_15, bottom = id.Sprite.RS3_BTN_ICON_RESIZABLE_16, bottomRight = id.Sprite.RS3_BTN_ICON_RESIZABLE_17,
+            },
+            active = {
+                topRight = id.Sprite.RS3_BTN_ICON_RESIZABLE_29, topLeft = id.Sprite.RS3_BTN_ICON_RESIZABLE_27, top = id.Sprite.RS3_BTN_ICON_RESIZABLE_28,
+                left = id.Sprite.RS3_BTN_ICON_RESIZABLE_30, centre = id.Sprite.RS3_BTN_ICON_RESIZABLE_31, right = id.Sprite.RS3_BTN_ICON_RESIZABLE_32,
+                bottomLeft = id.Sprite.RS3_BTN_ICON_RESIZABLE_33, bottom = id.Sprite.RS3_BTN_ICON_RESIZABLE_34, bottomRight = id.Sprite.RS3_BTN_ICON_RESIZABLE_35,
+            },
+        }
+    end
+
     if cbSprites and cbSprites.selected and cbSprites.empty then
         trackCheckbox = ui.Sprite.new(colLayer)
         trackCheckbox.spriteID = cbSprites.empty
         trackCheckbox.clickthrough = false
-        trackCheckbox:SetPos(20, rowY + 3)
+        trackCheckbox:SetPos(22, rowY + 4)
         trackCheckbox:SetSize(16, 16)
         trackCheckbox.hidden = isHidden
 
@@ -617,26 +648,269 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
             function() onToggleTarget(rowIdx) end,
             function(comp, delta)
                 if forwardScrollWheel then forwardScrollWheel(comp, delta) end
-            end
+            end,
+            40,
+            20
         )
-        trackFallbackBtn.setBounds(10, rowY + 1, 50, rowH - 4)
+        trackFallbackBtn.setBounds(10, rowY + 2, 40, 20)
         trackFallbackBtn.setHidden(isHidden)
         bindRowHover(trackFallbackBtn.root, function() onHoverRow(rowIdx) end)
     end
 
-    local doneTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 58, rowY + 2, 46, rowH - 2, "-")
+    local sliderSprites = Sprites and Sprites.SLIDER
+    local function makeStepBtn(xOffset, spriteSet, symbol, delta)
+        if spriteSet and spriteSet.normal then
+            local btnSprite = ui.Sprite.new(colLayer)
+            btnSprite.spriteID = spriteSet.normal
+            btnSprite.clickthrough = false
+            btnSprite:SetPos(xOffset, rowY + 4, 0, 0)
+            btnSprite:SetSize(16, 16, 0, 0)
+            btnSprite.hidden = isHidden
+
+            if ui and ui.Hook then
+                if ui.Hook.ONMOUSEOVER then
+                    btnSprite:Subscribe(ui.Hook.ONMOUSEOVER, function()
+                        btnSprite.spriteID = spriteSet.hovered or spriteSet.normal
+                        onHoverRow(rowIdx)
+                        return false
+                    end)
+                end
+                if ui.Hook.ONMOUSELEAVE then
+                    btnSprite:Subscribe(ui.Hook.ONMOUSELEAVE, function()
+                        btnSprite.spriteID = spriteSet.normal
+                        return false
+                    end)
+                end
+                if ui.Hook.ONCLICK then
+                    btnSprite:Subscribe(ui.Hook.ONCLICK, function()
+                        btnSprite.spriteID = spriteSet.pressed or spriteSet.normal
+                        if onStepDelta then onStepDelta(rowIdx, delta) end
+                        return false
+                    end)
+                end
+                if ui.Hook.ONRELEASE then
+                    btnSprite:Subscribe(ui.Hook.ONRELEASE, function()
+                        btnSprite.spriteID = spriteSet.hovered or spriteSet.normal
+                        return false
+                    end)
+                end
+            end
+            if forwardScrollWheel then forwardScrollWheel(btnSprite) end
+            return btnSprite, nil
+        end
+
+        local btnBg = ui.Rectangle.new(colLayer)
+        btnBg.colour = Theme.COL_BTN_STEP
+        btnBg.fill = true
+        btnBg.clickthrough = false
+        btnBg:SetPos(xOffset, rowY + 2, 0, 0)
+        btnBg:SetSize(16, rowH - 4, 0, 0)
+        btnBg.hidden = isHidden
+        btnBg:Subscribe(ui.Hook.ONCLICK, function()
+            if onStepDelta then onStepDelta(rowIdx, delta) end
+            return false
+        end)
+        bindRowHover(btnBg, function() onHoverRow(rowIdx) end)
+        if forwardScrollWheel then forwardScrollWheel(btnBg) end
+
+        local btnTxt = Widgets.createText(colLayer, Theme.COL_GOLD, xOffset, rowY + 2, 16, rowH - 4, symbol, 0, 0, 0, 0)
+        if ui.AlignMode then
+            pcall(function()
+                btnTxt.alignHorizontal = ui.AlignMode.CENTRE
+                btnTxt.alignVertical = ui.AlignMode.CENTRE
+            end)
+        end
+        btnTxt.hidden = isHidden
+        return btnBg, btnTxt
+    end
+
+    local minusBg, minusTxt = makeStepBtn(56, sliderSprites and sliderSprites.decrease, "-", -1)
+
+    local targetTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 74, rowY + 2, 24, rowH - 2, "1", 0, 0, 0, 0)
+    if ui.AlignMode then
+        pcall(function()
+            targetTxt.alignHorizontal = ui.AlignMode.CENTRE
+            targetTxt.alignVertical = ui.AlignMode.CENTRE
+        end)
+    end
+    targetTxt.hidden = isHidden
+
+    local plusBg, plusTxt = makeStepBtn(100, sliderSprites and sliderSprites.increase, "+", 1)
+
+    local function makeSimpleStyleBtn(xPos, width, label, onClickFn)
+        local btnH = 20
+        local btnY = rowY + 1
+        local cornerW = 8
+        local cornerH = 8
+
+        local btnRoot = ui.Layer.new(colLayer)
+        btnRoot:SetPos(xPos, btnY, 0, 0)
+        btnRoot:SetSize(width, btnH, 0, 0)
+        btnRoot.clickthrough = false
+        btnRoot.hidden = isHidden
+
+        local simpleSprites = (Sprites and Sprites.SIMPLE_BUTTON) or FALLBACK_SIMPLE_BUTTON
+
+        local function backgroundSprite(tiled)
+            local s = ui.Sprite.new(btnRoot)
+            s.clickthrough = true
+            s.isTiling = (tiled == true)
+            return s
+        end
+
+        local parts = {
+            topLeft     = backgroundSprite(false),
+            top         = backgroundSprite(true),
+            topRight    = backgroundSprite(false),
+            left        = backgroundSprite(true),
+            centre      = backgroundSprite(true),
+            right       = backgroundSprite(true),
+            bottomLeft  = backgroundSprite(false),
+            bottom      = backgroundSprite(true),
+            bottomRight = backgroundSprite(false),
+        }
+
+        parts.topLeft:SetPos(0, 0)
+        parts.topLeft:SetSize(cornerW, cornerH)
+
+        parts.top:SetPos(cornerW, 0)
+        parts.top:SetSize(-cornerW * 2, cornerH, 1.0, 0)
+
+        parts.topRight:SetPos(-cornerW, 0, 1.0, 0)
+        parts.topRight:SetSize(cornerW, cornerH)
+
+        parts.left:SetPos(0, cornerH)
+        parts.left:SetSize(cornerW, -cornerH * 2, 0, 1.0)
+
+        parts.centre:SetPos(cornerW, cornerH)
+        parts.centre:SetSize(-cornerW * 2, -cornerH * 2, 1.0, 1.0)
+
+        parts.right:SetPos(-cornerW, cornerH, 1.0, 0)
+        parts.right:SetSize(cornerW, -cornerH * 2, 0, 1.0)
+
+        parts.bottomLeft:SetPos(0, -cornerH, 0, 1.0)
+        parts.bottomLeft:SetSize(cornerW, cornerH)
+
+        parts.bottom:SetPos(cornerW, -cornerH, 0, 1.0)
+        parts.bottom:SetSize(-cornerW * 2, cornerH, 1.0, 0)
+
+        parts.bottomRight:SetPos(-cornerW, -cornerH, 1.0, 1.0)
+        parts.bottomRight:SetSize(cornerW, cornerH)
+
+        local txt = ui.Text.new(btnRoot)
+        txt:SetPos(0, 0, 0, 0)
+        txt:SetSize(width, btnH, 0, 0)
+        txt.content = label or ""
+        txt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        txt.rgba = 0xE8DFD0FF
+        txt.isShadowed = true
+        if ui.AlignMode then
+            pcall(function()
+                txt.alignHorizontal = ui.AlignMode.CENTRE
+                txt.alignVertical = ui.AlignMode.CENTRE
+            end)
+        end
+        txt.maxLines = 1
+        txt.clickthrough = true
+
+        local isHovered = false
+        local isPressed = false
+        local isActive = false
+
+        local function updateState()
+            local state = "neutral"
+            if isPressed or isActive then
+                state = "active"
+            elseif isHovered then
+                state = "hovered"
+            end
+
+            local s = simpleSprites and simpleSprites[state]
+            if s then
+                for piece, part in pairs(parts) do
+                    if s[piece] then
+                        part.spriteID = s[piece]
+                    end
+                end
+            end
+
+            if isHovered or isActive then
+                txt.rgba = 0xFFD700FF
+            else
+                txt.rgba = 0xE8DFD0FF
+            end
+        end
+
+        updateState()
+
+        if ui and ui.Hook then
+            if ui.Hook.ONMOUSEOVER then
+                btnRoot:Subscribe(ui.Hook.ONMOUSEOVER, function()
+                    isHovered = true
+                    updateState()
+                    onHoverRow(rowIdx)
+                    return false
+                end)
+            end
+            if ui.Hook.ONMOUSELEAVE then
+                btnRoot:Subscribe(ui.Hook.ONMOUSELEAVE, function()
+                    isHovered = false
+                    isPressed = false
+                    updateState()
+                    return false
+                end)
+            end
+            if ui.Hook.ONCLICK then
+                btnRoot:Subscribe(ui.Hook.ONCLICK, function()
+                    isPressed = true
+                    updateState()
+                    if onClickFn then onClickFn(rowIdx) end
+                    return false
+                end)
+            end
+            if ui.Hook.ONRELEASE then
+                btnRoot:Subscribe(ui.Hook.ONRELEASE, function()
+                    isPressed = false
+                    updateState()
+                    return false
+                end)
+            end
+        end
+
+        if forwardScrollWheel then forwardScrollWheel(btnRoot) end
+
+        return {
+            root = btnRoot,
+            txt = txt,
+            setActive = function(active)
+                isActive = (active == true)
+                updateState()
+            end,
+            setHidden = function(hidden)
+                btnRoot.hidden = (hidden == true)
+            end,
+            setLabel = function(lbl)
+                txt.content = lbl or ""
+            end,
+        }
+    end
+
+    local maxBtn = makeSimpleStyleBtn(120, 44, "Max", onSetMax)
+    local resetBtn = makeSimpleStyleBtn(168, 66, "Reset", onReset)
+
+    local doneTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 238, rowY + 2, 42, rowH - 2, "-")
     doneTxt.hidden = isHidden
 
-    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 108, rowY + 2, 32, rowH - 2)
+    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 284, rowY + 2, 26, rowH - 2)
     lvlTxt.hidden = isHidden
 
-    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 144, rowY + 2, -476, rowH - 2, nil, 0, 0, 1.0, 0)
+    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 314, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
     nameTxt.hidden = isHidden
 
-    local rewardTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -327, rowY + 2, 230, rowH - 2, nil, 1.0, 0, 0, 0)
+    local rewardTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -156, rowY + 2, 88, rowH - 2, nil, 1.0, 0, 0, 0)
     rewardTxt.hidden = isHidden
 
-    local readyTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -93, rowY + 2, 85, rowH - 2, nil, 1.0, 0, 0, 0)
+    local readyTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -62, rowY + 2, 54, rowH - 2, nil, 1.0, 0, 0, 0)
     readyTxt.hidden = isHidden
 
     return {
@@ -648,6 +922,13 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
         lvlTxt = lvlTxt,
         nameTxt = nameTxt,
         rewardTxt = rewardTxt,
+        minusBg = minusBg,
+        minusTxt = minusTxt,
+        targetTxt = targetTxt,
+        plusBg = plusBg,
+        plusTxt = plusTxt,
+        maxBtn = maxBtn,
+        resetBtn = resetBtn,
         readyTxt = readyTxt,
         setTargetState = function(isTargeted)
             isTrackSelected = (isTargeted == true)
@@ -684,6 +965,13 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
             lvlTxt.hidden = h
             nameTxt.hidden = h
             rewardTxt.hidden = h
+            if minusBg then minusBg.hidden = h end
+            if minusTxt then minusTxt.hidden = h end
+            if targetTxt then targetTxt.hidden = h end
+            if plusBg then plusBg.hidden = h end
+            if plusTxt then plusTxt.hidden = h end
+            if maxBtn then maxBtn.setHidden(h) end
+            if resetBtn then resetBtn.setHidden(h) end
             readyTxt.hidden = h
         end
     }

@@ -5,6 +5,7 @@
 
 local Materials = require("data/materials")
 local Artefacts = require("data/artefacts")
+local Utils     = require("core/utils")
 local DB        = require("core/db")
 
 local InventoryScanner = {}
@@ -384,7 +385,7 @@ local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
 end
 
 --- Reconciles items leaving the backpack (restorations at a workbench vs deposits into Bank/Storage/Workbench storage).
-local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored, benchDeposits, benchWithdrawals)
+local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored, benchDeposits, benchWithdrawals, checkedBank)
     if not tracker.prevBackpackMaterials then
         return
     end
@@ -422,16 +423,52 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
         end
     end
 
-    -- Artefacts restored straight out of the Workbench storage: storage count drops while a restored copy appears in the bag
-    for artName, withdrawn in pairs(benchWithdrawals or {}) do
-        local artDef = Artefacts.findByName(artName)
-        if artDef and artDef.name then
-            local prevR = (tracker.prevBackpackRestored and tracker.prevBackpackRestored[artDef.name]) or 0
-            local currR = (bagRestored and bagRestored[artDef.name]) or 0
-            local unattributed = (currR - prevR) - (artsRestored[artName] or 0)
-            local extra = math.min(withdrawn, unattributed)
-            if extra > 0 then
-                artsRestored[artName] = (artsRestored[artName] or 0) + extra
+    -- Check for artefacts restored straight out of the Workbench storage:
+    -- A restored artefact appeared in the backpack (currR > prevR), but fewer (or 0) damaged copies left the backpack.
+    if not checkedBank and tracker.lastAction ~= "bank" and tracker.lastAction ~= "drop" and tracker.lastAction ~= "loot" then
+        for artRestoredName, currR in pairs(bagRestored or {}) do
+            local prevR = (tracker.prevBackpackRestored and tracker.prevBackpackRestored[artRestoredName]) or 0
+            local deltaRestored = currR - prevR
+            if deltaRestored > 0 then
+                local artDef = Artefacts.findByName(artRestoredName)
+                local damagedName = (artDef and artDef.damagedName) or (artRestoredName .. " (damaged)")
+                local fromBag = artsRestored[damagedName] or 0
+                local unattributed = deltaRestored - fromBag
+
+                if unattributed > 0 then
+                    -- Priority 1: Deduct from Workbench damaged artefact storage
+                    local benchCount = (tracker.workbenchArtefacts and tracker.workbenchArtefacts[damagedName]) or 0
+                    if benchCount > 0 then
+                        local deductBench = math.min(unattributed, benchCount)
+                        tracker.workbenchArtefacts[damagedName] = benchCount - deductBench
+                        if tracker.workbenchArtefacts[damagedName] <= 0 then
+                            tracker.workbenchArtefacts[damagedName] = nil
+                        end
+                        DB.set("arch_workbench_artefacts", DB.serializeCountMap(tracker.workbenchArtefacts))
+                        tracker.workbenchHasCache = InventoryScanner.countMapEntries(tracker.workbenchArtefacts) > 0
+                        artsRestored[damagedName] = (artsRestored[damagedName] or 0) + deductBench
+                        unattributed = unattributed - deductBench
+                        print(string.format("[Archaeology Assistant] Restored %d '%s' from Workbench storage (remaining in bench: %d)",
+                            deductBench, artRestoredName, tracker.workbenchArtefacts[damagedName] or 0))
+                    end
+                end
+
+                -- Priority 2: Deduct from Bank damaged artefact storage if not in bench
+                if unattributed > 0 then
+                    local bankCount = (tracker.bankArtefacts and tracker.bankArtefacts[damagedName]) or 0
+                    if bankCount > 0 then
+                        local deductBank = math.min(unattributed, bankCount)
+                        tracker.bankArtefacts[damagedName] = bankCount - deductBank
+                        if tracker.bankArtefacts[damagedName] <= 0 then
+                            tracker.bankArtefacts[damagedName] = nil
+                        end
+                        DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
+                        artsRestored[damagedName] = (artsRestored[damagedName] or 0) + deductBank
+                        unattributed = unattributed - deductBank
+                        print(string.format("[Archaeology Assistant] Restored %d '%s' from Bank (remaining in bank: %d)",
+                            deductBank, artRestoredName, tracker.bankArtefacts[damagedName] or 0))
+                    end
+                end
             end
         end
     end
@@ -912,13 +949,14 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
         bagMats, _, _, bagArts, bagRestored = tracker:extractMaterialsFromInv(bagInv)
     end
     benchDeposits, benchWithdrawals, benchTriggered = scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
-    if bagInv then
-        tracker.backpackRestored = bagRestored or {}
-        reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored, benchDeposits, benchWithdrawals)
-    end
 
     -- 2. Scan Bank (config.Inv.BANK or bankInvId)
     local checkedBank, bankInv = scanBankContainer(tracker, triggerInvType)
+
+    if bagInv then
+        tracker.backpackRestored = bagRestored or {}
+        reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagArts, bagRestored, benchDeposits, benchWithdrawals, checkedBank)
+    end
 
     -- 3. Track restored artefacts leaving the backpack to hand in to collectors
     if bagInv then
