@@ -528,9 +528,9 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     artHeaderBg:SetSize(-16, 22, 1.0, 0)
     forwardScrollWheel(artHeaderBg)
 
-    Widgets.createText(artLayer, Theme.COL_GOLD, 36,  2, 132, 20, "Artefact")
-    Widgets.createText(artLayer, Theme.COL_GOLD, 170, 2, 30,  20, "Lvl")
-    self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202,  2, -524, 20, "Location", 0, 0, 1.0, 0)
+    self.colArtName   = Widgets.createText(artLayer, Theme.COL_GOLD, 36,  2, 132, 20, "Artefact")
+    self.colArtLvl    = Widgets.createText(artLayer, Theme.COL_GOLD, 170, 2, 30,  20, "Lvl")
+    self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202, 2, 100, 20, "Location", 0, 0, 0, 0)
     self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -316, 2, 82,   20, "Owned",    1.0, 0, 0, 0)
     self.colArtQty    = Widgets.createText(artLayer, Theme.COL_GOLD, -228, 2, 64,   20, "Include",  1.0, 0, 0, 0)
     self.colArtStatus = Widgets.createText(artLayer, Theme.COL_GOLD, -143, 2, 135,  20, "Status",   1.0, 0, 0, 0)
@@ -852,22 +852,43 @@ function Window:reflowDynamicContent(availW, forceReflow)
     end
 
     if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
-        local statusW = math.min(215, math.max(135, math.floor(135 + ((availW or 480) - 520) * 0.22)))
-        local ownedW = math.min(115, math.max(82, math.floor(82 + ((availW or 480) - 520) * 0.15)))
-        local statusOffset = statusW + 8
-        local qtyOffset = statusOffset + 70
-        local ownedOffset = qtyOffset + ownedW + 6
-        local locNegOffset = ownedOffset + 6
+        local wAvail = availW or 480
+        local statusW = math.min(185, math.max(86, math.floor(105 + (wAvail - 500) * 0.18)))
+        local ownedW = math.min(95, math.max(54, math.floor(68 + (wAvail - 500) * 0.12)))
+        local nameW = math.min(132, math.max(98, math.floor(125 + math.min(0, wAvail - 520) * 0.18)))
+        local lvlW = 26
+        local lvlX = 36 + nameW + 2
+        local locX = lvlX + lvlW + 4
 
-        if forceReflow or self._lastStatusW ~= statusW or self._lastOwnedW ~= ownedW then
+        local statusOffset = statusW + 6
+        local qtyOffset = statusOffset + 64
+        local ownedOffset = qtyOffset + ownedW + 6
+        local availableLocW = (wAvail - ownedOffset - 6) - locX
+        local locVisible = availableLocW >= 28
+        local locW = locVisible and math.floor(availableLocW) or 0
+        self._artLocVisible = locVisible
+
+        if forceReflow or self._lastArtAvailW ~= wAvail then
+            self._lastArtAvailW = wAvail
             self._lastStatusW = statusW
             self._lastOwnedW = ownedW
+
+            if self.colArtName then self.colArtName:SetSize(nameW, 20, 0, 0) end
+            if self.colArtLvl then self.colArtLvl:SetPos(lvlX, 2, 0, 0) end
+
             self.colArtStatus:SetPos(-statusOffset, 2, 1.0, 0)
             self.colArtStatus:SetSize(statusW, 20, 0, 0)
             self.colArtQty:SetPos(-qtyOffset, 2, 1.0, 0)
             self.colArtOwned:SetPos(-ownedOffset, 2, 1.0, 0)
             self.colArtOwned:SetSize(ownedW, 20, 0, 0)
-            self.colArtLoc:SetSize(-(202 + locNegOffset), 20, 1.0, 0)
+
+            if locVisible then
+                self.colArtLoc.hidden = false
+                self.colArtLoc:SetPos(locX, 2, 0, 0)
+                self.colArtLoc:SetSize(locW, 20, 0, 0)
+            else
+                self.colArtLoc.hidden = true
+            end
 
             if self.artefactRows then
                 local artStartY = 24
@@ -875,16 +896,26 @@ function Window:reflowDynamicContent(availW, forceReflow)
                     local row = self.artefactRows[i]
                     if row then
                         local rY = artStartY + (i - 1) * Theme.ROW_HEIGHT
+                        row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
+                        row.lvlTxt:SetPos(lvlX, rY + 2, 0, 0)
+
                         row.statusTxt:SetPos(-statusOffset, rY + 2, 1.0, 0)
                         row.statusTxt:SetSize(statusW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.plusBg:SetPos(-qtyOffset + 46, rY + 3, 1.0, 0)
-                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 46, rY + 2, 1.0, 0) end
+                        row.plusBg:SetPos(-qtyOffset + 44, rY + 3, 1.0, 0)
+                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 44, rY + 2, 1.0, 0) end
                         row.qtyTxt:SetPos(-qtyOffset + 20, rY + 2, 1.0, 0)
                         row.minusBg:SetPos(-qtyOffset, rY + 3, 1.0, 0)
                         if row.minusTxt then row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0) end
                         row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
                         row.ownedTxt:SetSize(ownedW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.locTxt:SetSize(-(202 + locNegOffset), Theme.ROW_HEIGHT - 2, 1.0, 0)
+
+                        row.locTxt:SetPos(locX, rY + 2, 0, 0)
+                        row.locTxt:SetSize(locW, Theme.ROW_HEIGHT - 2, 0, 0)
+                        if not locVisible then
+                            row.locTxt.hidden = true
+                        elseif i <= (self.visibleArtRowCount or 0) then
+                            row.locTxt.hidden = false
+                        end
                     end
                 end
             end
@@ -1308,7 +1339,7 @@ function Window:populateArtefactRows(artList)
             rowUI.bg.hidden = false
             rowUI.nameTxt.hidden = false
             rowUI.lvlTxt.hidden = false
-            rowUI.locTxt.hidden = false
+            rowUI.locTxt.hidden = (self._artLocVisible == false)
             rowUI.ownedTxt.hidden = false
             rowUI.minusBg.hidden = false
             if rowUI.minusTxt then rowUI.minusTxt.hidden = false end

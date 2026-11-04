@@ -717,7 +717,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, onHoverR
     local lvlTxt = Widgets.createText(artLayer, Theme.COL_CREAM, 170, rowY + 2, 30, rowH - 2)
     lvlTxt.hidden = isHidden
 
-    local locTxt = Widgets.createText(artLayer, Theme.COL_MUTED, 202, rowY + 2, -524, rowH - 2, nil, 0, 0, 1.0, 0)
+    local locTxt = Widgets.createText(artLayer, Theme.COL_MUTED, 202, rowY + 2, 100, rowH - 2, nil, 0, 0, 0, 0)
     locTxt.hidden = isHidden
 
     local ownedTxt = Widgets.createText(artLayer, Theme.COL_MUTED, -316, rowY + 2, 82, rowH - 2, nil, 1.0, 0, 0, 0)
