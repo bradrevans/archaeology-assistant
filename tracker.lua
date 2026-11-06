@@ -32,6 +32,22 @@ function Tracker.new()
     self.artefactFilter = DB.get("arch_art_filter", "ALL") -- "ALL" | "TARGETED" | "OWNED"
     self.shortOnly = false
 
+    -- Individual container source toggles
+    self.srcBag       = DB.getBool("arch_src_bag", true)
+    self.srcStorage   = DB.getBool("arch_src_storage", true)
+    self.srcBank      = DB.getBool("arch_src_bank", true)
+    self.srcWorkbench = DB.getBool("arch_src_workbench", true)
+
+    -- Level requirement filtering (defaults to Level Met)
+    if DB.get("arch_filter_by_level_init", nil) == nil then
+        self.filterByLevel = true
+        DB.setBool("arch_filter_by_level", true)
+        DB.set("arch_filter_by_level_init", 1)
+    else
+        self.filterByLevel = DB.getBool("arch_filter_by_level", true)
+    end
+    self.playerArchLevel = tonumber(DB.get("arch_player_level", 0)) or 0
+
     local savedPinned = DB.get("arch_is_pinned", 0)
     self.isPinned = (savedPinned == 1 or savedPinned == true)
 
@@ -142,7 +158,25 @@ end
 -- =========================================================================
 
 function Tracker:getSourceMode()
-    return Tracker.SOURCE_MODES[self.sourceModeIndex] or Tracker.SOURCE_MODES[1]
+    local b = self.srcBag ~= false
+    local s = self.srcStorage ~= false
+    local k = self.srcBank ~= false
+    if b and s and k then
+        return { id = "ALL", label = "All (Bag + Storage + Bank)", shortLabel = "Src: All", useBag = true, useStorage = true, useBank = true }
+    elseif b and s and not k then
+        return { id = "BAG_STOR", label = "Backpack + Storage", shortLabel = "Src: Bag+Stor", useBag = true, useStorage = true, useBank = false }
+    elseif not b and s and not k then
+        return { id = "STOR_ONLY", label = "Material Storage Only", shortLabel = "Src: Storage", useBag = false, useStorage = true, useBank = false }
+    elseif b and not s and not k then
+        return { id = "BAG_ONLY", label = "Backpack Only", shortLabel = "Src: Backpack", useBag = true, useStorage = false, useBank = false }
+    else
+        local parts = {}
+        if b then table.insert(parts, "Bag") end
+        if s then table.insert(parts, "Stor") end
+        if k then table.insert(parts, "Bank") end
+        local shortStr = #parts > 0 and ("Src: " .. table.concat(parts, "+")) or "Src: None"
+        return { id = "CUSTOM", label = shortStr, shortLabel = shortStr, useBag = b, useStorage = s, useBank = k }
+    end
 end
 
 function Tracker:getWorkbenchArtefactTotal()
@@ -171,20 +205,20 @@ function Tracker:getSyncStatus()
         storage = {
             synced   = self.storageSyncedLive == true,
             cached   = (not self.storageSyncedLive) and (self.storageHasCache or storEntries > 0),
-            enabled  = mode.useStorage == true,
+            enabled  = self.srcStorage ~= false,
             matTypes = storEntries,
         },
         bank = {
             synced   = self.bankSyncedLive == true,
             cached   = (not self.bankSyncedLive) and (self.bankHasCache or (bankMatEntries + bankArtEntries) > 0),
-            enabled  = (mode.useBank == true) or (mode.id ~= "BAG_ONLY"),
+            enabled  = self.srcBank ~= false,
             matTypes = bankMatEntries,
             artTypes = bankArtEntries,
         },
         workbench = {
             synced   = self.workbenchSyncedLive == true,
             cached   = (not self.workbenchSyncedLive) and (self.workbenchHasCache == true),
-            enabled  = true,
+            enabled  = self.srcWorkbench ~= false,
             artTypes = countMapEntries(self.workbenchArtefacts),
             artTotal = self:getWorkbenchArtefactTotal(),
         },
@@ -198,8 +232,204 @@ function Tracker:getSyncStatus()
     }
 end
 
+function Tracker:toggleSource(sourceName)
+    local s = string.lower(tostring(sourceName or ""))
+    if s == "bag" or s == "backpack" then
+        self.srcBag = not self.srcBag
+        DB.setBool("arch_src_bag", self.srcBag)
+    elseif s == "storage" or s == "material_storage" then
+        self.srcStorage = not self.srcStorage
+        DB.setBool("arch_src_storage", self.srcStorage)
+    elseif s == "bank" then
+        self.srcBank = not self.srcBank
+        DB.setBool("arch_src_bank", self.srcBank)
+    elseif s == "workbench" or s == "bench" then
+        self.srcWorkbench = not self.srcWorkbench
+        DB.setBool("arch_src_workbench", self.srcWorkbench)
+    end
+    return self:recalculate()
+end
+
+function Tracker:isSourceEnabled(sourceName)
+    local s = string.lower(tostring(sourceName or ""))
+    if s == "bag" or s == "backpack" then return self.srcBag ~= false end
+    if s == "storage" or s == "material_storage" then return self.srcStorage ~= false end
+    if s == "bank" then return self.srcBank ~= false end
+    if s == "workbench" or s == "bench" then return self.srcWorkbench ~= false end
+    return true
+end
+
+function Tracker:toggleFilterByLevel()
+    self.filterByLevel = not self.filterByLevel
+    DB.setBool("arch_filter_by_level", self.filterByLevel)
+    return self:recalculate()
+end
+
+function Tracker:detectPlayerArchLevel()
+    local detected = nil
+
+    -- 1. Direct RS3 Engine native player skill level API
+    pcall(function()
+        if Player and Player.GetLevelGameplay then
+            local archSkill = (SkillType and (SkillType.ARCHAEOLOGY or SkillType.Archaeology))
+                or (SkillType and SkillType.FromID and SkillType.FromID(27))
+                or 27
+            local lvl = Player.GetLevelGameplay(archSkill)
+            if type(lvl) == "number" and lvl >= 1 and lvl <= 120 then
+                detected = lvl
+            end
+        end
+    end)
+
+    if detected and detected >= 1 and detected <= 120 then
+        if self.playerArchLevel ~= detected then
+            self.playerArchLevel = detected
+            DB.set("arch_player_level", detected)
+            print(string.format("[Archaeology Assistant] Synced player Archaeology level: %d", detected))
+        end
+        return detected
+    end
+
+    -- 2. Fallback: Scan Artefacts across all containers and history
+    local maxArtLvl = 1
+    local function checkArt(artName)
+        if not artName then return end
+        local art = Artefacts and Artefacts.findByName and Artefacts.findByName(artName)
+        if art and art.level and art.level > maxArtLvl then
+            maxArtLvl = art.level
+        end
+    end
+
+    for artName, count in pairs(self.backpackRestored or {}) do if count > 0 then checkArt(artName) end end
+    for artName, count in pairs(self.bankRestored or {}) do if count > 0 then checkArt(artName) end end
+    for damagedName, count in pairs(self.backpackArtefacts or {}) do
+        if count > 0 then
+            local baseName = string.gsub(damagedName, "%s*%(damaged%)", "")
+            checkArt(baseName)
+        end
+    end
+    for damagedName, count in pairs(self.bankArtefacts or {}) do
+        if count > 0 then
+            local baseName = string.gsub(damagedName, "%s*%(damaged%)", "")
+            checkArt(baseName)
+        end
+    end
+    for damagedName, count in pairs(self.benchArtefacts or {}) do
+        if count > 0 then
+            local baseName = string.gsub(damagedName, "%s*%(damaged%)", "")
+            checkArt(baseName)
+        end
+    end
+
+    -- Check submitted artefacts (all 13 collectors)
+    for colName, artMap in pairs(self.submittedArtefacts or {}) do
+        if type(artMap) == "table" then
+            for artName, subbed in pairs(artMap) do
+                if subbed then checkArt(artName) end
+            end
+        end
+    end
+
+    -- Check completed collections
+    for colName, count in pairs(self.completedCollections or {}) do
+        if count and count > 0 then
+            local col = Collections and Collections.findByName and Collections.findByName(colName)
+            if col and col.level and col.level > maxArtLvl then
+                maxArtLvl = col.level
+            end
+        end
+    end
+
+    -- Check material storage materials (excavation level)
+    local maxMatLvl = 1
+    for matName, count in pairs(self.storageMaterials or {}) do
+        if count and count > 0 then
+            local mat = Materials and Materials.get and Materials.get(matName)
+            if mat and mat.isArchMaterial and mat.level and mat.level > maxMatLvl then
+                maxMatLvl = mat.level
+            end
+        end
+    end
+
+    local baseline = math.max(maxArtLvl, maxMatLvl)
+    local saved = tonumber(DB.get("arch_player_level", 0)) or 0
+    if saved == 120 and baseline < 120 then
+        saved = 0
+    end
+
+    local finalLvl = math.max(baseline, saved, 1)
+    if finalLvl > saved then
+        DB.set("arch_player_level", finalLvl)
+    end
+    self.playerArchLevel = finalLvl
+    return finalLvl
+end
+
+function Tracker:getPlayerArchLevel()
+    if Player and Player.GetLevelGameplay then
+        return self:detectPlayerArchLevel()
+    end
+    if not self.playerArchLevel or self.playerArchLevel <= 1 then
+        return self:detectPlayerArchLevel()
+    end
+    return self.playerArchLevel
+end
+
+function Tracker:setPlayerArchLevel(lvl)
+    local n = math.max(1, math.min(120, tonumber(lvl) or 1))
+    self.playerArchLevel = n
+    DB.set("arch_player_level", n)
+    return self:recalculate()
+end
+
+function Tracker:setSourceMode(modeId)
+    local targetId = string.upper(tostring(modeId or ""))
+    for idx, mode in ipairs(Tracker.SOURCE_MODES) do
+        if string.upper(mode.id) == targetId then
+            self.sourceModeIndex = idx
+            self.srcBag = mode.useBag
+            self.srcStorage = mode.useStorage
+            self.srcBank = mode.useBank
+            DB.setBool("arch_src_bag", self.srcBag)
+            DB.setBool("arch_src_storage", self.srcStorage)
+            DB.setBool("arch_src_bank", self.srcBank)
+            DB.set("arch_source_mode_idx", self.sourceModeIndex)
+            return self:recalculate()
+        end
+    end
+    if targetId == "ALL" then
+        self.sourceModeIndex = 1
+    elseif targetId == "STORAGE" or targetId == "BAG_STOR" or targetId == "STOR" or targetId == "BANK" then
+        self.sourceModeIndex = 2
+    elseif targetId == "STOR_ONLY" then
+        self.sourceModeIndex = 3
+    elseif targetId == "BAG" or targetId == "BAG_ONLY" then
+        self.sourceModeIndex = 4
+    end
+    local mode = Tracker.SOURCE_MODES[self.sourceModeIndex]
+    if mode then
+        self.srcBag = mode.useBag
+        self.srcStorage = mode.useStorage
+        self.srcBank = mode.useBank
+        DB.setBool("arch_src_bag", self.srcBag)
+        DB.setBool("arch_src_storage", self.srcStorage)
+        DB.setBool("arch_src_bank", self.srcBank)
+    end
+    DB.set("arch_source_mode_idx", self.sourceModeIndex)
+    return self:recalculate()
+end
+
 function Tracker:cycleSourceMode()
     self.sourceModeIndex = (self.sourceModeIndex % #Tracker.SOURCE_MODES) + 1
+    local mode = Tracker.SOURCE_MODES[self.sourceModeIndex]
+    if mode then
+        self.srcBag = mode.useBag
+        self.srcStorage = mode.useStorage
+        self.srcBank = mode.useBank
+        DB.setBool("arch_src_bag", self.srcBag)
+        DB.setBool("arch_src_storage", self.srcStorage)
+        DB.setBool("arch_src_bank", self.srcBank)
+    end
     DB.set("arch_source_mode_idx", self.sourceModeIndex)
     return self:recalculate()
 end
@@ -234,6 +464,14 @@ end
 
 function Tracker:toggleDuplicates()
     return self:cycleDuplicates()
+end
+
+function Tracker:cycleDuplicatesThreshold()
+    return self:cycleDuplicates()
+end
+
+function Tracker:togglePinned()
+    return self:togglePin()
 end
 
 function Tracker:cycleArtefactFilter()
@@ -489,13 +727,13 @@ function Tracker:getCollectionMaxOwned(colName)
     local maxOwned = 0
     for _, artName in ipairs(col.artefacts) do
         local damagedName = artName .. " (damaged)"
-        local bagDamaged = (self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0
-        local bankDamaged = (self.bankArtefacts and self.bankArtefacts[damagedName]) or 0
-        local benchDamaged = (self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0
+        local bagDamaged = (self.srcBag ~= false) and ((self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0) or 0
+        local bankDamaged = (self.srcBank ~= false) and ((self.bankArtefacts and self.bankArtefacts[damagedName]) or 0) or 0
+        local benchDamaged = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
         local totalDamaged = bagDamaged + bankDamaged + benchDamaged
 
-        local bagRestored = (self.backpackRestored and self.backpackRestored[artName]) or 0
-        local bankRestored = (self.bankRestored and self.bankRestored[artName]) or 0
+        local bagRestored = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[artName]) or 0) or 0
+        local bankRestored = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[artName]) or 0) or 0
         local totalRestored = bagRestored + bankRestored
 
         local total = totalDamaged + totalRestored
@@ -554,8 +792,30 @@ function Tracker:toggleCollectionTargeted(colName)
     end
 end
 
+function Tracker:setAllTrackedToMax()
+    local changed = false
+    local hasAny = self:hasTargetedCollections()
+    if hasAny then
+        for colName, _ in pairs(self.targetedCollections) do
+            local maxCount = self:getCollectionMaxOwned(colName)
+            if maxCount and maxCount > 0 and self.targetedCollections[colName] ~= maxCount then
+                self.targetedCollections[colName] = maxCount
+                self.collectionRememberedCounts[colName] = maxCount
+                changed = true
+            end
+        end
+    end
+    if changed then
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+        DB.set("arch_col_remembered_counts", DB.serializeCountMap(self.collectionRememberedCounts))
+        return self:recalculate()
+    end
+    return self.lastResult
+end
+
 function Tracker:clearTargetedCollections()
     self.targetedCollections = {}
+    self.collectionRememberedCounts = {}
     DB.set("arch_targeted_collections", "")
     DB.set("arch_col_remembered_counts", "")
     return self:recalculate()
@@ -643,6 +903,7 @@ function Tracker:getCollectionProgress(col)
 
     local total             = #col.artefacts
     local isCompleted       = self:isCollectionCompleted(col.name)
+    local completedCount    = (self.completedCollections and self.completedCollections[col.name]) or (isCompleted and 1 or 0)
     local readyCount        = 0
     local damagedCount      = 0
     local submittedCount    = 0
@@ -655,14 +916,14 @@ function Tracker:getCollectionProgress(col)
         local isSubmitted   = self:isArtefactSubmitted(col.name, artName)
         if isSubmitted then submittedCount = submittedCount + 1 end
 
-        local bagRestored   = self.backpackRestored[artName] or 0
-        local bankRestored  = self.bankRestored[artName] or 0
+        local bagRestored   = (self.srcBag ~= false) and (self.backpackRestored[artName] or 0) or 0
+        local bankRestored  = (self.srcBank ~= false) and (self.bankRestored[artName] or 0) or 0
         local totalRestored = bagRestored + bankRestored
 
         local damagedName   = artName .. " (damaged)"
-        local bagDamaged    = self.backpackArtefacts[damagedName] or 0
-        local bankDamaged   = self.bankArtefacts[damagedName] or 0
-        local benchDamaged  = (self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0
+        local bagDamaged    = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0
+        local bankDamaged   = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0
+        local benchDamaged  = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
         local totalDamaged  = bagDamaged + bankDamaged + benchDamaged
 
         local isReady = isSubmitted or (totalRestored > 0)
@@ -721,6 +982,7 @@ function Tracker:getCollectionProgress(col)
         totalCount        = total,
         isReady           = (targetCount > 1) and (setsReady >= targetCount) or (readyCount >= total and total > 0),
         isCompleted       = isCompleted,
+        completedCount    = completedCount,
         isTargeted        = isTargeted,
         targetCount       = targetCount,
         effectiveTarget   = effectiveTarget,
@@ -770,8 +1032,8 @@ function Tracker:getTargetedArtefactRequirements()
     end
 
     for _, req in pairs(requirements) do
-        local bagRestored   = (self.backpackRestored and self.backpackRestored[req.artName]) or 0
-        local bankRestored  = (self.bankRestored and self.bankRestored[req.artName]) or 0
+        local bagRestored   = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[req.artName]) or 0) or 0
+        local bankRestored  = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[req.artName]) or 0) or 0
         local totalRestored = bagRestored + bankRestored
         req.ownedRestored   = totalRestored
         req.neededToRestore = (not req.isSubmitted) and math.max(0, req.count - totalRestored) or 0
@@ -821,11 +1083,11 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
         return 0
     end
 
-    local inBagDamaged   = (self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0
-    local inBankDamaged  = (self.bankArtefacts and self.bankArtefacts[damagedName]) or 0
-    local inBenchDamaged = (self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0
-    local inBagRestored  = (self.backpackRestored and self.backpackRestored[artName]) or 0
-    local inBankRestored = (self.bankRestored and self.bankRestored[artName]) or 0
+    local inBagDamaged   = (self.srcBag ~= false) and ((self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0) or 0
+    local inBankDamaged  = (self.srcBank ~= false) and ((self.bankArtefacts and self.bankArtefacts[damagedName]) or 0) or 0
+    local inBenchDamaged = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
+    local inBagRestored  = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[artName]) or 0) or 0
+    local inBankRestored = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[artName]) or 0) or 0
     local totalOwned     = inBagDamaged + inBankDamaged + inBenchDamaged + inBagRestored + inBankRestored
 
     return math.max(0, targetQty - totalOwned)
@@ -874,10 +1136,16 @@ function Tracker:getCollectionsForDisplay(filterMode)
         end
 
         local include = true
-        if filterMode == "incomplete" then
+        local playerLvl = self:getPlayerArchLevel()
+
+        if self.filterByLevel and (col.level or 1) > playerLvl then
+            include = false
+        elseif filterMode == "incomplete" then
             include = not progress.isCompleted
         elseif filterMode == "targeted" then
             include = progress.isTargeted
+        elseif filterMode == "level" then
+            include = (col.level or 1) <= playerLvl
         elseif filterMode == "powers" then
             include = (col.benefitType == "relic" or col.benefitType == "weapon" or col.benefitType == "mystery")
         elseif filterMode == "tetra" then
@@ -1277,11 +1545,10 @@ end
 -- =========================================================================
 
 function Tracker:getOwnedMaterialCount(matName, mode)
-    mode = mode or self:getSourceMode()
     local owned = 0
-    if mode.useBag then owned = owned + (self.backpackMaterials[matName] or 0) end
-    if mode.useStorage then owned = owned + (self.storageMaterials[matName] or 0) end
-    if mode.useBank then owned = owned + (self.bankMaterials[matName] or 0) end
+    if self.srcBag ~= false then owned = owned + (self.backpackMaterials[matName] or 0) end
+    if self.srcStorage ~= false then owned = owned + (self.storageMaterials[matName] or 0) end
+    if self.srcBank ~= false then owned = owned + (self.bankMaterials[matName] or 0) end
     return owned
 end
 
@@ -1293,9 +1560,9 @@ local function buildCombinedArtefactsMap(self)
         for damagedName, pinnedCount in pairs(self.pinnedArtefactCounts or {}) do
             if pinnedCount and pinnedCount > 0 then
                 combinedArts[damagedName] = {
-                    inBag    = self.backpackArtefacts[damagedName] or 0,
-                    inBank   = self.bankArtefacts[damagedName] or 0,
-                    inBench  = benchArts[damagedName] or 0,
+                    inBag    = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0,
+                    inBank   = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0,
+                    inBench  = (self.srcWorkbench ~= false) and (benchArts[damagedName] or 0) or 0,
                     rawCount = pinnedCount,
                 }
             end
@@ -1314,9 +1581,9 @@ local function buildCombinedArtefactsMap(self)
                 end
             end
         end
-        addOwned(self.backpackArtefacts, "inBag")
-        addOwned(self.bankArtefacts, "inBank")
-        addOwned(benchArts, "inBench")
+        if self.srcBag ~= false then addOwned(self.backpackArtefacts, "inBag") end
+        if self.srcBank ~= false then addOwned(self.bankArtefacts, "inBank") end
+        if self.srcWorkbench ~= false then addOwned(benchArts, "inBench") end
     end
 
     local colTargets = self:getTargetedArtefactRequirements()
@@ -1334,9 +1601,9 @@ local function buildCombinedArtefactsMap(self)
             end
         else
             combinedArts[damagedName] = {
-                inBag           = self.backpackArtefacts[damagedName] or 0,
-                inBank          = self.bankArtefacts[damagedName] or 0,
-                inBench         = benchArts[damagedName] or 0,
+                inBag           = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0,
+                inBank          = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0,
+                inBench         = (self.srcWorkbench ~= false) and (benchArts[damagedName] or 0) or 0,
                 rawCount        = targetInfo.neededToRestore or 0,
                 colTarget       = targetInfo.count or 0,
                 colNames        = targetInfo.collections,
@@ -1393,9 +1660,9 @@ local function buildMaterialRows(self, requiredByMat, mode)
                 order          = 999,
             }
 
-            local inBag     = self.backpackMaterials[matName] or 0
-            local inStorage = self.storageMaterials[matName] or 0
-            local inBank    = self.bankMaterials[matName] or 0
+            local inBag     = (self.srcBag ~= false) and (self.backpackMaterials[matName] or 0) or 0
+            local inStorage = (self.srcStorage ~= false) and (self.storageMaterials[matName] or 0) or 0
+            local inBank    = (self.srcBank ~= false) and (self.bankMaterials[matName] or 0) or 0
             local owned     = self:getOwnedMaterialCount(matName, mode)
 
             local short   = math.max(0, reqCount - owned)
@@ -1539,8 +1806,8 @@ function Tracker:recalculate(triggerInvType)
                 if matPossibleNow == 999999 then matPossibleNow = 0 end
                 local maxPossibleNow = math.min(ownedDamaged, matPossibleNow)
 
-                local bagRestored   = (self.backpackRestored and self.backpackRestored[art.name]) or 0
-                local bankRestored  = (self.bankRestored and self.bankRestored[art.name]) or 0
+                local bagRestored   = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[art.name]) or 0) or 0
+                local bankRestored  = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[art.name]) or 0) or 0
                 local ownedRestored = bagRestored + bankRestored
 
                 table.insert(artefactsList, {
