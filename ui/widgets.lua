@@ -960,7 +960,7 @@ end
 
 --- Builds a single row in the Artefacts table using `prettyui.Sprites.SLIDER.decrease` and `increase`
 --- official RS3 stepper buttons instead of custom rectangles.
-function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, onHoverRow, onStepDelta)
+function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardScrollWheel, onHoverRow, onStepDelta)
     local Sprites = getSprites()
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
@@ -998,7 +998,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, onHoverR
             local btnSprite = ui.Sprite.new(artLayer)
             btnSprite.spriteID = spriteSet.normal
             btnSprite.clickthrough = false
-            btnSprite:SetPos(xOffset, rowY + 3, 1.0, 0)
+            btnSprite:SetPos(xOffset, rowY + 4, 1.0, 0)
             btnSprite:SetSize(16, 16, 0, 0)
             btnSprite.hidden = true
 
@@ -1030,6 +1030,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, onHoverR
                     end)
                 end
             end
+            if forwardScrollWheel then forwardScrollWheel(btnSprite) end
             return btnSprite, nil
         end
 
@@ -1038,15 +1039,16 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, onHoverR
         btnBg.fill = true
         btnBg.clickthrough = false
         btnBg:SetPos(xOffset, rowY + 2, 1.0, 0)
-        btnBg:SetSize(18, rowH - 6, 0, 0)
+        btnBg:SetSize(16, rowH - 4, 0, 0)
         btnBg.hidden = true
         btnBg:Subscribe(ui.Hook.ONCLICK, function()
             onStepDelta(rowIdx, delta)
             return false
         end)
         bindRowHover(btnBg, function() onHoverRow(rowIdx) end)
+        if forwardScrollWheel then forwardScrollWheel(btnBg) end
 
-        local btnTxt = Widgets.createText(artLayer, Theme.COL_GOLD, xOffset, rowY + 2, 18, rowH - 6, symbol, 1.0, 0, 0, 0)
+        local btnTxt = Widgets.createText(artLayer, Theme.COL_GOLD, xOffset, rowY + 2, 16, rowH - 4, symbol, 1.0, 0, 0, 0)
         if ui.AlignMode then
             pcall(function()
                 btnTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -1068,7 +1070,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, onHoverR
     end
     qtyTxt.hidden = isHidden
 
-    local plusBg, plusTxt = makeStepBtn(-182, sliderSprites and sliderSprites.increase, "+", 1)
+    local plusBg, plusTxt = makeStepBtn(-180, sliderSprites and sliderSprites.increase, "+", 1)
 
     local statusTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -143, rowY + 2, 135, rowH - 2, nil, 1.0, 0, 0, 0)
     statusTxt.hidden = isHidden

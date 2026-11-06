@@ -644,6 +644,11 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202, 2, 100, 20, "Location", 0, 0, 0, 0)
     self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -316, 2, 82,   20, "Owned",    1.0, 0, 0, 0)
     self.colArtQty    = Widgets.createText(artLayer, Theme.COL_GOLD, -228, 2, 64,   20, "Include",  1.0, 0, 0, 0)
+    if ui.AlignMode then
+        pcall(function()
+            self.colArtQty.alignHorizontal = ui.AlignMode.CENTRE
+        end)
+    end
     self.colArtStatus = Widgets.createText(artLayer, Theme.COL_GOLD, -143, 2, 135,  20, "Status",   1.0, 0, 0, 0)
 
     local startY = 24
@@ -654,6 +659,7 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
             i,
             rowY,
             bindRowHover,
+            forwardScrollWheel,
             function(idx) self:onHoverArtefactRow(idx) end,
             function(idx, delta)
                 local item = self.currentArtefacts and self.currentArtefacts[idx]
@@ -1082,10 +1088,12 @@ function Window:reflowDynamicContent(availW, forceReflow)
 
                         row.statusTxt:SetPos(-statusOffset, rY + 2, 1.0, 0)
                         row.statusTxt:SetSize(statusW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.plusBg:SetPos(-qtyOffset + 44, rY + 3, 1.0, 0)
-                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 44, rY + 2, 1.0, 0) end
+                        local isSprite = (row.plusTxt == nil)
+                        local btnY = isSprite and (rY + 4) or (rY + 2)
+                        row.plusBg:SetPos(-qtyOffset + 48, btnY, 1.0, 0)
+                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 48, rY + 2, 1.0, 0) end
                         row.qtyTxt:SetPos(-qtyOffset + 20, rY + 2, 1.0, 0)
-                        row.minusBg:SetPos(-qtyOffset, rY + 3, 1.0, 0)
+                        row.minusBg:SetPos(-qtyOffset, btnY, 1.0, 0)
                         if row.minusTxt then row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0) end
                         row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
                         row.ownedTxt:SetSize(ownedW, Theme.ROW_HEIGHT - 2, 0, 0)
