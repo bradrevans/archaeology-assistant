@@ -9,6 +9,8 @@ local Artefacts = {}
 Artefacts.LIST = {
     {
         id = 49741,
+        damagedId = 49741,
+        restoredId = 49742,
         name = "Centurion's dress sword",
         damagedName = "Centurion's dress sword (damaged)",
         level = 1,
@@ -19,6 +21,8 @@ Artefacts.LIST = {
     },
     {
         id = 49921,
+        damagedId = 49921,
+        restoredId = 49922,
         name = "Venator dagger",
         damagedName = "Venator dagger (damaged)",
         level = 5,
@@ -29,6 +33,8 @@ Artefacts.LIST = {
     },
     {
         id = 49923,
+        damagedId = 49923,
+        restoredId = 49924,
         name = "Venator light crossbow",
         damagedName = "Venator light crossbow (damaged)",
         level = 5,
@@ -39,6 +45,8 @@ Artefacts.LIST = {
     },
     {
         id = 50088,
+        damagedId = 50088,
+        restoredId = 50089,
         name = "Centurion's seal",
         damagedName = "Centurion's seal (damaged)",
         level = 12,
@@ -49,6 +57,8 @@ Artefacts.LIST = {
     },
     {
         id = 49911,
+        damagedId = 49911,
+        restoredId = 49912,
         name = "Primis Elementis standard",
         damagedName = "Primis Elementis standard (damaged)",
         level = 12,
@@ -59,6 +69,8 @@ Artefacts.LIST = {
     },
     {
         id = 49881,
+        damagedId = 49881,
+        restoredId = 49882,
         name = "Legionary gladius",
         damagedName = "Legionary gladius (damaged)",
         level = 12,
@@ -69,6 +81,8 @@ Artefacts.LIST = {
     },
     {
         id = 49883,
+        damagedId = 49883,
+        restoredId = 49884,
         name = "Legionary square shield",
         damagedName = "Legionary square shield (damaged)",
         level = 12,
@@ -79,6 +93,8 @@ Artefacts.LIST = {
     },
     {
         id = 49927,
+        damagedId = 49927,
+        restoredId = 49928,
         name = "Zaros effigy",
         damagedName = "Zaros effigy (damaged)",
         level = 17,
@@ -89,6 +105,8 @@ Artefacts.LIST = {
     },
     {
         id = 49933,
+        damagedId = 49933,
+        restoredId = 49934,
         name = "Zarosian training dummy",
         damagedName = "Zarosian training dummy (damaged)",
         level = 17,
@@ -99,6 +117,8 @@ Artefacts.LIST = {
     },
     {
         id = 49823,
+        damagedId = 49823,
+        restoredId = 49824,
         name = "Hookah pipe",
         damagedName = "Hookah pipe (damaged)",
         level = 20,
@@ -109,6 +129,8 @@ Artefacts.LIST = {
     },
     {
         id = 49827,
+        damagedId = 49827,
+        restoredId = 49828,
         name = "Opulent wine goblet",
         damagedName = "Opulent wine goblet (damaged)",
         level = 20,
@@ -119,6 +141,8 @@ Artefacts.LIST = {
     },
     {
         id = 49809,
+        damagedId = 49809,
+        restoredId = 49810,
         name = "Crest of Dagon",
         damagedName = "Crest of Dagon (damaged)",
         level = 24,
@@ -129,6 +153,8 @@ Artefacts.LIST = {
     },
     {
         id = 49831,
+        damagedId = 49831,
+        restoredId = 49832,
         name = "'Disorder' painting",
         damagedName = "'Disorder' painting (damaged)",
         level = 24,
@@ -139,6 +165,8 @@ Artefacts.LIST = {
     },
     {
         id = 49877,
+        damagedId = 49877,
+        restoredId = 49878,
         name = "Legatus Maximus figurine",
         damagedName = "Legatus Maximus figurine (damaged)",
         level = 25,
@@ -149,6 +177,8 @@ Artefacts.LIST = {
     },
     {
         id = 49889,
+        damagedId = 49889,
+        restoredId = 49890,
         name = "'Solem in Umbra' painting",
         damagedName = "'Solem in Umbra' painting (damaged)",
         level = 25,
@@ -159,6 +189,8 @@ Artefacts.LIST = {
     },
     {
         id = 49811,
+        damagedId = 49811,
+        restoredId = 49812,
         name = "Imp mask",
         damagedName = "Imp mask (damaged)",
         level = 29,
@@ -169,6 +201,8 @@ Artefacts.LIST = {
     },
     {
         id = 49813,
+        damagedId = 49813,
+        restoredId = 49814,
         name = "Lesser demon mask",
         damagedName = "Lesser demon mask (damaged)",
         level = 29,
@@ -179,6 +213,8 @@ Artefacts.LIST = {
     },
     {
         id = 49815,
+        damagedId = 49815,
+        restoredId = 49816,
         name = "Greater demon mask",
         damagedName = "Greater demon mask (damaged)",
         level = 29,
@@ -189,6 +225,8 @@ Artefacts.LIST = {
     },
     {
         id = 56889,
+        damagedId = 56889,
+        restoredId = 56890,
         name = "Teleportation crystal",
         damagedName = "Teleportation crystal (damaged)",
         level = 30,
@@ -199,6 +237,8 @@ Artefacts.LIST = {
     },
     {
         id = 49829,
+        damagedId = 49829,
+        restoredId = 49830,
         name = "Order of Dis robes",
         damagedName = "Order of Dis robes (damaged)",
         level = 36,
@@ -209,6 +249,8 @@ Artefacts.LIST = {
     },
     {
         id = 49837,
+        damagedId = 49837,
+        restoredId = 49838,
         name = "Ritual dagger",
         damagedName = "Ritual dagger (damaged)",
         level = 36,
@@ -219,6 +261,8 @@ Artefacts.LIST = {
     },
     {
         id = 49777,
+        damagedId = 49777,
+        restoredId = 49778,
         name = "'Frying pan'",
         damagedName = "'Frying pan' (damaged)",
         level = 42,
@@ -229,6 +273,8 @@ Artefacts.LIST = {
     },
     {
         id = 49779,
+        damagedId = 49779,
+        restoredId = 49780,
         name = "Hallowed lantern",
         damagedName = "Hallowed lantern (damaged)",
         level = 42,
@@ -239,6 +285,8 @@ Artefacts.LIST = {
     },
     {
         id = 49805,
+        damagedId = 49805,
+        restoredId = 49806,
         name = "Branding iron",
         damagedName = "Branding iron (damaged)",
         level = 45,
@@ -249,6 +297,8 @@ Artefacts.LIST = {
     },
     {
         id = 49825,
+        damagedId = 49825,
+        restoredId = 49826,
         name = "Manacles",
         damagedName = "Manacles (damaged)",
         level = 45,
@@ -259,6 +309,8 @@ Artefacts.LIST = {
     },
     {
         id = 49871,
+        damagedId = 49871,
+        restoredId = 49872,
         name = "Ancient timepiece",
         damagedName = "Ancient timepiece (damaged)",
         level = 47,
@@ -269,6 +321,8 @@ Artefacts.LIST = {
     },
     {
         id = 49879,
+        damagedId = 49879,
+        restoredId = 49880,
         name = "Legatus pendant",
         damagedName = "Legatus pendant (damaged)",
         level = 47,
@@ -279,6 +333,8 @@ Artefacts.LIST = {
     },
     {
         id = 49745,
+        damagedId = 49745,
+        restoredId = 49746,
         name = "Ceremonial unicorn ornament",
         damagedName = "Ceremonial unicorn ornament (damaged)",
         level = 48,
@@ -289,6 +345,8 @@ Artefacts.LIST = {
     },
     {
         id = 49747,
+        damagedId = 49747,
+        restoredId = 49748,
         name = "Ceremonial unicorn saddle",
         damagedName = "Ceremonial unicorn saddle (damaged)",
         level = 48,
@@ -299,6 +357,8 @@ Artefacts.LIST = {
     },
     {
         id = 50434,
+        damagedId = 50434,
+        restoredId = 50435,
         name = "Dragonkin device",
         damagedName = "Dragonkin device (damaged)",
         level = 50,
@@ -309,6 +369,8 @@ Artefacts.LIST = {
     },
     {
         id = 50436,
+        damagedId = 50436,
+        restoredId = 50437,
         name = "Dragonkin tablet",
         damagedName = "Dragonkin tablet (damaged)",
         level = 50,
@@ -319,6 +381,8 @@ Artefacts.LIST = {
     },
     {
         id = 49956,
+        damagedId = 49956,
+        restoredId = 49956,
         name = "Tetracompass (unpowered)",
         damagedName = "Tetracompass (unpowered) (damaged)",
         level = 50,
@@ -329,6 +393,8 @@ Artefacts.LIST = {
     },
     {
         id = 49765,
+        damagedId = 49765,
+        restoredId = 49766,
         name = "Everlight harp",
         damagedName = "Everlight harp (damaged)",
         level = 51,
@@ -339,6 +405,8 @@ Artefacts.LIST = {
     },
     {
         id = 49767,
+        damagedId = 49767,
+        restoredId = 49768,
         name = "Everlight trumpet",
         damagedName = "Everlight trumpet (damaged)",
         level = 51,
@@ -349,6 +417,8 @@ Artefacts.LIST = {
     },
     {
         id = 49769,
+        damagedId = 49769,
+        restoredId = 49770,
         name = "Everlight violin",
         damagedName = "Everlight violin (damaged)",
         level = 51,
@@ -359,6 +429,8 @@ Artefacts.LIST = {
     },
     {
         id = 61715,
+        damagedId = 61715,
+        restoredId = 61716,
         name = "Lunar calendar",
         damagedName = "Lunar calendar (damaged)",
         level = 52,
@@ -369,6 +441,8 @@ Artefacts.LIST = {
     },
     {
         id = 61717,
+        damagedId = 61717,
+        restoredId = 61718,
         name = "Wolf statuette",
         damagedName = "Wolf statuette (damaged)",
         level = 52,
@@ -379,6 +453,8 @@ Artefacts.LIST = {
     },
     {
         id = 61719,
+        damagedId = 61719,
+        restoredId = 61720,
         name = "Ivory sickle",
         damagedName = "Ivory sickle (damaged)",
         level = 52,
@@ -389,6 +465,8 @@ Artefacts.LIST = {
     },
     {
         id = 49773,
+        damagedId = 49773,
+        restoredId = 49774,
         name = "Folded-arm figurine (female)",
         damagedName = "Folded-arm figurine (female)(damaged)",
         level = 56,
@@ -399,6 +477,8 @@ Artefacts.LIST = {
     },
     {
         id = 49775,
+        damagedId = 49775,
+        restoredId = 49776,
         name = "Folded-arm figurine (male)",
         damagedName = "Folded-arm figurine (male)(damaged)",
         level = 56,
@@ -409,6 +489,8 @@ Artefacts.LIST = {
     },
     {
         id = 49917,
+        damagedId = 49917,
+        restoredId = 49918,
         name = "'Incite Fear' spell scroll",
         damagedName = "'Incite Fear' spell scroll (damaged)",
         level = 58,
@@ -419,6 +501,8 @@ Artefacts.LIST = {
     },
     {
         id = 49901,
+        damagedId = 49901,
+        restoredId = 49902,
         name = "Pontifex signet ring",
         damagedName = "Pontifex signet ring (damaged)",
         level = 58,
@@ -429,6 +513,8 @@ Artefacts.LIST = {
     },
     {
         id = 61721,
+        damagedId = 61721,
+        restoredId = 61722,
         name = "Nakkirian seal",
         damagedName = "Nakkirian seal (damaged)",
         level = 59,
@@ -439,6 +525,8 @@ Artefacts.LIST = {
     },
     {
         id = 61723,
+        damagedId = 61723,
+        restoredId = 61724,
         name = "Royal Game of Ba",
         damagedName = "Royal Game of Ba (damaged)",
         level = 59,
@@ -449,6 +537,8 @@ Artefacts.LIST = {
     },
     {
         id = 51880,
+        damagedId = 51880,
+        restoredId = 51881,
         name = "Apex cap",
         damagedName = "Apex cap (damaged)",
         level = 60,
@@ -459,6 +549,8 @@ Artefacts.LIST = {
     },
     {
         id = 51882,
+        damagedId = 51882,
+        restoredId = 51883,
         name = "Curse tablet",
         damagedName = "Curse tablet (damaged)",
         level = 60,
@@ -469,6 +561,8 @@ Artefacts.LIST = {
     },
     {
         id = 51892,
+        damagedId = 51892,
+        restoredId = 51893,
         name = "Funerary urn of shadow",
         damagedName = "Funerary urn of shadow (damaged)",
         level = 60,
@@ -479,6 +573,8 @@ Artefacts.LIST = {
     },
     {
         id = 49753,
+        damagedId = 49753,
+        restoredId = 49754,
         name = "Dominion discus",
         damagedName = "Dominion discus (damaged)",
         level = 61,
@@ -489,6 +585,8 @@ Artefacts.LIST = {
     },
     {
         id = 49755,
+        damagedId = 49755,
+        restoredId = 49756,
         name = "Dominion javelin",
         damagedName = "Dominion javelin (damaged)",
         level = 61,
@@ -499,6 +597,8 @@ Artefacts.LIST = {
     },
     {
         id = 49761,
+        damagedId = 49761,
+        restoredId = 49762,
         name = "Dominion pelte shield",
         damagedName = "Dominion pelte shield (damaged)",
         level = 61,
@@ -509,6 +609,8 @@ Artefacts.LIST = {
     },
     {
         id = 51902,
+        damagedId = 51902,
+        restoredId = 51903,
         name = "Infula robes",
         damagedName = "Infula robes (damaged)",
         level = 62,
@@ -519,6 +621,8 @@ Artefacts.LIST = {
     },
     {
         id = 51894,
+        damagedId = 51894,
+        restoredId = 51895,
         name = "Funerary urn of smoke",
         damagedName = "Funerary urn of smoke (damaged)",
         level = 62,
@@ -529,6 +633,8 @@ Artefacts.LIST = {
     },
     {
         id = 51900,
+        damagedId = 51900,
+        restoredId = 51901,
         name = "Hand of the Ancients",
         damagedName = "Hand of the Ancients (damaged)",
         level = 62,
@@ -539,6 +645,8 @@ Artefacts.LIST = {
     },
     {
         id = 51884,
+        damagedId = 51884,
+        restoredId = 51885,
         name = "Decorative amphora",
         damagedName = "Decorative amphora (damaged)",
         level = 63,
@@ -549,6 +657,8 @@ Artefacts.LIST = {
     },
     {
         id = 51890,
+        damagedId = 51890,
+        restoredId = 51891,
         name = "Funerary urn of ice",
         damagedName = "Funerary urn of ice (damaged)",
         level = 63,
@@ -559,6 +669,8 @@ Artefacts.LIST = {
     },
     {
         id = 51910,
+        damagedId = 51910,
+        restoredId = 51911,
         name = "Loarnab rod",
         damagedName = "Loarnab rod (damaged)",
         level = 63,
@@ -569,6 +681,8 @@ Artefacts.LIST = {
     },
     {
         id = 51906,
+        damagedId = 51906,
+        restoredId = 51907,
         name = "Inquisitor's ceremonial armour",
         damagedName = "Inquisitor's ceremonial armour (damaged)",
         level = 64,
@@ -579,6 +693,8 @@ Artefacts.LIST = {
     },
     {
         id = 51908,
+        damagedId = 51908,
+        restoredId = 51909,
         name = "Inquisitor's ceremonial mask",
         damagedName = "Inquisitor's ceremonial mask (damaged)",
         level = 64,
@@ -589,6 +705,8 @@ Artefacts.LIST = {
     },
     {
         id = 51904,
+        damagedId = 51904,
+        restoredId = 51905,
         name = "Inquisitor's seal",
         damagedName = "Inquisitor's seal (damaged)",
         level = 64,
@@ -599,6 +717,8 @@ Artefacts.LIST = {
     },
     {
         id = 49833,
+        damagedId = 49833,
+        restoredId = 49834,
         name = "'The Lake of Fire' painting",
         damagedName = "'The Lake of Fire' painting (damaged)",
         level = 65,
@@ -609,6 +729,8 @@ Artefacts.LIST = {
     },
     {
         id = 49839,
+        damagedId = 49839,
+        restoredId = 49840,
         name = "'Lust' metal sculpture",
         damagedName = "'Lust' metal sculpture (damaged)",
         level = 65,
@@ -619,6 +741,8 @@ Artefacts.LIST = {
     },
     {
         id = 61725,
+        damagedId = 61725,
+        restoredId = 61726,
         name = "Backstrap loom",
         damagedName = "Backstrap loom (damaged)",
         level = 66,
@@ -629,6 +753,8 @@ Artefacts.LIST = {
     },
     {
         id = 61727,
+        damagedId = 61727,
+        restoredId = 61728,
         name = "Animal doll",
         damagedName = "Animal doll (damaged)",
         level = 66,
@@ -639,6 +765,8 @@ Artefacts.LIST = {
     },
     {
         id = 61729,
+        damagedId = 61729,
+        restoredId = 61730,
         name = "Initiate's kaunake",
         damagedName = "Initiate's kaunake (damaged)",
         level = 66,
@@ -649,6 +777,8 @@ Artefacts.LIST = {
     },
     {
         id = 51896,
+        damagedId = 51896,
+        restoredId = 51897,
         name = "Gladiator helmet",
         damagedName = "Gladiator helmet (damaged)",
         level = 66,
@@ -659,6 +789,8 @@ Artefacts.LIST = {
     },
     {
         id = 51898,
+        damagedId = 51898,
+        restoredId = 51899,
         name = "Gladiator sword",
         damagedName = "Gladiator sword (damaged)",
         level = 66,
@@ -669,6 +801,8 @@ Artefacts.LIST = {
     },
     {
         id = 51888,
+        damagedId = 51888,
+        restoredId = 51889,
         name = "Funerary urn of blood",
         damagedName = "Funerary urn of blood (damaged)",
         level = 66,
@@ -679,6 +813,8 @@ Artefacts.LIST = {
     },
     {
         id = 51886,
+        damagedId = 51886,
+        restoredId = 51887,
         name = "Funerary urn of miasma",
         damagedName = "Funerary urn of miasma (damaged)",
         level = 67,
@@ -689,6 +825,8 @@ Artefacts.LIST = {
     },
     {
         id = 51912,
+        damagedId = 51912,
+        restoredId = 51913,
         name = "Model chariot",
         damagedName = "Model chariot (damaged)",
         level = 67,
@@ -699,6 +837,8 @@ Artefacts.LIST = {
     },
     {
         id = 51914,
+        damagedId = 51914,
+        restoredId = 51915,
         name = "'The Serpent's Fall' carving",
         damagedName = "'The Serpent's Fall' carving (damaged)",
         level = 67,
@@ -709,6 +849,8 @@ Artefacts.LIST = {
     },
     {
         id = 49807,
+        damagedId = 49807,
+        restoredId = 49808,
         name = "Chaos star",
         damagedName = "Chaos star (damaged)",
         level = 68,
@@ -719,6 +861,8 @@ Artefacts.LIST = {
     },
     {
         id = 49845,
+        damagedId = 49845,
+        restoredId = 49846,
         name = "Spiked dog collar",
         damagedName = "Spiked dog collar (damaged)",
         level = 68,
@@ -729,6 +873,8 @@ Artefacts.LIST = {
     },
     {
         id = 49757,
+        damagedId = 49757,
+        restoredId = 49758,
         name = "Bronze Dominion medal",
         damagedName = "Bronze Dominion medal (damaged)",
         level = 69,
@@ -739,6 +885,8 @@ Artefacts.LIST = {
     },
     {
         id = 49759,
+        damagedId = 49759,
+        restoredId = 49760,
         name = "Silver Dominion medal",
         damagedName = "Silver Dominion medal (damaged)",
         level = 69,
@@ -749,6 +897,8 @@ Artefacts.LIST = {
     },
     {
         id = 49763,
+        damagedId = 49763,
+        restoredId = 49764,
         name = "Dominion torch",
         damagedName = "Dominion torch (damaged)",
         level = 69,
@@ -759,6 +909,8 @@ Artefacts.LIST = {
     },
     {
         id = 49656,
+        damagedId = 49656,
+        restoredId = 49657,
         name = "Ikovian gerege",
         damagedName = "Ikovian gerege (damaged)",
         level = 70,
@@ -769,6 +921,8 @@ Artefacts.LIST = {
     },
     {
         id = 49680,
+        damagedId = 49680,
+        restoredId = 49681,
         name = "Toy glider",
         damagedName = "Toy glider (damaged)",
         level = 70,
@@ -779,6 +933,8 @@ Artefacts.LIST = {
     },
     {
         id = 49682,
+        damagedId = 49682,
+        restoredId = 49683,
         name = "Toy war golem",
         damagedName = "Toy war golem (damaged)",
         level = 70,
@@ -789,6 +945,8 @@ Artefacts.LIST = {
     },
     {
         id = 50438,
+        damagedId = 50438,
+        restoredId = 50439,
         name = "Ceremonial dragonkin device",
         damagedName = "Ceremonial dragonkin device (damaged)",
         level = 70,
@@ -799,6 +957,8 @@ Artefacts.LIST = {
     },
     {
         id = 49749,
+        damagedId = 49749,
+        restoredId = 49750,
         name = "Decorative vase",
         damagedName = "Decorative vase (damaged)",
         level = 72,
@@ -809,6 +969,8 @@ Artefacts.LIST = {
     },
     {
         id = 49783,
+        damagedId = 49783,
+        restoredId = 49784,
         name = "Kantharos cup",
         damagedName = "Kantharos cup (damaged)",
         level = 72,
@@ -819,6 +981,8 @@ Artefacts.LIST = {
     },
     {
         id = 49781,
+        damagedId = 49781,
+        restoredId = 49782,
         name = "Patera bowl",
         damagedName = "Patera bowl (damaged)",
         level = 72,
@@ -829,6 +993,8 @@ Artefacts.LIST = {
     },
     {
         id = 56971,
+        damagedId = 56971,
+        restoredId = 56972,
         name = "Castle gatestone",
         damagedName = "Castle gatestone (damaged)",
         level = 73,
@@ -839,6 +1005,8 @@ Artefacts.LIST = {
     },
     {
         id = 56973,
+        damagedId = 56973,
+        restoredId = 56974,
         name = "Engraved ring of kinship",
         damagedName = "Engraved ring of kinship (damaged)",
         level = 73,
@@ -849,6 +1017,8 @@ Artefacts.LIST = {
     },
     {
         id = 49875,
+        damagedId = 49875,
+        restoredId = 49876,
         name = "Ceremonial mace",
         damagedName = "Ceremonial mace (damaged)",
         level = 74,
@@ -859,6 +1029,8 @@ Artefacts.LIST = {
     },
     {
         id = 49897,
+        damagedId = 49897,
+        restoredId = 49898,
         name = "Pontifex Maximus figurine",
         damagedName = "Pontifex Maximus figurine (damaged)",
         level = 74,
@@ -869,6 +1041,8 @@ Artefacts.LIST = {
     },
     {
         id = 49887,
+        damagedId = 49887,
+        restoredId = 49888,
         name = "'Consensus ad Idem' painting",
         damagedName = "'Consensus ad Idem' painting (damaged)",
         level = 74,
@@ -879,6 +1053,8 @@ Artefacts.LIST = {
     },
     {
         id = 61733,
+        damagedId = 61733,
+        restoredId = 61734,
         name = "Offering bowl",
         damagedName = "Offering bowl (damaged)",
         level = 75,
@@ -889,6 +1065,8 @@ Artefacts.LIST = {
     },
     {
         id = 61731,
+        damagedId = 61731,
+        restoredId = 61732,
         name = "Incense burner",
         damagedName = "Incense burner (damaged)",
         level = 75,
@@ -899,6 +1077,8 @@ Artefacts.LIST = {
     },
     {
         id = 50119,
+        damagedId = 50119,
+        restoredId = 49381,
         name = "Wingsuit v1",
         damagedName = "Wingsuit v1 (damaged)",
         level = 76,
@@ -909,6 +1089,8 @@ Artefacts.LIST = {
     },
     {
         id = 49630,
+        damagedId = 49630,
+        restoredId = 49631,
         name = "Avian song-egg player",
         damagedName = "Avian song-egg player (damaged)",
         level = 76,
@@ -919,6 +1101,8 @@ Artefacts.LIST = {
     },
     {
         id = 49646,
+        damagedId = 49646,
+        restoredId = 49647,
         name = "Keshik drum",
         damagedName = "Keshik drum (damaged)",
         level = 76,
@@ -929,6 +1113,8 @@ Artefacts.LIST = {
     },
     {
         id = 49648,
+        damagedId = 49648,
+        restoredId = 49649,
         name = "Morin khuur",
         damagedName = "Morin khuur (damaged)",
         level = 76,
@@ -939,6 +1125,8 @@ Artefacts.LIST = {
     },
     {
         id = 49690,
+        damagedId = 49690,
+        restoredId = 49691,
         name = "Ekeleshuun blinder mask",
         damagedName = "Ekeleshuun blinder mask (damaged)",
         level = 76,
@@ -949,6 +1137,8 @@ Artefacts.LIST = {
     },
     {
         id = 49714,
+        damagedId = 49714,
+        restoredId = 49715,
         name = "Narogoshuun 'Hob-da-Gob' ball",
         damagedName = "Narogoshuun 'Hob-da-Gob' ball (damaged)",
         level = 76,
@@ -959,6 +1149,8 @@ Artefacts.LIST = {
     },
     {
         id = 49722,
+        damagedId = 49722,
+        restoredId = 49723,
         name = "Rekeshuun war tether",
         damagedName = "Rekeshuun war tether (damaged)",
         level = 76,
@@ -969,6 +1161,8 @@ Artefacts.LIST = {
     },
     {
         id = 56975,
+        damagedId = 56975,
+        restoredId = 56976,
         name = "Exploratory totem",
         damagedName = "Exploratory totem (damaged)",
         level = 77,
@@ -979,6 +1173,8 @@ Artefacts.LIST = {
     },
     {
         id = 56977,
+        damagedId = 56977,
+        restoredId = 56978,
         name = "Excavator portal mine",
         damagedName = "Excavator portal mine (damaged)",
         level = 77,
@@ -989,6 +1185,8 @@ Artefacts.LIST = {
     },
     {
         id = 56979,
+        damagedId = 56979,
+        restoredId = 56980,
         name = "Storage totem",
         damagedName = "Storage totem (damaged)",
         level = 78,
@@ -999,6 +1197,8 @@ Artefacts.LIST = {
     },
     {
         id = 56981,
+        damagedId = 56981,
+        restoredId = 56982,
         name = "Plant seed satchel",
         damagedName = "Plant seed satchel (damaged)",
         level = 78,
@@ -1009,6 +1209,8 @@ Artefacts.LIST = {
     },
     {
         id = 56983,
+        damagedId = 56983,
+        restoredId = 56984,
         name = "Snuff box",
         damagedName = "Snuff box (damaged)",
         level = 78,
@@ -1019,6 +1221,8 @@ Artefacts.LIST = {
     },
     {
         id = 49632,
+        damagedId = 49632,
+        restoredId = 49633,
         name = "Aviansie dreamcoat",
         damagedName = "Aviansie dreamcoat (damaged)",
         level = 81,
@@ -1029,6 +1233,8 @@ Artefacts.LIST = {
     },
     {
         id = 49636,
+        damagedId = 49636,
+        restoredId = 49637,
         name = "Ceremonial plume",
         damagedName = "Ceremonial plume (damaged)",
         level = 81,
@@ -1039,6 +1245,8 @@ Artefacts.LIST = {
     },
     {
         id = 49654,
+        damagedId = 49654,
+        restoredId = 49655,
         name = "Peacocking parasol",
         damagedName = "Peacocking parasol (damaged)",
         level = 81,
@@ -1049,6 +1257,8 @@ Artefacts.LIST = {
     },
     {
         id = 49716,
+        damagedId = 49716,
+        restoredId = 49717,
         name = "Ogre Kyzaj axe",
         damagedName = "Ogre Kyzaj axe (damaged)",
         level = 81,
@@ -1059,6 +1269,8 @@ Artefacts.LIST = {
     },
     {
         id = 49718,
+        damagedId = 49718,
+        restoredId = 49719,
         name = "Ork cleaver sword",
         damagedName = "Ork cleaver sword (damaged)",
         level = 81,
@@ -1069,6 +1281,8 @@ Artefacts.LIST = {
     },
     {
         id = 49851,
+        damagedId = 49851,
+        restoredId = 49852,
         name = "Larupia trophy",
         damagedName = "Larupia trophy (damaged)",
         level = 81,
@@ -1079,6 +1293,8 @@ Artefacts.LIST = {
     },
     {
         id = 49853,
+        damagedId = 49853,
+        restoredId = 49854,
         name = "Lion trophy",
         damagedName = "Lion trophy (damaged)",
         level = 81,
@@ -1089,6 +1305,8 @@ Artefacts.LIST = {
     },
     {
         id = 49855,
+        damagedId = 49855,
+        restoredId = 49856,
         name = "She-wolf trophy",
         damagedName = "She-wolf trophy (damaged)",
         level = 81,
@@ -1099,6 +1317,8 @@ Artefacts.LIST = {
     },
     {
         id = 49893,
+        damagedId = 49893,
+        restoredId = 49894,
         name = "Pontifex censer",
         damagedName = "Pontifex censer (damaged)",
         level = 81,
@@ -1109,6 +1329,8 @@ Artefacts.LIST = {
     },
     {
         id = 49895,
+        damagedId = 49895,
+        restoredId = 49896,
         name = "Pontifex crozier",
         damagedName = "Pontifex crozier (damaged)",
         level = 81,
@@ -1119,6 +1341,8 @@ Artefacts.LIST = {
     },
     {
         id = 49899,
+        damagedId = 49899,
+        restoredId = 49900,
         name = "Pontifex mitre",
         damagedName = "Pontifex mitre (damaged)",
         level = 81,
@@ -1129,6 +1353,8 @@ Artefacts.LIST = {
     },
     {
         id = 61735,
+        damagedId = 61735,
+        restoredId = 61736,
         name = "Bloodwine",
         damagedName = "Bloodwine (damaged)",
         level = 82,
@@ -1139,6 +1365,8 @@ Artefacts.LIST = {
     },
     {
         id = 61737,
+        damagedId = 61737,
+        restoredId = 61738,
         name = "Reagent jar",
         damagedName = "Reagent jar (damaged)",
         level = 82,
@@ -1149,6 +1377,8 @@ Artefacts.LIST = {
     },
     {
         id = 61739,
+        damagedId = 61739,
+        restoredId = 61740,
         name = "Ninbaradari mural",
         damagedName = "Ninbaradari mural (damaged)",
         level = 82,
@@ -1159,6 +1389,8 @@ Artefacts.LIST = {
     },
     {
         id = 49732,
+        damagedId = 49732,
+        restoredId = 49733,
         name = "Thorobshuun battle standard",
         damagedName = "Thorobshuun battle standard (damaged)",
         level = 83,
@@ -1169,6 +1401,8 @@ Artefacts.LIST = {
     },
     {
         id = 49736,
+        damagedId = 49736,
+        restoredId = 49737,
         name = "Yurkolgokh stink grenade",
         damagedName = "Yurkolgokh stink grenade (damaged)",
         level = 83,
@@ -1179,6 +1413,8 @@ Artefacts.LIST = {
     },
     {
         id = 49751,
+        damagedId = 49751,
+        restoredId = 49752,
         name = "Dominarian device",
         damagedName = "Dominarian device (damaged)",
         level = 84,
@@ -1189,6 +1425,8 @@ Artefacts.LIST = {
     },
     {
         id = 49771,
+        damagedId = 49771,
+        restoredId = 49772,
         name = "Fishing trident",
         damagedName = "Fishing trident (damaged)",
         level = 84,
@@ -1199,6 +1437,8 @@ Artefacts.LIST = {
     },
     {
         id = 49650,
+        damagedId = 49650,
+        restoredId = 49651,
         name = "Hawkeye lens multi-vision scope",
         damagedName = "Hawkeye lens multi-vision scope (damaged)",
         level = 85,
@@ -1209,6 +1449,8 @@ Artefacts.LIST = {
     },
     {
         id = 49670,
+        damagedId = 49670,
+        restoredId = 49671,
         name = "Talon-3 razor wing",
         damagedName = "Talon-3 razor wing (damaged)",
         level = 85,
@@ -1219,6 +1461,8 @@ Artefacts.LIST = {
     },
     {
         id = 49915,
+        damagedId = 49915,
+        restoredId = 49916,
         name = "'Exsanguinate' spell scroll",
         damagedName = "'Exsanguinate' spell scroll (damaged)",
         level = 86,
@@ -1229,6 +1473,8 @@ Artefacts.LIST = {
     },
     {
         id = 49885,
+        damagedId = 49885,
+        restoredId = 49886,
         name = "Necromantic focus",
         damagedName = "Necromantic focus (damaged)",
         level = 86,
@@ -1239,6 +1485,8 @@ Artefacts.LIST = {
     },
     {
         id = 56985,
+        damagedId = 56985,
+        restoredId = 56986,
         name = "Spent summoning charm",
         damagedName = "Spent summoning charm (damaged)",
         level = 87,
@@ -1249,6 +1497,8 @@ Artefacts.LIST = {
     },
     {
         id = 56987,
+        damagedId = 56987,
+        restoredId = 56988,
         name = "'Friendship bracelet'",
         damagedName = "'Friendship bracelet' (damaged)",
         level = 87,
@@ -1259,6 +1509,8 @@ Artefacts.LIST = {
     },
     {
         id = 56989,
+        damagedId = 56989,
+        restoredId = 56990,
         name = "Homely totem",
         damagedName = "Homely totem (damaged)",
         level = 87,
@@ -1269,6 +1521,8 @@ Artefacts.LIST = {
     },
     {
         id = 61741,
+        damagedId = 61741,
+        restoredId = 61742,
         name = "Bloodletting dagger",
         damagedName = "Bloodletting dagger (damaged)",
         level = 88,
@@ -1279,6 +1533,8 @@ Artefacts.LIST = {
     },
     {
         id = 61743,
+        damagedId = 61743,
+        restoredId = 61744,
         name = "Fang of Kayazu",
         damagedName = "Fang of Kayazu (damaged)",
         level = 88,
@@ -1289,6 +1545,8 @@ Artefacts.LIST = {
     },
     {
         id = 49694,
+        damagedId = 49694,
+        restoredId = 49695,
         name = "High priest crozier",
         damagedName = "High priest crozier (damaged)",
         level = 89,
@@ -1299,6 +1557,8 @@ Artefacts.LIST = {
     },
     {
         id = 49696,
+        damagedId = 49696,
+        restoredId = 49697,
         name = "High priest mitre",
         damagedName = "High priest mitre (damaged)",
         level = 89,
@@ -1309,6 +1569,8 @@ Artefacts.LIST = {
     },
     {
         id = 49698,
+        damagedId = 49698,
+        restoredId = 49699,
         name = "High priest orb",
         damagedName = "High priest orb (damaged)",
         level = 89,
@@ -1319,6 +1581,8 @@ Artefacts.LIST = {
     },
     {
         id = 49843,
+        damagedId = 49843,
+        restoredId = 49844,
         name = "'Torment' metal sculpture",
         damagedName = "'Torment' metal sculpture (damaged)",
         level = 89,
@@ -1329,6 +1593,8 @@ Artefacts.LIST = {
     },
     {
         id = 49835,
+        damagedId = 49835,
+        restoredId = 49836,
         name = "'Pandemonium' tapestry",
         damagedName = "'Pandemonium' tapestry (damaged)",
         level = 89,
@@ -1339,6 +1605,8 @@ Artefacts.LIST = {
     },
     {
         id = 50440,
+        damagedId = 50440,
+        restoredId = 50441,
         name = "Ceremonial dragonkin tablet",
         damagedName = "Ceremonial dragonkin tablet (damaged)",
         level = 90,
@@ -1349,6 +1617,8 @@ Artefacts.LIST = {
     },
     {
         id = 50733,
+        damagedId = 50733,
+        restoredId = 50734,
         name = "Pasaha",
         damagedName = "Pasaha (damaged)",
         level = 90,
@@ -1359,6 +1629,8 @@ Artefacts.LIST = {
     },
     {
         id = 50739,
+        damagedId = 50739,
+        restoredId = 50740,
         name = "Ritual bell",
         damagedName = "Ritual bell (damaged)",
         level = 90,
@@ -1369,6 +1641,8 @@ Artefacts.LIST = {
     },
     {
         id = 49666,
+        damagedId = 49666,
+        restoredId = 49667,
         name = "Prototype gravimeter",
         damagedName = "Prototype gravimeter (damaged)",
         level = 91,
@@ -1379,6 +1653,8 @@ Artefacts.LIST = {
     },
     {
         id = 49676,
+        damagedId = 49676,
+        restoredId = 49677,
         name = "Songbird recorder",
         damagedName = "Songbird recorder (damaged)",
         level = 91,
@@ -1389,6 +1665,8 @@ Artefacts.LIST = {
     },
     {
         id = 49743,
+        damagedId = 49743,
+        restoredId = 49744,
         name = "Amphora",
         damagedName = "Amphora (damaged)",
         level = 92,
@@ -1399,6 +1677,8 @@ Artefacts.LIST = {
     },
     {
         id = 49799,
+        damagedId = 49799,
+        restoredId = 49800,
         name = "Rod of Asclepius",
         damagedName = "Rod of Asclepius (damaged)",
         level = 92,
@@ -1409,6 +1689,8 @@ Artefacts.LIST = {
     },
     {
         id = 49929,
+        damagedId = 49929,
+        restoredId = 49930,
         name = "Zarosian ewer",
         damagedName = "Zarosian ewer (damaged)",
         level = 93,
@@ -1419,6 +1701,8 @@ Artefacts.LIST = {
     },
     {
         id = 49931,
+        damagedId = 49931,
+        restoredId = 49932,
         name = "Zarosian stein",
         damagedName = "Zarosian stein (damaged)",
         level = 93,
@@ -1429,6 +1713,8 @@ Artefacts.LIST = {
     },
     {
         id = 49684,
+        damagedId = 49684,
+        restoredId = 49685,
         name = "Beastkeeper helm",
         damagedName = "Beastkeeper helm (damaged)",
         level = 94,
@@ -1439,6 +1725,8 @@ Artefacts.LIST = {
     },
     {
         id = 49706,
+        damagedId = 49706,
+        restoredId = 49707,
         name = "Idithuun horn ring",
         damagedName = "Idithuun horn ring (damaged)",
         level = 94,
@@ -1449,6 +1737,8 @@ Artefacts.LIST = {
     },
     {
         id = 49730,
+        damagedId = 49730,
+        restoredId = 49731,
         name = "'Nosorog!' sculpture",
         damagedName = "'Nosorog!' sculpture (damaged)",
         level = 94,
@@ -1459,6 +1749,8 @@ Artefacts.LIST = {
     },
     {
         id = 49672,
+        damagedId = 49672,
+        restoredId = 49673,
         name = "Dayguard shield",
         damagedName = "Dayguard shield (damaged)",
         level = 95,
@@ -1469,6 +1761,8 @@ Artefacts.LIST = {
     },
     {
         id = 49658,
+        damagedId = 49658,
+        restoredId = 49659,
         name = "Stormguard gerege",
         damagedName = "Stormguard gerege (damaged)",
         level = 95,
@@ -1479,6 +1773,8 @@ Artefacts.LIST = {
     },
     {
         id = 50721,
+        damagedId = 50721,
+        restoredId = 50722,
         name = "Kilaya",
         damagedName = "Kilaya (damaged)",
         level = 96,
@@ -1489,6 +1785,8 @@ Artefacts.LIST = {
     },
     {
         id = 50743,
+        damagedId = 50743,
+        restoredId = 50744,
         name = "Vazara",
         damagedName = "Vazara (damaged)",
         level = 96,
@@ -1499,6 +1797,8 @@ Artefacts.LIST = {
     },
     {
         id = 49720,
+        damagedId = 49720,
+        restoredId = 49721,
         name = "Ourg megahitter",
         damagedName = "Ourg megahitter (damaged)",
         level = 97,
@@ -1509,6 +1809,8 @@ Artefacts.LIST = {
     },
     {
         id = 49734,
+        damagedId = 49734,
+        restoredId = 49735,
         name = "Ourg tower/goblin cower shield",
         damagedName = "Ourg tower/goblin cower shield (damaged)",
         level = 97,
@@ -1519,6 +1821,8 @@ Artefacts.LIST = {
     },
     {
         id = 49692,
+        damagedId = 49692,
+        restoredId = 49693,
         name = "Garagorshuun anchor",
         damagedName = "Garagorshuun anchor (damaged)",
         level = 97,
@@ -1529,6 +1833,8 @@ Artefacts.LIST = {
     },
     {
         id = 49642,
+        damagedId = 49642,
+        restoredId = 49643,
         name = "Golem heart",
         damagedName = "Golem heart (damaged)",
         level = 98,
@@ -1539,6 +1845,8 @@ Artefacts.LIST = {
     },
     {
         id = 49644,
+        damagedId = 49644,
+        restoredId = 49645,
         name = "Golem instruction",
         damagedName = "Golem instruction (damaged)",
         level = 98,
@@ -1549,6 +1857,8 @@ Artefacts.LIST = {
     },
     {
         id = 49817,
+        damagedId = 49817,
+        restoredId = 49818,
         name = "Hellfire haladie",
         damagedName = "Hellfire haladie (damaged)",
         level = 98,
@@ -1559,6 +1869,8 @@ Artefacts.LIST = {
     },
     {
         id = 49819,
+        damagedId = 49819,
+        restoredId = 49820,
         name = "Hellfire katar",
         damagedName = "Hellfire katar (damaged)",
         level = 98,
@@ -1569,6 +1881,8 @@ Artefacts.LIST = {
     },
     {
         id = 49821,
+        damagedId = 49821,
+        restoredId = 49822,
         name = "Hellfire zaghnal",
         damagedName = "Hellfire zaghnal (damaged)",
         level = 98,
@@ -1579,6 +1893,8 @@ Artefacts.LIST = {
     },
     {
         id = 50708,
+        damagedId = 50708,
+        restoredId = 50709,
         name = "Death mask",
         damagedName = "Death mask (damaged)",
         level = 99,
@@ -1589,6 +1905,8 @@ Artefacts.LIST = {
     },
     {
         id = 50714,
+        damagedId = 50714,
+        restoredId = 50715,
         name = "Dragonkin calendar",
         damagedName = "Dragonkin calendar (damaged)",
         level = 99,
@@ -1599,6 +1917,8 @@ Artefacts.LIST = {
     },
     {
         id = 50716,
+        damagedId = 50716,
+        restoredId = 50717,
         name = "Dragonkin staff",
         damagedName = "Dragonkin staff (damaged)",
         level = 99,
@@ -1609,6 +1929,8 @@ Artefacts.LIST = {
     },
     {
         id = 49686,
+        damagedId = 49686,
+        restoredId = 49687,
         name = "Dorgeshuun spear",
         damagedName = "Dorgeshuun spear (damaged)",
         level = 100,
@@ -1619,6 +1941,8 @@ Artefacts.LIST = {
     },
     {
         id = 49728,
+        damagedId = 49728,
+        restoredId = 49729,
         name = "'Forged in War' sculpture",
         damagedName = "'Forged in War' sculpture (damaged)",
         level = 100,
@@ -1629,6 +1953,8 @@ Artefacts.LIST = {
     },
     {
         id = 49785,
+        damagedId = 49785,
+        restoredId = 49786,
         name = "Kopis dagger",
         damagedName = "Kopis dagger (damaged)",
         level = 100,
@@ -1639,6 +1965,8 @@ Artefacts.LIST = {
     },
     {
         id = 49791,
+        damagedId = 49791,
+        restoredId = 49792,
         name = "Xiphos short sword",
         damagedName = "Xiphos short sword (damaged)",
         level = 100,
@@ -1649,6 +1977,8 @@ Artefacts.LIST = {
     },
     {
         id = 49919,
+        damagedId = 49919,
+        restoredId = 49920,
         name = "'Smoke Cloud' spell scroll",
         damagedName = "'Smoke Cloud' spell scroll (damaged)",
         level = 100,
@@ -1659,6 +1989,8 @@ Artefacts.LIST = {
     },
     {
         id = 49925,
+        damagedId = 49925,
+        restoredId = 49926,
         name = "Vigorem vial",
         damagedName = "Vigorem vial (damaged)",
         level = 100,
@@ -1669,6 +2001,8 @@ Artefacts.LIST = {
     },
     {
         id = 50712,
+        damagedId = 50712,
+        restoredId = 50713,
         name = "Dragon scalpel",
         damagedName = "Dragon scalpel (damaged)",
         level = 101,
@@ -1679,6 +2013,8 @@ Artefacts.LIST = {
     },
     {
         id = 50737,
+        damagedId = 50737,
+        restoredId = 50738,
         name = "Protective goggles",
         damagedName = "Protective goggles (damaged)",
         level = 101,
@@ -1689,6 +2025,8 @@ Artefacts.LIST = {
     },
     {
         id = 50710,
+        damagedId = 50710,
+        restoredId = 50711,
         name = "Dragon burner",
         damagedName = "Dragon burner (damaged)",
         level = 102,
@@ -1699,6 +2037,8 @@ Artefacts.LIST = {
     },
     {
         id = 50731,
+        damagedId = 50731,
+        restoredId = 50732,
         name = "Orthenglass flask",
         damagedName = "Orthenglass flask (damaged)",
         level = 102,
@@ -1709,6 +2049,8 @@ Artefacts.LIST = {
     },
     {
         id = 49634,
+        damagedId = 49634,
+        restoredId = 49635,
         name = "Blackfire lance",
         damagedName = "Blackfire lance (damaged)",
         level = 103,
@@ -1719,6 +2061,8 @@ Artefacts.LIST = {
     },
     {
         id = 49674,
+        damagedId = 49674,
+        restoredId = 49675,
         name = "Nightguard shield",
         damagedName = "Nightguard shield (damaged)",
         level = 103,
@@ -1729,6 +2073,8 @@ Artefacts.LIST = {
     },
     {
         id = 56991,
+        damagedId = 56991,
+        restoredId = 56992,
         name = "Projection attuner",
         damagedName = "Projection attuner (damaged)",
         level = 103,
@@ -1739,6 +2085,8 @@ Artefacts.LIST = {
     },
     {
         id = 56993,
+        damagedId = 56993,
+        restoredId = 56994,
         name = "Golden projection 'needle'",
         damagedName = "Golden projection 'needle' (damaged)",
         level = 103,
@@ -1749,6 +2097,8 @@ Artefacts.LIST = {
     },
     {
         id = 49704,
+        damagedId = 49704,
+        restoredId = 49705,
         name = "Huzamogaarb chaos crown",
         damagedName = "Huzamogaarb chaos crown (damaged)",
         level = 104,
@@ -1759,6 +2109,8 @@ Artefacts.LIST = {
     },
     {
         id = 49724,
+        damagedId = 49724,
+        restoredId = 49725,
         name = "Saragorgak star crown",
         damagedName = "Saragorgak star crown (damaged)",
         level = 104,
@@ -1769,6 +2121,8 @@ Artefacts.LIST = {
     },
     {
         id = 49841,
+        damagedId = 49841,
+        restoredId = 49842,
         name = "'Possession' metal sculpture",
         damagedName = "'Possession' metal sculpture (damaged)",
         level = 104,
@@ -1779,6 +2133,8 @@ Artefacts.LIST = {
     },
     {
         id = 49847,
+        damagedId = 49847,
+        restoredId = 49848,
         name = "Trishula",
         damagedName = "Trishula (damaged)",
         level = 104,
@@ -1789,6 +2145,8 @@ Artefacts.LIST = {
     },
     {
         id = 49863,
+        damagedId = 49863,
+        restoredId = 49864,
         name = "Tsutsaroth piercing",
         damagedName = "Tsutsaroth piercing (damaged)",
         level = 104,
@@ -1799,6 +2157,8 @@ Artefacts.LIST = {
     },
     {
         id = 49795,
+        damagedId = 49795,
+        restoredId = 49796,
         name = "'Hallowed Be the Everlight' painting",
         damagedName = "'Hallowed Be the Everlight' painting (damaged)",
         level = 105,
@@ -1809,6 +2169,8 @@ Artefacts.LIST = {
     },
     {
         id = 49797,
+        damagedId = 49797,
+        restoredId = 49798,
         name = "'The Lord of Light' painting",
         damagedName = "'The Lord of Light' painting (damaged)",
         level = 105,
@@ -1819,6 +2181,8 @@ Artefacts.LIST = {
     },
     {
         id = 49793,
+        damagedId = 49793,
+        restoredId = 49794,
         name = "'The Pride of Padosan' painting",
         damagedName = "'The Pride of Padosan' painting (damaged)",
         level = 105,
@@ -1829,6 +2193,8 @@ Artefacts.LIST = {
     },
     {
         id = 50729,
+        damagedId = 50729,
+        restoredId = 50730,
         name = "Meditation pipe",
         damagedName = "Meditation pipe (damaged)",
         level = 106,
@@ -1839,6 +2205,8 @@ Artefacts.LIST = {
     },
     {
         id = 50735,
+        damagedId = 50735,
+        restoredId = 50736,
         name = "Personal totem",
         damagedName = "Personal totem (damaged)",
         level = 106,
@@ -1849,6 +2217,8 @@ Artefacts.LIST = {
     },
     {
         id = 50741,
+        damagedId = 50741,
+        restoredId = 50742,
         name = "Singing bowl",
         damagedName = "Singing bowl (damaged)",
         level = 106,
@@ -1859,6 +2229,8 @@ Artefacts.LIST = {
     },
     {
         id = 49869,
+        damagedId = 49869,
+        restoredId = 49870,
         name = "Ancient magic tablet",
         damagedName = "Ancient magic tablet (damaged)",
         level = 107,
@@ -1869,6 +2241,8 @@ Artefacts.LIST = {
     },
     {
         id = 49913,
+        damagedId = 49913,
+        restoredId = 49914,
         name = "'Animate Dead' spell scroll",
         damagedName = "'Animate Dead' spell scroll (damaged)",
         level = 107,
@@ -1879,6 +2253,8 @@ Artefacts.LIST = {
     },
     {
         id = 49903,
+        damagedId = 49903,
+        restoredId = 49904,
         name = "Portable phylactery",
         damagedName = "Portable phylactery (damaged)",
         level = 107,
@@ -1889,6 +2265,8 @@ Artefacts.LIST = {
     },
     {
         id = 56995,
+        damagedId = 56995,
+        restoredId = 56996,
         name = "Comfort gatestone",
         damagedName = "Comfort gatestone (damaged)",
         level = 107,
@@ -1899,6 +2277,8 @@ Artefacts.LIST = {
     },
     {
         id = 56997,
+        damagedId = 56997,
+        restoredId = 56998,
         name = "Halak's cube",
         damagedName = "Halak's cube (damaged)",
         level = 107,
@@ -1909,6 +2289,8 @@ Artefacts.LIST = {
     },
     {
         id = 50725,
+        damagedId = 50725,
+        restoredId = 50726,
         name = "Lingam stone",
         damagedName = "Lingam stone (damaged)",
         level = 108,
@@ -1919,6 +2301,8 @@ Artefacts.LIST = {
     },
     {
         id = 50727,
+        damagedId = 50727,
+        restoredId = 50728,
         name = "Master control",
         damagedName = "Master control (damaged)",
         level = 108,
@@ -1929,6 +2313,8 @@ Artefacts.LIST = {
     },
     {
         id = 49801,
+        damagedId = 49801,
+        restoredId = 49802,
         name = "'The Enlightened Soul' scroll",
         damagedName = "'The Enlightened Soul' scroll (damaged)",
         level = 109,
@@ -1939,6 +2325,8 @@ Artefacts.LIST = {
     },
     {
         id = 49803,
+        damagedId = 49803,
+        restoredId = 49804,
         name = "'The Eudoxian Elements' tablet",
         damagedName = "'The Eudoxian Elements' tablet (damaged)",
         level = 109,
@@ -1949,6 +2337,8 @@ Artefacts.LIST = {
     },
     {
         id = 49688,
+        damagedId = 49688,
+        restoredId = 49689,
         name = "Drogokishuun hook sword",
         damagedName = "Drogokishuun hook sword (damaged)",
         level = 110,
@@ -1959,6 +2349,8 @@ Artefacts.LIST = {
     },
     {
         id = 49700,
+        damagedId = 49700,
+        restoredId = 49701,
         name = "Hobgoblin mansticker",
         damagedName = "Hobgoblin mansticker (damaged)",
         level = 110,
@@ -1969,6 +2361,8 @@ Artefacts.LIST = {
     },
     {
         id = 49849,
+        damagedId = 49849,
+        restoredId = 49850,
         name = "Chaos Elemental trophy",
         damagedName = "Chaos Elemental trophy (damaged)",
         level = 110,
@@ -1979,6 +2373,8 @@ Artefacts.LIST = {
     },
     {
         id = 49857,
+        damagedId = 49857,
+        restoredId = 49858,
         name = "Virius trophy",
         damagedName = "Virius trophy (damaged)",
         level = 110,
@@ -1989,6 +2385,8 @@ Artefacts.LIST = {
     },
     {
         id = 49640,
+        damagedId = 49640,
+        restoredId = 49641,
         name = "Flat cap",
         damagedName = "Flat cap (damaged)",
         level = 111,
@@ -1999,6 +2397,8 @@ Artefacts.LIST = {
     },
     {
         id = 49652,
+        damagedId = 49652,
+        restoredId = 49653,
         name = "Night owl flight goggles",
         damagedName = "Night owl flight goggles (damaged)",
         level = 111,
@@ -2009,6 +2409,8 @@ Artefacts.LIST = {
     },
     {
         id = 49660,
+        damagedId = 49660,
+        restoredId = 49661,
         name = "Prototype godbow",
         damagedName = "Prototype godbow (damaged)",
         level = 112,
@@ -2019,6 +2421,8 @@ Artefacts.LIST = {
     },
     {
         id = 49662,
+        damagedId = 49662,
+        restoredId = 49663,
         name = "Prototype godstaff",
         damagedName = "Prototype godstaff (damaged)",
         level = 112,
@@ -2029,6 +2433,8 @@ Artefacts.LIST = {
     },
     {
         id = 49664,
+        damagedId = 49664,
+        restoredId = 49665,
         name = "Prototype godsword",
         damagedName = "Prototype godsword (damaged)",
         level = 112,
@@ -2039,6 +2445,8 @@ Artefacts.LIST = {
     },
     {
         id = 50745,
+        damagedId = 50745,
+        restoredId = 50746,
         name = "Xolo hard hat",
         damagedName = "Xolo hard hat (damaged)",
         level = 113,
@@ -2049,6 +2457,8 @@ Artefacts.LIST = {
     },
     {
         id = 50747,
+        damagedId = 50747,
+        restoredId = 50748,
         name = "Xolo pickaxe",
         damagedName = "Xolo pickaxe (damaged)",
         level = 113,
@@ -2059,6 +2469,8 @@ Artefacts.LIST = {
     },
     {
         id = 56999,
+        damagedId = 56999,
+        restoredId = 57000,
         name = "Portable portal generator",
         damagedName = "Portable portal generator (damaged)",
         level = 113,
@@ -2069,6 +2481,8 @@ Artefacts.LIST = {
     },
     {
         id = 57001,
+        damagedId = 57001,
+        restoredId = 57002,
         name = "Warped trinket",
         damagedName = "Warped trinket (damaged)",
         level = 113,
@@ -2079,6 +2493,8 @@ Artefacts.LIST = {
     },
     {
         id = 49905,
+        damagedId = 49905,
+        restoredId = 49906,
         name = "Praetorian hood",
         damagedName = "Praetorian hood (damaged)",
         level = 114,
@@ -2089,6 +2505,8 @@ Artefacts.LIST = {
     },
     {
         id = 49907,
+        damagedId = 49907,
+        restoredId = 49908,
         name = "Praetorian robes",
         damagedName = "Praetorian robes (damaged)",
         level = 114,
@@ -2099,6 +2517,8 @@ Artefacts.LIST = {
     },
     {
         id = 49909,
+        damagedId = 49909,
+        restoredId = 49910,
         name = "Praetorian staff",
         damagedName = "Praetorian staff (damaged)",
         level = 114,
@@ -2109,6 +2529,8 @@ Artefacts.LIST = {
     },
     {
         id = 49708,
+        damagedId = 49708,
+        restoredId = 49709,
         name = "Kal-i-kra chieftain crown",
         damagedName = "Kal-i-kra chieftain crown (damaged)",
         level = 115,
@@ -2119,6 +2541,8 @@ Artefacts.LIST = {
     },
     {
         id = 49710,
+        damagedId = 49710,
+        restoredId = 49711,
         name = "Kal-i-kra mace",
         damagedName = "Kal-i-kra mace (damaged)",
         level = 115,
@@ -2129,6 +2553,8 @@ Artefacts.LIST = {
     },
     {
         id = 49712,
+        damagedId = 49712,
+        restoredId = 49713,
         name = "Kal-i-kra warhorn",
         damagedName = "Kal-i-kra warhorn (damaged)",
         level = 115,
@@ -2139,6 +2565,8 @@ Artefacts.LIST = {
     },
     {
         id = 49740,
+        damagedId = 49740,
+        restoredId = 49965,
         name = "Spear of Annihilation",
         damagedName = "Spear of Annihilation (damaged)",
         level = 115,
@@ -2149,6 +2577,8 @@ Artefacts.LIST = {
     },
     {
         id = 49859,
+        damagedId = 49859,
+        restoredId = 49860,
         name = "Tsutsaroth helm",
         damagedName = "Tsutsaroth helm (damaged)",
         level = 116,
@@ -2159,6 +2589,8 @@ Artefacts.LIST = {
     },
     {
         id = 49861,
+        damagedId = 49861,
+        restoredId = 49862,
         name = "Tsutsaroth pauldron",
         damagedName = "Tsutsaroth pauldron (damaged)",
         level = 116,
@@ -2169,6 +2601,8 @@ Artefacts.LIST = {
     },
     {
         id = 49865,
+        damagedId = 49865,
+        restoredId = 49866,
         name = "Tsutsaroth urumi",
         damagedName = "Tsutsaroth urumi (damaged)",
         level = 116,
@@ -2179,6 +2613,8 @@ Artefacts.LIST = {
     },
     {
         id = 49789,
+        damagedId = 49789,
+        restoredId = 49790,
         name = "Doru spear",
         damagedName = "Doru spear (damaged)",
         level = 117,
@@ -2189,6 +2625,8 @@ Artefacts.LIST = {
     },
     {
         id = 49787,
+        damagedId = 49787,
+        restoredId = 49788,
         name = "Kontos lance",
         damagedName = "Kontos lance (damaged)",
         level = 117,
@@ -2199,6 +2637,8 @@ Artefacts.LIST = {
     },
     {
         id = 49638,
+        damagedId = 49638,
+        restoredId = 49639,
         name = "Chuluu stone",
         damagedName = "Chuluu stone (damaged)",
         level = 118,
@@ -2209,6 +2649,8 @@ Artefacts.LIST = {
     },
     {
         id = 49668,
+        damagedId = 49668,
+        restoredId = 49669,
         name = "Quintessence counter",
         damagedName = "Quintessence counter (damaged)",
         level = 118,
@@ -2219,6 +2661,8 @@ Artefacts.LIST = {
     },
     {
         id = 49678,
+        damagedId = 49678,
+        restoredId = 49679,
         name = "Spherical astrolabe",
         damagedName = "Spherical astrolabe (damaged)",
         level = 118,
@@ -2229,6 +2673,8 @@ Artefacts.LIST = {
     },
     {
         id = 49867,
+        damagedId = 49867,
+        restoredId = 49868,
         name = "Ancient globe",
         damagedName = "Ancient globe (damaged)",
         level = 118,
@@ -2239,6 +2685,8 @@ Artefacts.LIST = {
     },
     {
         id = 49873,
+        damagedId = 49873,
+        restoredId = 49874,
         name = "Battle plans",
         damagedName = "Battle plans (damaged)",
         level = 118,
@@ -2249,6 +2697,8 @@ Artefacts.LIST = {
     },
     {
         id = 49891,
+        damagedId = 49891,
+        restoredId = 49892,
         name = "'Prima Legio' painting",
         damagedName = "'Prima Legio' painting (damaged)",
         level = 118,
@@ -2259,6 +2709,8 @@ Artefacts.LIST = {
     },
     {
         id = 49726,
+        damagedId = 49726,
+        restoredId = 49727,
         name = "'Da Boss Man' sculpture",
         damagedName = "'Da Boss Man' sculpture (damaged)",
         level = 119,
@@ -2269,6 +2721,8 @@ Artefacts.LIST = {
     },
     {
         id = 49702,
+        damagedId = 49702,
+        restoredId = 49703,
         name = "Horogothgar cooking pot",
         damagedName = "Horogothgar cooking pot (damaged)",
         level = 119,
@@ -2279,6 +2733,8 @@ Artefacts.LIST = {
     },
     {
         id = 50749,
+        damagedId = 50749,
+        restoredId = 50750,
         name = "Xolo shield",
         damagedName = "Xolo shield (damaged)",
         level = 119,
@@ -2289,6 +2745,8 @@ Artefacts.LIST = {
     },
     {
         id = 50751,
+        damagedId = 50751,
+        restoredId = 50752,
         name = "Xolo spear",
         damagedName = "Xolo spear (damaged)",
         level = 119,
@@ -2299,6 +2757,8 @@ Artefacts.LIST = {
     },
     {
         id = 50718,
+        damagedId = 50718,
+        restoredId = 50719,
         name = "Gold dish",
         damagedName = "Gold dish (damaged)",
         level = 120,
@@ -2309,6 +2769,8 @@ Artefacts.LIST = {
     },
     {
         id = 50723,
+        damagedId = 50723,
+        restoredId = 50724,
         name = "'Raksha' idol",
         damagedName = "'Raksha' idol (damaged)",
         level = 120,
@@ -2330,6 +2792,12 @@ for idx, art in ipairs(Artefacts.LIST) do
     if art.id then
         Artefacts.BY_ID[art.id] = art
     end
+    if art.damagedId then
+        Artefacts.BY_ID[art.damagedId] = art
+    end
+    if art.restoredId then
+        Artefacts.BY_ID[art.restoredId] = art
+    end
 end
 
 function Artefacts.normalize(name)
@@ -2339,6 +2807,12 @@ end
 function Artefacts.findById(id)
     if not id then return nil end
     return Artefacts.BY_ID[id]
+end
+
+--- Returns the preferred display object ID for an artefact (defaults to the repaired/restored sprite).
+function Artefacts.getDisplayId(art)
+    if not art then return nil end
+    return art.restoredId or art.id
 end
 
 function Artefacts.findByName(rawName)

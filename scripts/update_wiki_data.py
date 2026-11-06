@@ -467,11 +467,14 @@ def resolve_all_item_ids(
         })
 
     for a in artefacts:
-        a["id"] = item_id_map.get(a["damagedName"]) or item_id_map.get(a["name"])
+        a["damagedId"] = item_id_map.get(a["damagedName"])
+        a["restoredId"] = item_id_map.get(a["name"])
+        a["id"] = a["damagedId"] or a["restoredId"]
 
     mat_ids = sum(1 for m in materials if m["id"] is not None)
     art_ids = sum(1 for a in artefacts if a["id"] is not None)
-    print(f"      -> Resolved {mat_ids}/{len(materials)} material IDs and {art_ids}/{len(artefacts)} artefact IDs.")
+    restored_count = sum(1 for a in artefacts if a.get("restoredId") is not None)
+    print(f"      -> Resolved {mat_ids}/{len(materials)} material IDs and {art_ids}/{len(artefacts)} artefact IDs ({restored_count} restored).")
 
 
 # ============================================================================
@@ -863,9 +866,13 @@ def generate_artefacts_lua(artefacts: list[dict[str, Any]]) -> str:
             for r in a["materials"]
         )
         id_val = a["id"] if a["id"] is not None else "nil"
+        damaged_id_val = a.get("damagedId") if a.get("damagedId") is not None else id_val
+        restored_id_val = a.get("restoredId") if a.get("restoredId") is not None else "nil"
         lines.extend([
             "    {",
             f"        id = {id_val},",
+            f"        damagedId = {damaged_id_val},",
+            f"        restoredId = {restored_id_val},",
             f'        name = "{escape_lua(a["name"])}",',
             f'        damagedName = "{escape_lua(a["damagedName"])}",',
             f"        level = {a['level']},",
@@ -890,6 +897,12 @@ def generate_artefacts_lua(artefacts: list[dict[str, Any]]) -> str:
         "    if art.id then",
         "        Artefacts.BY_ID[art.id] = art",
         "    end",
+        "    if art.damagedId then",
+        "        Artefacts.BY_ID[art.damagedId] = art",
+        "    end",
+        "    if art.restoredId then",
+        "        Artefacts.BY_ID[art.restoredId] = art",
+        "    end",
         "end",
         "",
         "function Artefacts.normalize(name)",
@@ -899,6 +912,12 @@ def generate_artefacts_lua(artefacts: list[dict[str, Any]]) -> str:
         "function Artefacts.findById(id)",
         "    if not id then return nil end",
         "    return Artefacts.BY_ID[id]",
+        "end",
+        "",
+        "--- Returns the preferred display object ID for an artefact (defaults to the repaired/restored sprite).",
+        "function Artefacts.getDisplayId(art)",
+        "    if not art then return nil end",
+        "    return art.restoredId or art.id",
         "end",
         "",
         "function Artefacts.findByName(rawName)",

@@ -160,6 +160,18 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
     local clean = Utils.cleanText(text)
     local lower = string.lower(clean)
 
+    -- 0. Archaeology Level-up detection
+    local lvlMatch = string.match(clean, "advanced your Archaeology level to (%d+)")
+        or string.match(clean, "reached level (%d+) in Archaeology")
+        or string.match(clean, "Archaeology level is now (%d+)")
+    if lvlMatch then
+        local newLvl = tonumber(lvlMatch)
+        if newLvl and newLvl >= 1 and newLvl <= 120 then
+            tracker:setPlayerArchLevel(newLvl)
+            print(string.format("[Archaeology Assistant] Synced Archaeology level from chat: %d", newLvl))
+        end
+    end
+
     -- 1. Sign of the Porter / Grace of the Elves / Material Storage transport
     local mat, qty = parsePorterTransport(clean, lower)
     if mat then
