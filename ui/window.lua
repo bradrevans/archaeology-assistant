@@ -642,8 +642,8 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     self.colArtName   = Widgets.createText(artLayer, Theme.COL_GOLD, 36,  2, 132, 20, "Artefact")
     self.colArtLvl    = Widgets.createText(artLayer, Theme.COL_GOLD, 170, 2, 30,  20, "Lvl")
     self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202, 2, 100, 20, "Location", 0, 0, 0, 0)
-    self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -316, 2, 82,   20, "Owned",    1.0, 0, 0, 0)
-    self.colArtQty    = Widgets.createText(artLayer, Theme.COL_GOLD, -228, 2, 64,   20, "Include",  1.0, 0, 0, 0)
+    self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -330, 2, 82,   20, "Owned",    1.0, 0, 0, 0)
+    self.colArtQty    = Widgets.createText(artLayer, Theme.COL_GOLD, -242, 2, 64,   20, "Include",  1.0, 0, 0, 0)
     if ui.AlignMode then
         pcall(function()
             self.colArtQty.alignHorizontal = ui.AlignMode.CENTRE
@@ -1048,7 +1048,8 @@ function Window:reflowDynamicContent(availW, forceReflow)
         local locX = lvlX + lvlW + 4
 
         local statusOffset = statusW + 6
-        local qtyOffset = statusOffset + 64
+        local qtyGap = 14
+        local qtyOffset = statusOffset + 64 + qtyGap
         local ownedOffset = qtyOffset + ownedW + 6
         local availableLocW = (wAvail - ownedOffset - 6) - locX
         local locVisible = availableLocW >= 28

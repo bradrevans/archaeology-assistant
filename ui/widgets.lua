@@ -1059,9 +1059,9 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
         return btnBg, btnTxt
     end
 
-    local minusBg, minusTxt = makeStepBtn(-228, sliderSprites and sliderSprites.decrease, "-", -1)
+    local minusBg, minusTxt = makeStepBtn(-242, sliderSprites and sliderSprites.decrease, "-", -1)
 
-    local qtyTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -208, rowY + 2, 24, rowH - 2, nil, 1.0, 0, 0, 0)
+    local qtyTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -222, rowY + 2, 24, rowH - 2, nil, 1.0, 0, 0, 0)
     if ui.AlignMode then
         pcall(function()
             qtyTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -1070,7 +1070,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
     end
     qtyTxt.hidden = isHidden
 
-    local plusBg, plusTxt = makeStepBtn(-180, sliderSprites and sliderSprites.increase, "+", 1)
+    local plusBg, plusTxt = makeStepBtn(-194, sliderSprites and sliderSprites.increase, "+", 1)
 
     local statusTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -143, rowY + 2, 135, rowH - 2, nil, 1.0, 0, 0, 0)
     statusTxt.hidden = isHidden
