@@ -133,10 +133,14 @@ end
 function Widgets.createTabButton(parent, label, tooltipText, onClick, onWheelFn)
     local btn = Widgets.createToolbarButton(parent, label, tooltipText, true, onClick, onWheelFn)
     local origSetActive = btn.setActive
+    local currentActive = nil
     btn.setActive = function(active)
-        origSetActive(active)
+        local bActive = (active == true)
+        if currentActive == bActive then return end
+        currentActive = bActive
+        origSetActive(bActive)
         if btn.widget and btn.widget.content then
-            btn.widget.content.colour = active and Theme.COL_GOLD or Theme.COL_CREAM
+            btn.widget.content.colour = bActive and Theme.COL_GOLD or Theme.COL_CREAM
         end
     end
     return btn
@@ -170,8 +174,9 @@ function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onC
                 end
             end,
             setActive = function(active)
-                if btn.SetActive then
-                    btn:SetActive(active == true)
+                local bActive = (active == true)
+                if btn.SetActive and btn.active ~= bActive then
+                    btn:SetActive(bActive)
                 end
             end,
             setDisabled = function(disabled)
@@ -220,6 +225,92 @@ function Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onC
             btn:SetPos(x, y, relX or 0, relY or 0)
             btn:SetSize(w, h, relW or 0, relH or 0)
         end
+    }
+end
+
+--- Creates a compact, authentic RS3 Search Clear button using the red modal close sprite (`Sprites.CLOSE`)
+--- or the native cross icon sprite (`Sprites.SPRITE_BUTTONS.CROSS`).
+function Widgets.createSearchClearButton(parent, onClickFn)
+    local Sprites = getSprites()
+    local btnW = 20
+    local btnH = 20
+
+    local closeSprite = Sprites and Sprites.CLOSE
+    local closeHoverSprite = Sprites and (Sprites.CLOSE_ACTIVE or Sprites.CLOSE)
+
+    if closeSprite then
+        local btn = ui.Sprite.new(parent)
+        btn.spriteID = closeSprite
+        btn.clickthrough = false
+        btn:SetPos(0, 0)
+        btn:SetSize(btnW, btnH)
+
+        if ui and ui.Hook then
+            if ui.Hook.ONMOUSEOVER then
+                btn:Subscribe(ui.Hook.ONMOUSEOVER, function()
+                    btn.spriteID = closeHoverSprite
+                    return false
+                end)
+            end
+            if ui.Hook.ONMOUSELEAVE then
+                btn:Subscribe(ui.Hook.ONMOUSELEAVE, function()
+                    btn.spriteID = closeSprite
+                    return false
+                end)
+            end
+            if ui.Hook.ONCLICK then
+                btn:Subscribe(ui.Hook.ONCLICK, function()
+                    if onClickFn then onClickFn() end
+                    return false
+                end)
+            end
+        end
+
+        return {
+            root = btn,
+            setHidden = function(h) btn.hidden = (h == true) end,
+            setBounds = function(x, y, w, h)
+                btn:SetPos(x or 0, y or 0)
+                btn:SetSize(w or btnW, h or btnH)
+            end,
+        }
+    end
+
+    local btnRoot = ui.Layer.new(parent)
+    btnRoot.clickthrough = false
+    btnRoot:SetPos(0, 0)
+    btnRoot:SetSize(btnW, btnH)
+
+    local bg = ui.Rectangle.new(btnRoot)
+    bg.colour = Theme.makeColour(0.22, 0.12, 0.12, 0.95)
+    bg.fill = true
+    bg.clickthrough = true
+    bg:SetPos(0, 0)
+    bg:SetSize(btnW, btnH)
+
+    local txt = Widgets.createText(btnRoot, Theme.COL_RED, 0, 0, btnW, btnH, "X")
+    if ui.AlignMode then
+        pcall(function()
+            txt.alignHorizontal = ui.AlignMode.CENTRE
+            txt.alignVertical = ui.AlignMode.CENTRE
+        end)
+    end
+    txt.clickthrough = true
+
+    if ui and ui.Hook and ui.Hook.ONCLICK then
+        btnRoot:Subscribe(ui.Hook.ONCLICK, function()
+            if onClickFn then onClickFn() end
+            return false
+        end)
+    end
+
+    return {
+        root = btnRoot,
+        setHidden = function(h) btnRoot.hidden = (h == true) end,
+        setBounds = function(x, y, w, h)
+            btnRoot:SetPos(x or 0, y or 0)
+            btnRoot:SetSize(w or btnW, h or btnH)
+        end,
     }
 end
 
@@ -300,6 +391,9 @@ function Widgets.createSyncBadge(container, fallbackLabel, iconObjId, bindRowHov
         root = root,
         bg = slotBg,
         setIcon = setIcon,
+        setHidden = function(hidden)
+            root.hidden = (hidden == true)
+        end,
         setBounds = function(x, y, w, h)
             root:SetPos(x, y)
             root:SetSize(w, h)
@@ -329,40 +423,62 @@ function Widgets.createSyncBadge(container, fallbackLabel, iconObjId, bindRowHov
     }
 end
 
---- Creates the Collections-tab Collector Sync status button (`Collectors: X/13`) using `prettyui.SimpleButton`.
-function Widgets.createCollectorSyncPill(container, bindRowHover, onHoverFn, onClickFn, onWheelFn)
+--- Creates the Collections-tab Collector Sync status badge with words (`Collectors: X/13`).
+--- Styled identically to the sync badges (slot frame, status bar, dot) but with text instead of an icon.
+--- NOT an interactive button.
+function Widgets.createCollectorSyncPill(container, bindRowHover, onHoverFn, onWheelFn)
     local root = ui.Layer.new(container)
     root.clickthrough = false
     root:SetPos(0, 36)
-    root:SetSize(115, 26)
+    root:SetSize(142, 26)
 
-    local btn = Widgets.createToolbarButton(
-        root,
-        "Collectors",
-        nil,
-        false,
-        onClickFn,
-        onWheelFn
-    )
-    btn.setBounds(0, 0, 115, 26)
+    -- Item slot background matching the sync badges exactly
+    local Sprites = getSprites()
+    local slotBg = nil
+    if Sprites and Sprites.ITEM_SLOT_BACKGROUND then
+        slotBg = ui.Sprite.new(root)
+        slotBg.spriteID = Sprites.ITEM_SLOT_BACKGROUND
+        slotBg.clickthrough = true
+        slotBg:SetPos(0, 0)
+        slotBg:SetSize(0, 0, 1.0, 1.0)
+    end
 
+    -- Bottom status line (matches createSyncBadge)
+    local statusBar = ui.Rectangle.new(root)
+    statusBar.colour = Theme.COL_RED
+    statusBar.fill = true
+    statusBar.clickthrough = true
+    statusBar:SetPos(2, -3, 0, 1.0)
+    statusBar:SetSize(-4, 2, 1.0, 0)
+
+    -- Text label displaying "Collectors: X/13"
+    local txt = Widgets.createText(root, Theme.COL_WHITE, 6, 0, -18, 0, "Collectors: 0/13", 0, 0, 1.0, 1.0)
+    if ui.AlignMode then
+        pcall(function()
+            txt.alignHorizontal = ui.AlignMode.CENTRE
+            txt.alignVertical = ui.AlignMode.CENTRE
+        end)
+    end
+
+    -- Top-right status dot (matches createSyncBadge)
     local dotOutline = ui.Rectangle.new(root)
-    dotOutline.colour = Theme.makeColour(0.04, 0.04, 0.04, 0.9)
+    dotOutline.colour = Theme.makeColour(0, 0, 0, 0.9)
     dotOutline.fill = true
     dotOutline.clickthrough = true
-    dotOutline:SetPos(-11, 3, 1.0, 0)
-    dotOutline:SetSize(8, 8)
+    dotOutline:SetPos(-11, 2, 1.0, 0)
+    dotOutline:SetSize(9, 9)
 
     local dot = ui.Rectangle.new(root)
     dot.colour = Theme.COL_RED
     dot.fill = true
     dot.clickthrough = true
-    dot:SetPos(-10, 4, 1.0, 0)
-    dot:SetSize(6, 6)
+    dot:SetPos(-10, 3, 1.0, 0)
+    dot:SetSize(7, 7)
 
     bindRowHover(root, onHoverFn)
-    if btn.root and btn.root ~= root then
-        bindRowHover(btn.root, onHoverFn)
+
+    if onWheelFn and root.Subscribe and ui and ui.Hook and ui.Hook.ONSCROLLWHEEL then
+        pcall(function() root:Subscribe(ui.Hook.ONSCROLLWHEEL, onWheelFn) end)
     end
 
     return {
@@ -371,29 +487,43 @@ function Widgets.createCollectorSyncPill(container, bindRowHover, onHoverFn, onC
         setBounds = function(x, y, w, h)
             root:SetPos(x, y)
             root:SetSize(w, h)
-            btn.setBounds(0, 0, w, h)
         end,
         setHidden = function(hidden)
             root.hidden = (hidden == true)
-            btn.setHidden(hidden)
         end,
         setStatus = function(syncedCount, totalCount, liveCount)
-            btn.setLabel(string.format("Collectors: %d/%d", syncedCount or 0, totalCount or 13))
-            if (liveCount or 0) == totalCount and (totalCount or 0) > 0 then
+            local s = syncedCount or 0
+            local t = totalCount or 13
+            local l = liveCount or 0
+            txt.content = string.format("Collectors: %d/%d", s, t)
+
+            if l == t and t > 0 then
+                statusBar.colour = Theme.COL_GREEN
                 dot.colour = Theme.COL_GREEN
-                if btn.widget and btn.widget.content then
-                    btn.widget.content.colour = Theme.COL_GREEN
-                end
-            elseif (syncedCount or 0) > 0 then
+                txt.colour = Theme.COL_GREEN
+            elseif s > 0 then
+                statusBar.colour = Theme.COL_AMBER
                 dot.colour = Theme.COL_AMBER
-                if btn.widget and btn.widget.content then
-                    btn.widget.content.colour = Theme.COL_AMBER
-                end
+                txt.colour = Theme.COL_AMBER
             else
+                statusBar.colour = Theme.COL_RED
                 dot.colour = Theme.COL_RED
-                if btn.widget and btn.widget.content then
-                    btn.widget.content.colour = Theme.COL_RED
-                end
+                txt.colour = Theme.COL_RED
+            end
+        end,
+        setState = function(state)
+            if state == "synced" then
+                statusBar.colour = Theme.COL_GREEN
+                dot.colour = Theme.COL_GREEN
+                txt.colour = Theme.COL_GREEN
+            elseif state == "cached" then
+                statusBar.colour = Theme.COL_AMBER
+                dot.colour = Theme.COL_AMBER
+                txt.colour = Theme.COL_AMBER
+            else
+                statusBar.colour = Theme.COL_RED
+                dot.colour = Theme.COL_RED
+                txt.colour = Theme.COL_RED
             end
         end
     }
@@ -724,9 +854,9 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
         return btnBg, btnTxt
     end
 
-    local minusBg, minusTxt = makeStepBtn(56, sliderSprites and sliderSprites.decrease, "-", -1)
+    local minusBg, minusTxt = makeStepBtn(58, sliderSprites and sliderSprites.decrease, "-", -1)
 
-    local targetTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 74, rowY + 2, 24, rowH - 2, "1", 0, 0, 0, 0)
+    local targetTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 78, rowY + 2, 24, rowH - 2, "1", 0, 0, 0, 0)
     if ui.AlignMode then
         pcall(function()
             targetTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -735,176 +865,27 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     end
     targetTxt.hidden = isHidden
 
-    local plusBg, plusTxt = makeStepBtn(100, sliderSprites and sliderSprites.increase, "+", 1)
+    local plusBg, plusTxt = makeStepBtn(106, sliderSprites and sliderSprites.increase, "+", 1)
 
-    local function makeSimpleStyleBtn(xPos, width, label, onClickFn)
-        local btnH = 20
-        local btnY = rowY + 1
-        local cornerW = 8
-        local cornerH = 8
-
-        local btnRoot = ui.Layer.new(colLayer)
-        btnRoot:SetPos(xPos, btnY, 0, 0)
-        btnRoot:SetSize(width, btnH, 0, 0)
-        btnRoot.clickthrough = false
-        btnRoot.hidden = isHidden
-
-        local simpleSprites = (Sprites and Sprites.SIMPLE_BUTTON) or FALLBACK_SIMPLE_BUTTON
-
-        local function backgroundSprite(tiled)
-            local s = ui.Sprite.new(btnRoot)
-            s.clickthrough = true
-            s.isTiling = (tiled == true)
-            return s
-        end
-
-        local parts = {
-            topLeft     = backgroundSprite(false),
-            top         = backgroundSprite(true),
-            topRight    = backgroundSprite(false),
-            left        = backgroundSprite(true),
-            centre      = backgroundSprite(true),
-            right       = backgroundSprite(true),
-            bottomLeft  = backgroundSprite(false),
-            bottom      = backgroundSprite(true),
-            bottomRight = backgroundSprite(false),
-        }
-
-        parts.topLeft:SetPos(0, 0)
-        parts.topLeft:SetSize(cornerW, cornerH)
-
-        parts.top:SetPos(cornerW, 0)
-        parts.top:SetSize(-cornerW * 2, cornerH, 1.0, 0)
-
-        parts.topRight:SetPos(-cornerW, 0, 1.0, 0)
-        parts.topRight:SetSize(cornerW, cornerH)
-
-        parts.left:SetPos(0, cornerH)
-        parts.left:SetSize(cornerW, -cornerH * 2, 0, 1.0)
-
-        parts.centre:SetPos(cornerW, cornerH)
-        parts.centre:SetSize(-cornerW * 2, -cornerH * 2, 1.0, 1.0)
-
-        parts.right:SetPos(-cornerW, cornerH, 1.0, 0)
-        parts.right:SetSize(cornerW, -cornerH * 2, 0, 1.0)
-
-        parts.bottomLeft:SetPos(0, -cornerH, 0, 1.0)
-        parts.bottomLeft:SetSize(cornerW, cornerH)
-
-        parts.bottom:SetPos(cornerW, -cornerH, 0, 1.0)
-        parts.bottom:SetSize(-cornerW * 2, cornerH, 1.0, 0)
-
-        parts.bottomRight:SetPos(-cornerW, -cornerH, 1.0, 1.0)
-        parts.bottomRight:SetSize(cornerW, cornerH)
-
-        local txt = ui.Text.new(btnRoot)
-        txt:SetPos(0, 0, 0, 0)
-        txt:SetSize(width, btnH, 0, 0)
-        txt.content = label or ""
-        txt.font = id.Font.MUSEO_SANS_15PT_REGULAR
-        txt.rgba = 0xE8DFD0FF
-        txt.isShadowed = true
-        if ui.AlignMode then
-            pcall(function()
-                txt.alignHorizontal = ui.AlignMode.CENTRE
-                txt.alignVertical = ui.AlignMode.CENTRE
-            end)
-        end
-        txt.maxLines = 1
-        txt.clickthrough = true
-
-        local isHovered = false
-        local isPressed = false
-        local isActive = false
-
-        local function updateState()
-            local state = "neutral"
-            if isPressed or isActive then
-                state = "active"
-            elseif isHovered then
-                state = "hovered"
-            end
-
-            local s = simpleSprites and simpleSprites[state]
-            if s then
-                for piece, part in pairs(parts) do
-                    if s[piece] then
-                        part.spriteID = s[piece]
-                    end
-                end
-            end
-
-            if isHovered or isActive then
-                txt.rgba = 0xFFD700FF
-            else
-                txt.rgba = 0xE8DFD0FF
-            end
-        end
-
-        updateState()
-
-        if ui and ui.Hook then
-            if ui.Hook.ONMOUSEOVER then
-                btnRoot:Subscribe(ui.Hook.ONMOUSEOVER, function()
-                    isHovered = true
-                    updateState()
-                    onHoverRow(rowIdx)
-                    return false
-                end)
-            end
-            if ui.Hook.ONMOUSELEAVE then
-                btnRoot:Subscribe(ui.Hook.ONMOUSELEAVE, function()
-                    isHovered = false
-                    isPressed = false
-                    updateState()
-                    return false
-                end)
-            end
-            if ui.Hook.ONCLICK then
-                btnRoot:Subscribe(ui.Hook.ONCLICK, function()
-                    isPressed = true
-                    updateState()
-                    if onClickFn then onClickFn(rowIdx) end
-                    return false
-                end)
-            end
-            if ui.Hook.ONRELEASE then
-                btnRoot:Subscribe(ui.Hook.ONRELEASE, function()
-                    isPressed = false
-                    updateState()
-                    return false
-                end)
-            end
-        end
-
-        if forwardScrollWheel then forwardScrollWheel(btnRoot) end
-
-        return {
-            root = btnRoot,
-            txt = txt,
-            setActive = function(active)
-                isActive = (active == true)
-                updateState()
-            end,
-            setHidden = function(hidden)
-                btnRoot.hidden = (hidden == true)
-            end,
-            setLabel = function(lbl)
-                txt.content = lbl or ""
-            end,
-        }
+    local doneTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 126, rowY + 2, 66, rowH - 2, "0")
+    if ui.AlignMode then
+        pcall(function()
+            doneTxt.alignHorizontal = ui.AlignMode.CENTRE
+            doneTxt.alignVertical = ui.AlignMode.CENTRE
+        end)
     end
-
-    local maxBtn = makeSimpleStyleBtn(120, 44, "Max", onSetMax)
-    local resetBtn = makeSimpleStyleBtn(168, 66, "Reset", onReset)
-
-    local doneTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 238, rowY + 2, 42, rowH - 2, "-")
     doneTxt.hidden = isHidden
 
-    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 284, rowY + 2, 26, rowH - 2)
+    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 196, rowY + 2, 28, rowH - 2)
+    if ui.AlignMode then
+        pcall(function()
+            lvlTxt.alignHorizontal = ui.AlignMode.CENTRE
+            lvlTxt.alignVertical = ui.AlignMode.CENTRE
+        end)
+    end
     lvlTxt.hidden = isHidden
 
-    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 314, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
+    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 228, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
     nameTxt.hidden = isHidden
 
     local rewardTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -156, rowY + 2, 88, rowH - 2, nil, 1.0, 0, 0, 0)
@@ -927,8 +908,6 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
         targetTxt = targetTxt,
         plusBg = plusBg,
         plusTxt = plusTxt,
-        maxBtn = maxBtn,
-        resetBtn = resetBtn,
         readyTxt = readyTxt,
         setTargetState = function(isTargeted)
             isTrackSelected = (isTargeted == true)
@@ -943,13 +922,17 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
                 trackFallbackBtn.setLabel(isTrackSelected and "On" or "Off")
             end
         end,
-        setDoneState = function(isCompleted)
-            if isCompleted then
+        setDoneState = function(isCompleted, completionCount)
+            local count = tonumber(completionCount)
+            if not count then
+                count = (isCompleted == true) and 1 or 0
+            end
+            if count > 0 then
                 doneTxt.colour = Theme.COL_GREEN
-                doneTxt.content = "Done"
+                doneTxt.content = tostring(count)
             else
                 doneTxt.colour = Theme.COL_MUTED
-                doneTxt.content = "-"
+                doneTxt.content = "0"
             end
         end,
         setRowHidden = function(hidden)
@@ -970,8 +953,6 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
             if targetTxt then targetTxt.hidden = h end
             if plusBg then plusBg.hidden = h end
             if plusTxt then plusTxt.hidden = h end
-            if maxBtn then maxBtn.setHidden(h) end
-            if resetBtn then resetBtn.setHidden(h) end
             readyTxt.hidden = h
         end
     }
@@ -1151,6 +1132,68 @@ function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY, bindRowHover, onHove
         locTxt = locTxt,
         progTxt = progTxt,
         statusTxt = statusTxt
+    }
+end
+
+--- Creates a styled empty-state container that replaces table rows when no results match.
+function Widgets.createEmptyTableNotice(parent, forwardScrollWheel)
+    local root = ui.Layer.new(parent)
+    root.clickthrough = false
+    root:SetPos(8, 0, 0, 0)
+    root:SetSize(-16, 56, 1.0, 0)
+    root.hidden = true
+    if forwardScrollWheel then forwardScrollWheel(root) end
+
+    local bg = ui.Rectangle.new(root)
+    bg.colour = Theme.COL_BG_ROW
+    bg.fill = true
+    bg.clickthrough = true
+    bg:SetPos(0, 0)
+    bg:SetSize(0, 0, 1.0, 1.0)
+    if forwardScrollWheel then forwardScrollWheel(bg) end
+
+    local accent = ui.Rectangle.new(root)
+    accent.colour = Theme.COL_GOLD
+    accent.fill = true
+    accent.clickthrough = true
+    accent:SetPos(0, 0)
+    accent:SetSize(3, 0, 0, 1.0)
+
+    local txt = ui.Text.new(root)
+    txt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+    txt.colour = Theme.COL_MUTED
+    txt.maxLines = 0
+    pcall(function() txt.wrap = true end)
+    txt.clickthrough = true
+    txt:SetPos(16, 6, 0, 0)
+    txt:SetSize(-32, 40, 1.0, 0)
+    if ui.AlignMode then
+        pcall(function()
+            txt.alignHorizontal = ui.AlignMode.CENTRE
+            txt.alignVertical = ui.AlignMode.CENTRE
+        end)
+    end
+    if forwardScrollWheel then forwardScrollWheel(txt) end
+
+    return {
+        root = root,
+        txt = txt,
+        accent = accent,
+        setMessage = function(msg, colour)
+            txt.content = msg or ""
+            txt.colour = colour or Theme.COL_MUTED
+        end,
+        setHidden = function(hidden)
+            root.hidden = (hidden == true)
+        end,
+        setBounds = function(x, y, w, h)
+            local finalW = (w and w > 0) and w or 460
+            local finalH = h or 56
+            root:SetPos(x or 8, y or 0, 0, 0)
+            root:SetSize(finalW, finalH, 0, 0)
+            txt:SetPos(16, 8, 0, 0)
+            txt:SetSize(math.max(120, finalW - 32), math.max(36, finalH - 16), 0, 0)
+        end
     }
 end
 

@@ -322,7 +322,10 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
         end
         statusStr = string.format("%d/%d possessed (%s)", prog.haveCount or 0, prog.totalCount or 0, table.concat(parts, ", "))
     end
-    if prog.isCompleted then
+    local compCount = tonumber(prog.completedCount) or (prog.isCompleted and 1 or 0)
+    if compCount > 0 then
+        statusStr = statusStr .. string.format(" [%d Turn-in%s]", compCount, compCount == 1 and "" or "s")
+    elseif prog.isCompleted then
         statusStr = statusStr .. " [Completed]"
     end
 
@@ -331,13 +334,18 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
     local details = {}
     local colLoc = col.location or (Collections and Collections.getCollectorLocation and Collections.getCollectorLocation(col.collector)) or "Archaeology Guild"
     table.insert(details, string.format("Hand-In Location: %s", colLoc))
+    table.insert(details, string.format("Total Turn-ins: %d%s", compCount, (compCount > 0) and " (Completed)" or " (Incomplete)"))
     table.insert(details, string.format("Collection Status: %s", statusStr))
 
     if isMultiTarget then
         table.insert(details, string.format("Planned Completions: %d target | %d sets ready to turn in", targetN, prog.setsReady or 0))
         table.insert(details, string.format("Max Owned Piece: %d (damaged + restored)", prog.maxOwned or 0))
     elseif (prog.maxOwned or 0) > 1 then
-        table.insert(details, string.format("Max Owned Piece: %d (click [Max] to target full stock)", prog.maxOwned))
+        if prog.isTargeted then
+            table.insert(details, string.format("Max Owned Piece: %d (use 'Target Max' in toolbar to max)", prog.maxOwned))
+        else
+            table.insert(details, string.format("Max Owned Piece: %d (track & use 'Target Max' in toolbar)", prog.maxOwned))
+        end
     end
     table.insert(details, "")
 
@@ -428,7 +436,7 @@ end
 
 function Tooltip.buildArtefactRowTooltip(tracker, item)
     local art = item.artefact
-    local objId = art and art.id
+    local objId = art and (art.restoredId or art.id)
     local title = string.format("%s (Lv %d) | %s XP | %s Chronotes",
         art.name, art.level or 1, Utils.formatInt(art.xp), Utils.formatInt(art.chronotes))
     local locStr = art.location or "Archaeology"

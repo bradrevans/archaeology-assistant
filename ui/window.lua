@@ -22,6 +22,7 @@ local COL_FILTER_MODES = {
     { id = "all",        label = "Show: All"     },
     { id = "incomplete", label = "Incomplete"    },
     { id = "targeted",   label = "Targeted"      },
+    { id = "level",      label = "Level Met"     },
     { id = "tetra",      label = "Tetra Pieces"  },
     { id = "powers",     label = "Powers/Relics" },
     { id = "unsynced",   label = "Unsynced"      }
@@ -43,10 +44,16 @@ function Window.new(tracker)
     self.artefactRows = {}
     self.currentArtefacts = {}
     self.currentMaterials = {}
+    self.colSearchQuery = ""
+    self.artSearchQuery = ""
+    self.matSearchQuery = ""
+    self.searchField = nil
+    self.btnSearchClear = nil
     self.hubParent = nil
     self.hubToggleBtn = nil
     self.overlay = nil
     self.tooltip = nil
+    self.previousTab = "collections"
 
     if okOverlay and Overlay then
         local okO, oInstance = xpcall(function()
@@ -199,13 +206,7 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
         end
     end
 
-    if win._scroll then
-        local origOnLayout = win._scroll.onLayout
-        win._scroll.onLayout = function(cw, ch)
-            if origOnLayout then origOnLayout(cw, ch) end
-            self:onWindowGeometryChanged()
-        end
-    end
+
 
     local anchor = ui.Layer.new(win.root)
     anchor:SetSize(0, 0)
@@ -240,14 +241,61 @@ function Window:buildFallbackWindow(parent, x, y, w, h)
     self:updateToolbarLayout(true)
 end
 
+function Window:getActiveSearchQuery()
+    if self.activeTab == "collections" then
+        return self.colSearchQuery or ""
+    elseif self.activeTab == "artefacts" then
+        return self.artSearchQuery or ""
+    else
+        return self.matSearchQuery or ""
+    end
+end
+
+function Window:setActiveSearchQuery(query)
+    query = query or ""
+    if self.activeTab == "collections" then
+        self.colSearchQuery = query
+    elseif self.activeTab == "artefacts" then
+        self.artSearchQuery = query
+    else
+        self.matSearchQuery = query
+    end
+end
+
+function Window:getSearchPlaceholder()
+    if self.activeTab == "collections" then
+        return "Search collections, collectors, artefacts..."
+    elseif self.activeTab == "artefacts" then
+        return "Search artefacts, locations, levels..."
+    else
+        return "Search materials, caches, locations..."
+    end
+end
+
 function Window:switchTab(tabName)
     if tabName ~= "collections" and tabName ~= "artefacts" and tabName ~= "materials" then
         return
     end
+
     self:hideRowTooltip()
     local changed = (self.activeTab ~= tabName)
     self.activeTab = tabName
     DB.set("arch_active_tab", tabName)
+
+    if self.searchField then
+        if self.searchField.SetPlaceholder then
+            self.searchField:SetPlaceholder(self:getSearchPlaceholder())
+        end
+        if self.searchField.SetText then
+            self.searchField:SetText(self:getActiveSearchQuery(), false)
+        end
+        if self.searchField.SetVisible then
+            self.searchField:SetVisible(true)
+        end
+    end
+    if self.btnSearchClear then
+        self.btnSearchClear.setHidden(self:getActiveSearchQuery() == "")
+    end
 
     if self.btnTabCollections then self.btnTabCollections.setActive(self.activeTab == "collections") end
     if self.btnTabArtefacts   then self.btnTabArtefacts.setActive(self.activeTab == "artefacts") end
@@ -324,6 +372,7 @@ function Window:buildContentComponents(container)
 
     self.btnMaterialsTab = self.btnTabMaterials
 
+
     -- 2. Contextual Control Toolbar
     self.btnSource = self:createToolbarButton(
         container,
@@ -349,14 +398,28 @@ function Window:buildContentComponents(container)
         end
     )
 
-    self.btnClearTargets = self:createToolbarButton(
+    self.btnTargetMax = self:createToolbarButton(
         container,
-        "Clear",
-        "Clear all tracked collections (resets collection-level pinning).",
+        "Target Max",
+        "Set all tracked collections to the maximum possible completions from your current holdings.",
         false,
         function()
             self:hideRowTooltip()
-            if self.tracker and self.tracker:hasTargetedCollections() then
+            if self.tracker then
+                self.tracker:setAllTrackedToMax()
+                self:refresh()
+            end
+        end
+    )
+
+    self.btnClearTargets = self:createToolbarButton(
+        container,
+        "Clear",
+        "Untrack all collections and reset target quantities to 1.",
+        false,
+        function()
+            self:hideRowTooltip()
+            if self.tracker then
                 self.tracker:clearTargetedCollections()
                 self:refresh()
             end
@@ -426,26 +489,13 @@ function Window:buildContentComponents(container)
         self.btnSpots.setActive(self.overlay.enabled)
     end
 
-    -- 3. Sync Status Indicators
-    self.btnCollectorsSync = Widgets.createCollectorSyncPill(container, bindRowHover, function()
-        self:onHoverCollectorsStatus()
-    end, function()
-        if self.tracker and self.tracker:isNoticeboardOpen() then
-            self.tracker:syncCollectorBoard(false)
-            self:refresh()
-        else
-            for idx, mode in ipairs(COL_FILTER_MODES) do
-                if mode.id == "unsynced" then
-                    self.colFilterIndex = (self.colFilterIndex == idx) and 1 or idx
-                    if self.btnColFilter then
-                        self.btnColFilter.setLabel(COL_FILTER_MODES[self.colFilterIndex].label)
-                    end
-                    self:refresh()
-                    break
-                end
-            end
-        end
-    end, onWheelPassthrough)
+    -- 3. Sync Status Indicators (Word status badge for Collectors + Icon badges for Storage & Bank)
+    self.badgeBoard = Widgets.createCollectorSyncPill(
+        container,
+        bindRowHover,
+        function() self:onHoverCollectorsStatus() end,
+        onWheelPassthrough
+    )
 
     self.badgeStorage = Widgets.createSyncBadge(container, "Stor", Theme.STORAGE_ICON_OBJ_ID, bindRowHover, function()
         self:onHoverSyncBadge("storage")
@@ -465,10 +515,54 @@ function Window:buildContentComponents(container)
     }
     self.pageDescStrip = Widgets.createPageDescStrip(container, forwardScrollWheel)
 
-    -- 5. Build the three Tab Table Layers
+    -- 5. Search Bar & Clear Button
+    self:buildSearchBar(container, forwardScrollWheel)
+
+    -- 6. Empty Table Notice (replaces table rows when 0 items match)
+    self.emptyTableNotice = Widgets.createEmptyTableNotice(container, forwardScrollWheel)
+
+    -- 7. Build the three Tab Table Layers & Settings View
     self:buildCollectionsTable(container, bindRowHover, forwardScrollWheel)
     self:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     self:buildMaterialsTable(container, bindRowHover, forwardScrollWheel)
+end
+
+function Window:buildSearchBar(container, forwardScrollWheel)
+    if not prettyui or not prettyui.TextField then return end
+
+    local ok, field = pcall(function()
+        return prettyui.TextField.new(container, {
+            x = 8,
+            y = 0,
+            width = 240,
+            height = 24,
+            placeholder = self:getSearchPlaceholder(),
+            text = self:getActiveSearchQuery(),
+            _onScrollWheel = function(comp, delta) return self:handleScrollWheel(comp, delta) end,
+            onChange = function(_, _, newText)
+                local curr = tostring(newText or "")
+                local prev = self:getActiveSearchQuery()
+                if curr ~= prev then
+                    self:setActiveSearchQuery(curr)
+                    self:refresh()
+                end
+            end,
+        })
+    end)
+    if ok and field then
+        self.searchField = field
+    end
+
+    self.btnSearchClear = Widgets.createSearchClearButton(container, function()
+        self:setActiveSearchQuery("")
+        if self.searchField and self.searchField.SetText then
+            self.searchField:SetText("", false)
+        end
+        self:refresh()
+    end)
+    if self.btnSearchClear then
+        self.btnSearchClear.setHidden(false)
+    end
 end
 
 function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWheel)
@@ -489,11 +583,26 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
     colHeaderBg:SetSize(-16, 22, 1.0, 0)
     forwardScrollWheel(colHeaderBg)
 
-    self.colHTrack   = Widgets.createText(colLayer, Theme.COL_GOLD, 8,    2, 44,   20, "Track")
-    self.colHTarget  = Widgets.createText(colLayer, Theme.COL_GOLD, 56,   2, 178,  20, "Target")
-    self.colHDone    = Widgets.createText(colLayer, Theme.COL_GOLD, 238,  2, 42,   20, "Done")
-    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 284,  2, 26,   20, "Lvl")
-    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 314,  2, 60,   20, "Collection", 0, 0, 0, 0)
+    self.colHTrack   = Widgets.createText(colLayer, Theme.COL_GOLD, 8,   2, 44,  20, "Track")
+    self.colHTarget  = Widgets.createText(colLayer, Theme.COL_GOLD, 56,  2, 68,  20, "Target")
+    if ui.AlignMode then
+        pcall(function()
+            self.colHTarget.alignHorizontal = ui.AlignMode.CENTRE
+        end)
+    end
+    self.colHDone    = Widgets.createText(colLayer, Theme.COL_GOLD, 126, 2, 66,  20, "Turn-ins")
+    if ui.AlignMode then
+        pcall(function()
+            self.colHDone.alignHorizontal = ui.AlignMode.CENTRE
+        end)
+    end
+    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 196, 2, 28,  20, "Lvl")
+    if ui.AlignMode then
+        pcall(function()
+            self.colHLvl.alignHorizontal = ui.AlignMode.CENTRE
+        end)
+    end
+    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 228, 2, 60,  20, "Collection", 0, 0, 0, 0)
     self.colHReward  = Widgets.createText(colLayer, Theme.COL_GOLD, -156, 2, 88,   20, "Reward",     1.0, 0, 0, 0)
     self.colHReady   = Widgets.createText(colLayer, Theme.COL_GOLD, -62,  2, 54,   20, "Ready",      1.0, 0, 0, 0)
 
@@ -508,9 +617,7 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
             forwardScrollWheel,
             function(idx) self:onHoverCollectionRow(idx) end,
             function(idx) self:onToggleCollectionTarget(idx) end,
-            function(idx, delta) self:onStepCollectionTarget(idx, delta) end,
-            function(idx) self:onSetCollectionTargetMax(idx) end,
-            function(idx) self:onResetCollectionTarget(idx) end
+            function(idx, delta) self:onStepCollectionTarget(idx, delta) end
         )
     end
 end
@@ -716,17 +823,25 @@ function Window:updateToolbarLayout(forceReflow)
         return
     end
 
+    self._inLayout = true
+
     local availW = self:getAvailableContentWidth()
+    self.btnTabCollections.setHidden(false)
+    self.btnTabArtefacts.setHidden(false)
+    self.btnTabMaterials.setHidden(false)
+    if self.badgeBoard     then if self.badgeBoard.setHidden then self.badgeBoard.setHidden(false) elseif self.badgeBoard.root then self.badgeBoard.root.hidden = false end end
+    if self.badgeStorage   then if self.badgeStorage.setHidden then self.badgeStorage.setHidden(false) elseif self.badgeStorage.root then self.badgeStorage.root.hidden = false end end
+    if self.badgeBank      then if self.badgeBank.setHidden then self.badgeBank.setHidden(false) elseif self.badgeBank.root then self.badgeBank.root.hidden = false end end
+
     local isColTab = (self.activeTab == "collections")
     local isArtTab = (self.activeTab == "artefacts")
     local isMatTab = (self.activeTab == "materials")
     local tabKey = self.activeTab
 
     if not forceReflow and self._lastAvailW == availW and self._lastTabLayout == tabKey then
+        self._inLayout = false
         return
     end
-
-    self._inLayout = true
 
     self:reflowDynamicContent(availW, forceReflow)
 
@@ -741,65 +856,74 @@ function Window:updateToolbarLayout(forceReflow)
         self._lastTabLayout = tabKey
         local gap = 6
 
+        -- Top row (y = 5): [ Collections ] [ Artefacts ] [ Materials ] (full width)
         local tabW = math.floor((availW - (gap * 2)) / 3)
         self.btnTabCollections.setBounds(8, 5, tabW, 26)
         self.btnTabArtefacts.setBounds(8 + tabW + gap, 5, tabW, 26)
         self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 5, availW - (tabW * 2) - (gap * 2), 26)
 
-        self.btnColFilter.setHidden(not isColTab)
-        if self.btnCollectorsSync then self.btnCollectorsSync.setHidden(not isColTab) end
-        self.btnClearTargets.setHidden(not isColTab)
-        self.btnArtFilter.setHidden(not isArtTab)
-        self.btnDupes.setHidden(not isArtTab)
-        self.btnPin.setHidden(not isArtTab)
-        self.btnFilter.setHidden(not isMatTab)
-        if self.btnSpots then self.btnSpots.setHidden(not isMatTab) end
-
+        -- Second row (y = 36):
+        -- Right side: [Collectors: 13/13] [Stor] [Bank]
         local xBank = 8 + availW - Theme.BADGE_W
         local xStor = xBank - gap - Theme.BADGE_W
-        local totalBtnsW = math.max(160, xStor - 8 - gap)
+        local pillW = 142
+        local xCol  = xStor - gap - pillW
+        local totalBtnsW = math.max(120, xCol - 8 - gap)
 
-        if isColTab then
-            local w1 = math.floor((totalBtnsW - (gap * 3)) * 0.24)
-            local w2 = math.floor((totalBtnsW - (gap * 3)) * 0.24)
-            local w3 = math.floor((totalBtnsW - (gap * 3)) * 0.18)
-            local w4 = totalBtnsW - (gap * 3) - (w1 + w2 + w3)
-            local x1 = 8
-            local x2 = x1 + w1 + gap
-            local x3 = x2 + w2 + gap
-            local x4 = x3 + w3 + gap
-            self.btnSource.setBounds(x1, 36, w1, 26)
-            self.btnColFilter.setBounds(x2, 36, w2, 26)
-            self.btnClearTargets.setBounds(x3, 36, w3, 26)
-            if self.btnCollectorsSync then
-                self.btnCollectorsSync.setBounds(x4, 36, w4, 26)
-            end
-        elseif isArtTab then
-            local w1 = math.floor((totalBtnsW - (gap * 3)) * 0.25)
-            local w2 = math.floor((totalBtnsW - (gap * 3)) * 0.27)
-            local w3 = math.floor((totalBtnsW - (gap * 3)) * 0.28)
-            local w4 = totalBtnsW - (gap * 3) - (w1 + w2 + w3)
-            local x1 = 8
-            local x2 = x1 + w1 + gap
-            local x3 = x2 + w2 + gap
-            local x4 = x3 + w3 + gap
-            self.btnSource.setBounds(x1, 36, w1, 26)
-            self.btnArtFilter.setBounds(x2, 36, w2, 26)
-            self.btnDupes.setBounds(x3, 36, w3, 26)
-            self.btnPin.setBounds(x4, 36, w4, 26)
-        else
-            local w1 = math.floor((totalBtnsW - (gap * 2)) * 0.35)
-            local w2 = math.floor((totalBtnsW - (gap * 2)) * 0.33)
-            local w3 = totalBtnsW - (gap * 2) - (w1 + w2)
-            self.btnSource.setBounds(8, 36, w1, 26)
-            self.btnFilter.setBounds(8 + w1 + gap, 36, w2, 26)
-            if self.btnSpots then
-                self.btnSpots.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
-            end
-        end
-
+        if self.badgeBank then self.badgeBank.setBounds(xBank, 36, Theme.BADGE_W, 26) end
         if self.badgeStorage then self.badgeStorage.setBounds(xStor, 36, Theme.BADGE_W, 26) end
-        if self.badgeBank    then self.badgeBank.setBounds(xBank, 36, Theme.BADGE_W, 26) end
+        if self.badgeBoard then self.badgeBoard.setBounds(xCol, 36, pillW, 26) end
+
+        -- Left side buttons per tab: (PROPORTIONALLY SCALED - ALL BUTTONS RESIZE TOGETHER)
+        self.btnSource.setHidden(true)
+        if isColTab then
+            local availForBtns = totalBtnsW - (gap * 2)
+            local w1 = math.floor(availForBtns * 0.34)
+            local w2 = math.floor(availForBtns * 0.38)
+            local w3 = availForBtns - (w1 + w2)
+            self.btnColFilter.setHidden(false)
+            self.btnColFilter.setBounds(8, 36, w1, 26)
+            if self.btnTargetMax then
+                self.btnTargetMax.setHidden(false)
+                self.btnTargetMax.setBounds(8 + w1 + gap, 36, w2, 26)
+            end
+            self.btnClearTargets.setHidden(false)
+            self.btnClearTargets.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
+
+            self.btnArtFilter.setHidden(true)
+            self.btnDupes.setHidden(true)
+            self.btnPin.setHidden(true)
+            self.btnFilter.setHidden(true)
+            if self.btnSpots then self.btnSpots.setHidden(true) end
+        elseif isArtTab then
+            local availForBtns = totalBtnsW - (gap * 2)
+            local w1 = math.floor(availForBtns * 0.38)
+            local w2 = math.floor(availForBtns * 0.38)
+            local w3 = availForBtns - (w1 + w2)
+            self.btnArtFilter.setHidden(false)
+            self.btnArtFilter.setBounds(8, 36, w1, 26)
+            self.btnDupes.setHidden(false)
+            self.btnDupes.setBounds(8 + w1 + gap, 36, w2, 26)
+            self.btnPin.setHidden(false)
+            self.btnPin.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
+
+            self.btnColFilter.setHidden(true)
+            if self.btnTargetMax then self.btnTargetMax.setHidden(true) end
+            self.btnClearTargets.setHidden(true)
+            self.btnFilter.setHidden(true)
+            if self.btnSpots then self.btnSpots.setHidden(true) end
+        else
+            self.btnFilter.setHidden(false)
+            self.btnFilter.setBounds(8, 36, totalBtnsW, 26)
+
+            self.btnColFilter.setHidden(true)
+            if self.btnTargetMax then self.btnTargetMax.setHidden(true) end
+            self.btnClearTargets.setHidden(true)
+            self.btnArtFilter.setHidden(true)
+            self.btnDupes.setHidden(true)
+            self.btnPin.setHidden(true)
+            if self.btnSpots then self.btnSpots.setHidden(true) end
+        end
     end
 
     self._inLayout = false
@@ -831,6 +955,12 @@ function Window:reflowDynamicContent(availW, forceReflow)
     local descH = hDesc + 6
     curY = curY + descH + 5
 
+    local searchY = curY
+    local searchH = (self.searchField ~= nil) and 24 or 0
+    if searchH > 0 then
+        curY = curY + searchH + 5
+    end
+
     local tableHeaderY = curY
     local numTiles = (self.activeTab == "collections") and 4 or 2
 
@@ -839,11 +969,13 @@ function Window:reflowDynamicContent(availW, forceReflow)
         or self._lastNumTiles ~= numTiles
         or self._lastNoticeH ~= noticeH
         or self._lastDescH ~= descH
+        or self._lastSearchH ~= searchH
         or self._lastTableHeaderY ~= tableHeaderY then
         self._lastHeaderAvailW = availW
         self._lastNumTiles = numTiles
         self._lastNoticeH = noticeH
         self._lastDescH = descH
+        self._lastSearchH = searchH
         self._lastTableHeaderY = tableHeaderY
 
         if noticeVisible and self.syncNotice then
@@ -875,6 +1007,23 @@ function Window:reflowDynamicContent(availW, forceReflow)
         self.pageDescStrip.text:SetPos(10, 3)
         self.pageDescStrip.text:SetSize(-16, hDesc, 1.0, 0)
 
+        if self.searchField and self.searchField.root then
+            local clearW = 20
+            local sGap = 4
+            local inputW = (availW or 480) - clearW - sGap
+            self.searchField.root:SetPos(8, searchY)
+            self.searchField.root:SetSize(inputW, searchH)
+            if self.btnSearchClear then
+                self.btnSearchClear.setHidden(false)
+                self.btnSearchClear.setBounds(8 + inputW + sGap, searchY + 2, clearW, 20)
+            end
+        end
+
+        if self.emptyTableNotice then
+            local noticeW = math.max(120, (availW or 480) - 16)
+            self.emptyTableNotice.setBounds(8, tableHeaderY, noticeW, 52)
+        end
+
         if self.collectionsTableLayer then
             self.collectionsTableLayer:SetPos(0, tableHeaderY)
         end
@@ -882,43 +1031,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
         self.tableLayer:SetPos(0, tableHeaderY)
     end
 
-    if self.colHReward and self.colHTarget and self.colHReady and self.colHColName then
-        local wAvail = availW or 480
-        local totalFlexW = math.max(40, wAvail - 388)
-        local targetRewW = 265
-        local thresholdFlexW = 460
-        local rewW
-        if totalFlexW >= thresholdFlexW then
-            rewW = targetRewW
-        else
-            local drop = thresholdFlexW - totalFlexW
-            rewW = math.max(20, targetRewW - math.floor(drop * 0.50))
-        end
-        local nameW = math.max(20, totalFlexW - rewW)
-        local rewNegOffset = 68 + rewW
-
-        if forceReflow or self._lastColAvailW ~= wAvail then
-            self._lastColAvailW = wAvail
-            self.colHReward:SetPos(-rewNegOffset, 2, 1.0, 0)
-            self.colHReward:SetSize(rewW, 20, 0, 0)
-            self.colHColName:SetPos(314, 2, 0, 0)
-            self.colHColName:SetSize(nameW, 20, 0, 0)
-
-            if self.collectionRows then
-                for i = 1, Theme.MAX_COLLECTION_ROWS do
-                    local row = self.collectionRows[i]
-                    if row then
-                        local rY = 24 + (i - 1) * Theme.ROW_HEIGHT
-                        row.rewardTxt:SetPos(-rewNegOffset, rY + 2, 1.0, 0)
-                        row.rewardTxt:SetSize(rewW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.nameTxt:SetPos(314, rY + 2, 0, 0)
-                        row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
-                    end
-                end
-            end
-        end
-    end
-
+    local locW = 88
     if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
         local wAvail = availW or 480
         local statusW = math.min(185, math.max(86, math.floor(105 + (wAvail - 500) * 0.18)))
@@ -933,7 +1046,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
         local ownedOffset = qtyOffset + ownedW + 6
         local availableLocW = (wAvail - ownedOffset - 6) - locX
         local locVisible = availableLocW >= 28
-        local locW = locVisible and math.floor(availableLocW) or 0
+        locW = locVisible and math.floor(availableLocW) or 88
         self._artLocVisible = locVisible
 
         if forceReflow or self._lastArtAvailW ~= wAvail then
@@ -990,6 +1103,35 @@ function Window:reflowDynamicContent(availW, forceReflow)
         end
     end
 
+    if self.colHReward and self.colHTarget and self.colHReady and self.colHColName then
+        local wAvail = availW or 480
+        local maxRewW = 220
+        local rewW = math.min(maxRewW, math.max(40, locW))
+        local rewNegOffset = 68 + rewW
+        local nameW = math.max(40, (wAvail - rewNegOffset - 6) - 228)
+
+        if forceReflow or self._lastColAvailW ~= wAvail then
+            self._lastColAvailW = wAvail
+            self.colHReward:SetPos(-rewNegOffset, 2, 1.0, 0)
+            self.colHReward:SetSize(rewW, 20, 0, 0)
+            self.colHColName:SetPos(228, 2, 0, 0)
+            self.colHColName:SetSize(nameW, 20, 0, 0)
+
+            if self.collectionRows then
+                for i = 1, Theme.MAX_COLLECTION_ROWS do
+                    local row = self.collectionRows[i]
+                    if row then
+                        local rY = 24 + (i - 1) * Theme.ROW_HEIGHT
+                        row.rewardTxt:SetPos(-rewNegOffset, rY + 2, 1.0, 0)
+                        row.rewardTxt:SetSize(rewW, Theme.ROW_HEIGHT - 2, 0, 0)
+                        row.nameTxt:SetPos(228, rY + 2, 0, 0)
+                        row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
+                    end
+                end
+            end
+        end
+    end
+
     local activeRows = 0
     if self.activeTab == "collections" then
         activeRows = self.visibleColRowCount or 0
@@ -1000,7 +1142,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
     end
 
     local totalContentHeight = (activeRows <= 0)
-        and (tableHeaderY + 4)
+        and (tableHeaderY + 60)
         or (tableHeaderY + 24 + (activeRows * Theme.ROW_HEIGHT) + 10)
 
     if self._lastContentHeight ~= totalContentHeight then
@@ -1087,69 +1229,211 @@ function Window:populateRibbonHub(parent)
     self.hubParent = parent
     pcall(function() parent:DeleteAll() end)
 
-    local toggleLabel = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
-    if prettyui and prettyui.SimpleButton then
-        local btn = prettyui.SimpleButton.new(parent, toggleLabel, function()
-            if self:tryMount() then
-                self:setWindowVisible(not self.isVisible)
-            end
-        end, {
-            x = 12,
-            y = 12,
-            height = 30
-        })
-        btn.root:SetPos(12, 12)
-        btn.root:SetSize(-24, 30, 1.0, 0)
-        self.hubToggleBtn = btn
+    local targetContent = parent
+    local scrollHost = nil
 
-        local btnClear = prettyui.SimpleButton.new(parent, "Clear All Cache & Saved Data", function()
-            self.tracker:clearAllCache()
-            self:refresh()
-        end, {
-            x = 12,
-            y = 48,
-            height = 30
-        })
-        btnClear.root:SetPos(12, 48)
-        btnClear.root:SetSize(-24, 30, 1.0, 0)
-        return
+    if prettyui and prettyui.SimpleView then
+        local ok, view = pcall(function()
+            return prettyui.SimpleView.new(parent, {
+                x = 0,
+                y = 0,
+                width = 0,
+                height = 0,
+                widthAnchor = 1.0,
+                heightAnchor = 1.0,
+                scrollable = true,
+                contentHeight = 460,
+                scrollStep = 28,
+            })
+        end)
+        if ok and view and view.content then
+            targetContent = view.content
+            scrollHost = view
+            self.hubScrollView = view
+        end
     end
 
-    local btn = ui.Button.new(parent)
-    btn.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btn:SetPos(12, 12)
-    btn:SetSize(-24, 30, 1.0, 0)
-    btn.label = toggleLabel
-    btn:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
+    if parent.Subscribe and ui and ui.Hook and ui.Hook.ONRESIZE then
+        pcall(function()
+            parent:Subscribe(ui.Hook.ONRESIZE, "arch_hub_resize", function()
+                if self.hubScrollView and self.hubScrollView.Refresh then
+                    self.hubScrollView:Refresh()
+                end
+            end)
+        end)
+    end
+
+    local curY = 10
+    local t = self.tracker
+
+    local function forwardHubWheel(comp, delta)
+        if scrollHost and scrollHost.ScrollBy then
+            scrollHost:ScrollBy(delta * (scrollHost.scrollStep or 28))
+            return false
+        end
+        return false
+    end
+
+    -- 1. Window Visibility
+    local toggleLabel = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
+    self.hubBtnWinToggle = Widgets.createToolbarButton(targetContent, toggleLabel, "Show or hide the main Archaeology Assistant window.", false, function()
         if self:tryMount() then
             self:setWindowVisible(not self.isVisible)
+            self:refreshHub()
         end
-    end)
-    self.hubToggleBtn = btn
+    end, forwardHubWheel)
+    self.hubBtnWinToggle.setBounds(12, curY, -24, 28, 0, 0, 1.0, 0)
+    curY = curY + 36
 
-    local btnClear = ui.Button.new(parent)
-    btnClear.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-    btnClear:SetPos(12, 48)
-    btnClear:SetSize(-24, 30, 1.0, 0)
-    btnClear.label = "Clear All Cache & Saved Data"
-    btnClear:Subscribe(ui.Hook.ONBUTTONPRESSED, function()
-        self.tracker:clearAllCache()
-        self:refresh()
-    end)
+    -- 2. Section: INVENTORY SOURCES
+    Widgets.createText(targetContent, Theme.COL_GOLD, 12, curY, 240, 18, "INVENTORY SOURCES")
+    curY = curY + 22
+
+    -- Backpack toggle
+    local isBag = t and t:isSourceEnabled("bag")
+    self.hubBtnSrcBag = Widgets.createToolbarButton(targetContent, isBag and "Backpack: ON" or "Backpack: OFF", "Include materials & artefacts in backpack.", false, function()
+        if self.tracker then
+            self.tracker:toggleSource("bag")
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnSrcBag.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnSrcBag.setActive(isBag)
+    curY = curY + 30
+
+    -- Material Storage toggle
+    local isStor = t and t:isSourceEnabled("storage")
+    self.hubBtnSrcStorage = Widgets.createToolbarButton(targetContent, isStor and "Material Storage: ON" or "Material Storage: OFF", "Include materials in Material Storage.", false, function()
+        if self.tracker then
+            self.tracker:toggleSource("storage")
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnSrcStorage.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnSrcStorage.setActive(isStor)
+    curY = curY + 30
+
+    -- Bank toggle
+    local isBank = t and t:isSourceEnabled("bank")
+    self.hubBtnSrcBank = Widgets.createToolbarButton(targetContent, isBank and "Bank: ON" or "Bank: OFF", "Include materials & artefacts in your Bank.", false, function()
+        if self.tracker then
+            self.tracker:toggleSource("bank")
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnSrcBank.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnSrcBank.setActive(isBank)
+    curY = curY + 30
+
+    -- Workbench toggle
+    local isBench = t and t:isSourceEnabled("workbench")
+    self.hubBtnSrcWorkbench = Widgets.createToolbarButton(targetContent, isBench and "Workbench Storage: ON" or "Workbench Storage: OFF", "Include damaged artefacts stored in the Archaeologist's workbench.", false, function()
+        if self.tracker then
+            self.tracker:toggleSource("workbench")
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnSrcWorkbench.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnSrcWorkbench.setActive(isBench)
+    curY = curY + 38
+
+    -- 3. Section: COLLECTIONS FILTER
+    Widgets.createText(targetContent, Theme.COL_GOLD, 12, curY, 240, 18, "COLLECTIONS FILTER")
+    curY = curY + 22
+
+    -- Level Met / Show All toggle
+    local isLvlMet = t and t.filterByLevel
+    self.hubBtnLevelFilter = Widgets.createToolbarButton(targetContent, isLvlMet and "Level Req: Level Met" or "Level Req: Show All", "Toggle only showing collections you have the Archaeology level for.", false, function()
+        if self.tracker then
+            self.tracker:toggleFilterByLevel()
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnLevelFilter.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnLevelFilter.setActive(isLvlMet)
+    curY = curY + 38
+
+    -- 4. Section: 3D WORLD OVERLAYS
+    Widgets.createText(targetContent, Theme.COL_GOLD, 12, curY, 240, 18, "3D WORLD OVERLAYS")
+    curY = curY + 22
+
+    local spotsOn = self.overlay and self.overlay.enabled
+    self.hubBtnSpots = Widgets.createToolbarButton(targetContent, spotsOn and "3D Excavation Spots: ON" or "3D Excavation Spots: OFF", "Toggle 3D world overhead indicators and excavation spot highlights.", false, function()
+        if self.overlay and self.overlay.toggleEnabled then
+            self.overlay:toggleEnabled()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnSpots.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnSpots.setActive(spotsOn)
+    curY = curY + 38
+
+    -- 5. Section: CACHE & RESET
+    Widgets.createText(targetContent, Theme.COL_GOLD, 12, curY, 240, 18, "CACHE & RESET")
+    curY = curY + 22
+
+    self.hubBtnClearCache = Widgets.createToolbarButton(targetContent, "Clear All Cache & Saved Data", "Erase all saved collector, bank, and storage data and restart fresh.", false, function()
+        if self.tracker then
+            self.tracker:clearAllCache()
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnClearCache.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    curY = curY + 46
+
+    if scrollHost and scrollHost.SetContentHeight then
+        scrollHost:SetContentHeight(curY)
+        if scrollHost.Refresh then scrollHost:Refresh() end
+    end
+
+    self:refreshHub()
 end
 
 function Window:refreshHub()
-    if self.hubToggleBtn then
-        pcall(function()
-            local label = self.isVisible and "Hide Assistant Window" or "Show Assistant Window"
-            if self.hubToggleBtn.content then
-                self.hubToggleBtn.content.content = label
-            elseif self.hubToggleBtn.SetText then
-                self.hubToggleBtn:SetText(label)
-            else
-                self.hubToggleBtn.label = label
-            end
-        end)
+    local t = self.tracker
+    if self.hubBtnWinToggle then
+        self.hubBtnWinToggle.setLabel(self.isVisible and "Hide Assistant Window" or "Show Assistant Window")
+    end
+    if t then
+        if self.hubBtnSrcBag then
+            local isBag = t:isSourceEnabled("bag")
+            self.hubBtnSrcBag.setLabel(isBag and "Backpack: ON" or "Backpack: OFF")
+            self.hubBtnSrcBag.setActive(isBag)
+        end
+        if self.hubBtnSrcStorage then
+            local isStor = t:isSourceEnabled("storage")
+            self.hubBtnSrcStorage.setLabel(isStor and "Material Storage: ON" or "Material Storage: OFF")
+            self.hubBtnSrcStorage.setActive(isStor)
+        end
+        if self.hubBtnSrcBank then
+            local isBank = t:isSourceEnabled("bank")
+            self.hubBtnSrcBank.setLabel(isBank and "Bank: ON" or "Bank: OFF")
+            self.hubBtnSrcBank.setActive(isBank)
+        end
+        if self.hubBtnSrcWorkbench then
+            local isBench = t:isSourceEnabled("workbench")
+            self.hubBtnSrcWorkbench.setLabel(isBench and "Workbench Storage: ON" or "Workbench Storage: OFF")
+            self.hubBtnSrcWorkbench.setActive(isBench)
+        end
+        if self.hubBtnLevelFilter then
+            local isMet = t.filterByLevel
+            self.hubBtnLevelFilter.setLabel(isMet and "Level Req: Level Met" or "Level Req: Show All")
+            self.hubBtnLevelFilter.setActive(isMet)
+        end
+    end
+    if self.hubBtnSpots and self.overlay then
+        local on = self.overlay.enabled
+        self.hubBtnSpots.setLabel(on and "3D Excavation Spots: ON" or "3D Excavation Spots: OFF")
+        self.hubBtnSpots.setActive(on)
+    end
+    if self.hubScrollView and self.hubScrollView.Refresh then
+        self.hubScrollView:Refresh()
     end
 end
 
@@ -1325,7 +1609,7 @@ function Window:populateCollectionRows(colList)
 
                 rowUI.setRowHidden(false)
                 rowUI.setTargetState(prog.isTargeted)
-                rowUI.setDoneState(prog.isCompleted)
+                rowUI.setDoneState(prog.isCompleted, prog.completedCount)
 
                 if prog.isTargeted then
                     rowUI.bg.colour = Theme.COL_BG_TRACKED
@@ -1379,12 +1663,7 @@ function Window:populateCollectionRows(colList)
                     rowUI.targetTxt.content = tostring(targetCount)
                     rowUI.targetTxt.colour = isTargeted and Theme.COL_GOLD or Theme.COL_MUTED
                 end
-                if rowUI.maxBtn then
-                    rowUI.maxBtn.setActive(isTargeted)
-                end
-                if rowUI.resetBtn then
-                    rowUI.resetBtn.setActive(isTargeted and targetCount > 1)
-                end
+
 
                 if prog.targetCount and prog.targetCount > 1 then
                     local sets = prog.setsReady or 0
@@ -1434,7 +1713,7 @@ function Window:populateArtefactRows(artList)
         local item = artList[slotIdx]
 
         if item then
-            Theme.bindItemSprite(rowUI.icon, item.artefact and item.artefact.id, 1)
+            Theme.bindItemSprite(rowUI.icon, item.artefact and (item.artefact.restoredId or item.artefact.id), 1)
 
             rowUI.bg.hidden = false
             rowUI.nameTxt.hidden = false
@@ -1646,7 +1925,95 @@ function Window:refresh()
 
     local colFilterMode = COL_FILTER_MODES[self.colFilterIndex] and COL_FILTER_MODES[self.colFilterIndex].id or "all"
     local colList, totalCols, completedCols, targetedCols, readyCols = t:getCollectionsForDisplay(colFilterMode)
+
+    -- Apply Search Filtering per Tab
+    local colQuery = string.lower(Utils.trim(self.colSearchQuery or ""))
+    if colQuery ~= "" then
+        local filteredCols = {}
+        for _, item in ipairs(colList) do
+            local matched = false
+            local d = item.data
+            if d then
+                if d.name and string.find(string.lower(d.name), colQuery, 1, true) then
+                    matched = true
+                elseif d.collector and string.find(string.lower(d.collector), colQuery, 1, true) then
+                    matched = true
+                elseif d.specialBenefit and string.find(string.lower(d.specialBenefit), colQuery, 1, true) then
+                    matched = true
+                elseif d.oneTimeReward and string.find(string.lower(d.oneTimeReward), colQuery, 1, true) then
+                    matched = true
+                elseif d.recurringReward and string.find(string.lower(d.recurringReward), colQuery, 1, true) then
+                    matched = true
+                elseif d.artefacts then
+                    for _, artName in ipairs(d.artefacts) do
+                        if string.find(string.lower(artName), colQuery, 1, true) then
+                            matched = true
+                            break
+                        end
+                    end
+                end
+            end
+            if matched then
+                table.insert(filteredCols, item)
+            end
+        end
+        colList = filteredCols
+    end
+
+    local artQuery = string.lower(Utils.trim(self.artSearchQuery or ""))
+    if artQuery ~= "" then
+        local filteredArts = {}
+        for _, item in ipairs(artList) do
+            local matched = false
+            local a = item.artefact
+            if a then
+                if a.name and string.find(string.lower(a.name), artQuery, 1, true) then
+                    matched = true
+                elseif a.damagedName and string.find(string.lower(a.damagedName), artQuery, 1, true) then
+                    matched = true
+                elseif a.location and string.find(string.lower(a.location), artQuery, 1, true) then
+                    matched = true
+                elseif tostring(a.level or "") == artQuery then
+                    matched = true
+                end
+            end
+            if matched then
+                table.insert(filteredArts, item)
+            end
+        end
+        artList = filteredArts
+    end
+
+    local matQuery = string.lower(Utils.trim(self.matSearchQuery or ""))
+    if matQuery ~= "" then
+        local filteredMats = {}
+        for _, item in ipairs(matList) do
+            local matched = false
+            local m = item.material
+            if m then
+                if m.name and string.find(string.lower(m.name), matQuery, 1, true) then
+                    matched = true
+                elseif m.culture and string.find(string.lower(m.culture), matQuery, 1, true) then
+                    matched = true
+                elseif m.caches then
+                    for _, cName in ipairs(m.caches) do
+                        if string.find(string.lower(cName), matQuery, 1, true) then
+                            matched = true
+                            break
+                        end
+                    end
+                end
+            end
+            if matched then
+                table.insert(filteredMats, item)
+            end
+        end
+        matList = filteredMats
+    end
+
     self.currentCollections = colList
+    self.currentArtefacts = artList
+    self.currentMaterials = matList
 
     local chronoteTotal = (t.getTargetedChronotesTotal and t:getTargetedChronotesTotal()) or 0
     self.btnTabCollections.setLabel(string.format("Collections (%d)", #colList))
@@ -1656,16 +2023,54 @@ function Window:refresh()
     self.btnTabMaterials.setLabel(string.format("Materials (%d)", #matList))
     self.btnTabMaterials.setActive(isMatTab)
 
-    self.collectionsTableLayer.hidden = (not isColTab) or (#colList == 0)
-    self.artefactTableLayer.hidden    = (not isArtTab) or (#artList == 0)
-    self.tableLayer.hidden            = (not isMatTab) or (#matList == 0)
+    local isColEmpty = (#colList == 0)
+    local isArtEmpty = (#artList == 0)
+    local isMatEmpty = (#matList == 0)
+
+    self.collectionsTableLayer.hidden = (not isColTab) or isColEmpty
+    self.artefactTableLayer.hidden    = (not isArtTab) or isArtEmpty
+    self.tableLayer.hidden            = (not isMatTab) or isMatEmpty
+
+    local isCurrentEmpty = (isColTab and isColEmpty) or (isArtTab and isArtEmpty) or (isMatTab and isMatEmpty)
+    if self.emptyTableNotice then
+        self.emptyTableNotice.setHidden(not isCurrentEmpty)
+        if isCurrentEmpty then
+            local emptyMsg = ""
+            if isColTab then
+                if colQuery ~= "" then
+                    emptyMsg = string.format("No collections found matching '%s'.", self.colSearchQuery)
+                else
+                    emptyMsg = "No collections found matching current filter."
+                end
+            elseif isArtTab then
+                if artQuery ~= "" then
+                    emptyMsg = string.format("No artefacts found matching '%s'.", self.artSearchQuery)
+                else
+                    emptyMsg = "No damaged artefacts in Backpack, Bank, or Tracked Collections."
+                end
+            else
+                if matQuery ~= "" then
+                    emptyMsg = string.format("No materials found matching '%s'.", self.matSearchQuery)
+                else
+                    emptyMsg = "No materials needed. Track a collection or include artefacts to calculate requirements."
+                end
+            end
+            local col = (self:getActiveSearchQuery() ~= "") and Theme.COL_AMBER or Theme.COL_MUTED
+            self.emptyTableNotice.setMessage(emptyMsg, col)
+        end
+    end
 
     self.btnSource.setLabel(mode.shortLabel)
     if self.btnColFilter then
         self.btnColFilter.setLabel(COL_FILTER_MODES[self.colFilterIndex].label)
         self.btnColFilter.setActive(self.colFilterIndex > 1)
     end
+    if self.btnTargetMax then
+        self.btnTargetMax.setHidden(not isColTab)
+        self.btnTargetMax.setActive(targetedCols > 0)
+    end
     if self.btnClearTargets then
+        self.btnClearTargets.setHidden(not isColTab)
         self.btnClearTargets.setLabel(targetedCols > 0 and string.format("Clear (%d)", targetedCols) or "Clear")
         self.btnClearTargets.setActive(targetedCols > 0)
     end
@@ -1707,9 +2112,12 @@ function Window:refresh()
     local syncedCount, totalCount, liveCount = 0, 0, 0
     if t.getCollectorSyncStatuses then
         _, syncedCount, totalCount, liveCount = t:getCollectorSyncStatuses()
-        if self.btnCollectorsSync then
-            self.btnCollectorsSync.setStatus(syncedCount, totalCount, liveCount)
-        end
+    end
+    if self.badgeBoard and self.badgeBoard.setStatus then
+        self.badgeBoard.setStatus(syncedCount, totalCount, liveCount)
+    end
+    if self.pageDescStrip and self.pageDescStrip.root then
+        self.pageDescStrip.root.hidden = false
     end
 
     self:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, completedCols, targetedCols, readyCols, chronoteTotal, syncStatus, syncedCount, totalCount)
@@ -1725,6 +2133,10 @@ function Window:refresh()
 end
 
 function Window:shutdown()
+    if self.hubScrollView and self.hubScrollView.Destroy then
+        pcall(function() self.hubScrollView:Destroy() end)
+        self.hubScrollView = nil
+    end
     if Event and Event.ContentLayerReady and Event.ContentLayerReady.Unsubscribe then
         pcall(function() Event.ContentLayerReady.Unsubscribe(HUB_EVENT_ID) end)
     end
@@ -1738,6 +2150,10 @@ function Window:shutdown()
     if self.overlay and self.overlay.destroy then
         pcall(function() self.overlay:destroy() end)
         self.overlay = nil
+    end
+    if self.searchField and self.searchField.Destroy then
+        pcall(function() self.searchField:Destroy() end)
+        self.searchField = nil
     end
     if self.win and self.win.Destroy then
         pcall(function() self:onWindowGeometryChanged() end)

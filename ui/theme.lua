@@ -27,6 +27,8 @@ Theme.COL_RED          = Theme.makeColour(1.00, 0.40, 0.40, 1.0)
 Theme.COL_CYAN         = Theme.makeColour(0.38, 0.86, 1.00, 1.0)
 
 -- Window & Table Backgrounds (Matched to PrettyUI warm dark stone/charcoal palette)
+Theme.COL_BG_SOLID     = Theme.makeColour(0.09, 0.08, 0.07, 1.00)
+Theme.COL_BG_MAIN      = Theme.COL_BG_SOLID
 Theme.COL_BG_CARD      = Theme.makeColour(0.09, 0.08, 0.07, 0.88)
 Theme.COL_BG_HEADER    = Theme.makeColour(0.18, 0.16, 0.14, 0.92)
 Theme.COL_BG_ROW       = Theme.makeColour(0.09, 0.08, 0.07, 0.55)

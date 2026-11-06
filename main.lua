@@ -5,8 +5,6 @@
 
 print("[Archaeology Assistant] Initializing plugin v1.0.0...")
 
-
-
 local function recordError(context, err)
     local trace = (debug and debug.traceback) and debug.traceback(tostring(err), 2) or tostring(err)
     local msg = string.format("[%s] %s", tostring(context), tostring(trace))
@@ -53,6 +51,7 @@ end
 
 if tracker and window then
     xpcall(function()
+        tracker:detectPlayerArchLevel()
         tracker:syncCollectionsDoneStatus()
         tracker:recalculate()
         window:refresh()

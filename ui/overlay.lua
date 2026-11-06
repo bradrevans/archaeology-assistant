@@ -59,17 +59,23 @@ local function isEntityAlive(entity)
     return ok and (valid == true or valid ~= false)
 end
 
---- Resolves the top-level root UI component to mount the clickthrough overlay onto.
+--- Resolves the bottom background UI layer to mount the clickthrough world overlay onto.
+--- Mounting onto TOPLEVEL_V2__PLUGIN_BUILD_LAYER_BOTTOM places world overheads behind all
+--- RuneScape UI interfaces (inventory, bank, chat, action bars, dialogs, assistant window).
 local function resolveParent()
     if not ui or not ui.Interfaces or not id or not id.Component then
         return nil
     end
-    if id.Component.TOPLEVEL_V2__ROOT then
-        local ok, res = pcall(function() return ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__ROOT) end)
+    if id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_BOTTOM then
+        local ok, res = pcall(function() return ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_BOTTOM) end)
         if ok and res then return res end
     end
     if id.Component.TOPLEVEL_V2__GAME_AREA then
         local ok, res = pcall(function() return ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA) end)
+        if ok and res then return res end
+    end
+    if id.Component.TOPLEVEL_V2__ROOT then
+        local ok, res = pcall(function() return ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__ROOT) end)
         if ok and res then return res end
     end
     return nil
@@ -268,6 +274,7 @@ function Overlay:tryMount()
         r.clickthrough = true
         r:SetPos(0, 0)
         r:SetSize(0, 0, 1.0, 1.0)
+        if r.MoveToBack then pcall(function() r:MoveToBack() end) end
         return r
     end)
     if not okRoot or not root then
@@ -346,7 +353,7 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
                 table.insert(neededArts, {
                     isArtefact = true,
                     name       = art.name,
-                    id         = art.id,
+                    id         = art.restoredId or art.id,
                     short      = neededQty,
                 })
             end
@@ -513,7 +520,7 @@ function Overlay:scanWorldSpots(force)
                     table.insert(neededArts, {
                         isArtefact = true,
                         name       = art.name,
-                        id         = art.id,
+                        id         = art.restoredId or art.id,
                         short      = neededQty,
                     })
                 end
