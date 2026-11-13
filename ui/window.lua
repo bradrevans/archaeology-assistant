@@ -250,7 +250,7 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self.root = win.root
     self.contentParent = win.content
 
-    local HEADER_H = 65
+    local HEADER_H = 68
     local scrollRoot = win._scroll and win._scroll.root
     local baseX = (scrollRoot and scrollRoot.x) or 0
     local baseY = (scrollRoot and scrollRoot.y) or 0
@@ -974,7 +974,7 @@ function Window:updateStickyHeaderBounds()
     if not self.stickyHeader then return end
     local hx = self.stickyHeaderBaseX or 0
     local hy = self.stickyHeaderBaseY or 0
-    local hh = self.stickyHeaderH or 65
+    local hh = self.stickyHeaderH or 68
     local hw = (self.root and self.root.width and (self.root.width - hx * 2))
         or (self:getAvailableContentWidth() + 16)
     hw = math.max(100, math.floor(hw))
@@ -1145,13 +1145,13 @@ function Window:reflowDynamicContent(availW, forceReflow)
     local numTiles = (self.activeTab == "collections") and 4 or 2
 
     if forceReflow
-        or self._lastHeaderAvailW ~= availW
+        or self._lastReflowAvailW ~= availW
         or self._lastNumTiles ~= numTiles
         or self._lastNoticeH ~= noticeH
         or self._lastDescH ~= descH
         or self._lastSearchH ~= searchH
         or self._lastTableHeaderY ~= tableHeaderY then
-        self._lastHeaderAvailW = availW
+        self._lastReflowAvailW = availW
         self._lastNumTiles = numTiles
         self._lastNoticeH = noticeH
         self._lastDescH = descH
@@ -1159,7 +1159,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
         self._lastTableHeaderY = tableHeaderY
 
         if noticeVisible and self.syncNotice then
-            self.syncNotice.root:SetPos(8, 66)
+            self.syncNotice.root:SetPos(8, 7)
             self.syncNotice.root:SetSize(-16, noticeH, 1.0, 0)
             self.syncNotice.body:SetPos(12, 24)
             self.syncNotice.body:SetSize(-20, hNoticeBody, 1.0, 0)
