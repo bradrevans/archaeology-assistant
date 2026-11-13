@@ -1458,39 +1458,39 @@ function Tracker:onMiniMenuAction(verb, full)
         self.pendingWorkbenchScan = false
     elseif string.find(fLower, "material storage") or string.find(vLower, "material storage") then
         self.lastAction = "storage"
-        self.storageActionTicks = 250
+        self.storageActionTicks = 750
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
         self.workbenchActionTicks = 0
         self.pendingWorkbenchScan = false
     elseif string.find(vLower, "restore") or string.find(fLower, "restore") then
         self.lastAction = "restore"
-        self.workbenchActionTicks = 200
+        self.workbenchActionTicks = 750
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "artefact storage") or string.find(fLower, "artifact storage")
         or string.find(fLower, "damaged artefact") or string.find(fLower, "damaged artifact")
         or (string.find(vLower, "store") and string.find(fLower, "workbench")) then
         self.lastAction = "workbench_storage"
-        self.workbenchActionTicks = 200
+        self.workbenchActionTicks = 750
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "workbench") or string.find(vLower, "workbench") then
         -- Interacting with the archaeologist's workbench itself defaults to restoration crafting
         self.lastAction = "restore"
-        self.workbenchActionTicks = 200
+        self.workbenchActionTicks = 750
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "storage") then
         self.lastAction = "storage"
-        self.storageActionTicks = 250
+        self.storageActionTicks = 750
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
     elseif string.find(vLower, "excavate", 1, true) then
         self.lastExcavateTarget = Utils.cleanText(string.gsub(full or "", "^[Ee]xcavate%s*", ""))
     elseif string.find(fLower, "cart") or string.find(fLower, "deposit") or string.find(vLower, "store") then
         self.lastAction = "storage"
-        self.storageActionTicks = 250
+        self.storageActionTicks = 750
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
     elseif string.find(vLower, "loot") or string.find(fLower, "loot")

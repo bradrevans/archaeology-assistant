@@ -790,9 +790,8 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
                 tracker.storageSyncedLive = true
                 tracker.storageHasCache = true
                 tracker.storageCacheCleared = false
-                if (tracker.storageActionTicks or 0) <= 0 then
-                    tracker.pendingJournalStorageScan = false
-                end
+                tracker.storageActionTicks = 0
+                tracker.pendingJournalStorageScan = false
                 if type(candidateId) == "number" and candidateId >= 0 then
                     tracker.storageInvId = candidateId
                     tracker._knownStorageInvId = candidateId
