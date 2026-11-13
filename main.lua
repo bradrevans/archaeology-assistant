@@ -191,6 +191,9 @@ if Event and Event.Logic and Event.Logic.Subscribe then
         if tracker and tracker:onLogicTick() then
             if window then window:refresh() end
         end
+        if window and window.onLogicTick then
+            window:onLogicTick()
+        end
     end)
 end
 

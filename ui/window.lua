@@ -22,7 +22,6 @@ local COL_FILTER_MODES = {
     { id = "all",        label = "Show: All"     },
     { id = "incomplete", label = "Incomplete"    },
     { id = "targeted",   label = "Targeted"      },
-    { id = "level",      label = "Level Met"     },
     { id = "tetra",      label = "Tetra Pieces"  },
     { id = "powers",     label = "Powers/Relics" },
     { id = "unsynced",   label = "Unsynced"      }
@@ -138,10 +137,93 @@ function Window:handleScrollWheel(comp, delta)
     return false
 end
 
+function Window:onLogicTick()
+    local tip = self._pendingHeaderTip
+    if not tip then return end
+    if not self.isVisible or self._isResizing then
+        if tip.shown then self:hideRowTooltip() end
+        self._pendingHeaderTip = nil
+        return
+    end
+    local pos = Mouse and Mouse.GetPosition and Mouse.GetPosition()
+    if pos then
+        if tip.lastX == nil then
+            tip.lastX, tip.lastY = pos.x, pos.y
+        elseif math.abs(pos.x - tip.lastX) > 1 or math.abs(pos.y - tip.lastY) > 1 then
+            tip.lastX, tip.lastY = pos.x, pos.y
+            tip.ticks = 0
+            if tip.shown then
+                tip.shown = false
+                self:hideRowTooltip()
+            end
+            return
+        end
+    end
+    tip.ticks = tip.ticks + 1
+    if not tip.shown and tip.ticks >= 50 then
+        tip.shown = true
+        self:showRowTooltip(tip.body, "", nil, Theme.COL_WHITE)
+    end
+end
+
+function Window:bindDelayedTooltip(btn, titleText, tooltipText)
+    if not btn or not btn.root then return nil end
+    if btn.widget and btn.widget.SetHoverCursor then
+        btn.widget:SetHoverCursor(nil)
+    end
+    if not tooltipText or tooltipText == "" then return nil end
+    local function clearTip()
+        local tip = self._pendingHeaderTip
+        if tip and tip.btn == btn then
+            if tip.shown then
+                self:hideRowTooltip()
+            end
+            self._pendingHeaderTip = nil
+        end
+    end
+    local function resetAfterClick()
+        local tip = self._pendingHeaderTip
+        if tip and tip.btn == btn then
+            if tip.shown then
+                self:hideRowTooltip()
+            end
+            local pos = Mouse and Mouse.GetPosition and Mouse.GetPosition()
+            tip.ticks = 0
+            tip.shown = false
+            tip.lastX = pos and pos.x or tip.lastX
+            tip.lastY = pos and pos.y or tip.lastY
+        end
+    end
+    btn.root:Subscribe(ui.Hook.ONMOUSEOVER, "arch_delayed_tip", function()
+        local pos = Mouse and Mouse.GetPosition and Mouse.GetPosition()
+        self._pendingHeaderTip = {
+            btn = btn,
+            title = titleText,
+            body = tooltipText,
+            ticks = 0,
+            lastX = pos and pos.x or nil,
+            lastY = pos and pos.y or nil,
+            shown = false,
+        }
+        return true
+    end)
+    btn.root:Subscribe(ui.Hook.ONMOUSELEAVE, "arch_delayed_tip", function()
+        clearTip()
+        return true
+    end)
+    return resetAfterClick
+end
+
 function Window:createToolbarButton(parent, label, tooltipText, toggleable, onClick)
-    return Widgets.createToolbarButton(parent, label, tooltipText, toggleable, onClick, function(comp, delta)
+    local resetTip
+    local btn = Widgets.createToolbarButton(parent, label, nil, toggleable, function()
+        if resetTip then resetTip() end
+        if onClick then onClick() end
+    end, function(comp, delta)
         return self:handleScrollWheel(comp, delta)
     end)
+    resetTip = self:bindDelayedTooltip(btn, label, tooltipText)
+    return btn
 end
 
 function Window:buildPrettyWindow(parent, x, y, w, h)
@@ -168,7 +250,39 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self.root = win.root
     self.contentParent = win.content
 
-    self:buildContentComponents(win.content)
+    local HEADER_H = 65
+    local scrollRoot = win._scroll and win._scroll.root
+    local baseX = (scrollRoot and scrollRoot.x) or 0
+    local baseY = (scrollRoot and scrollRoot.y) or 0
+    self.stickyHeaderBaseX = baseX
+    self.stickyHeaderBaseY = baseY
+    self.stickyHeaderH = HEADER_H
+
+    if scrollRoot then
+        scrollRoot:SetPos(baseX, baseY + HEADER_H)
+        scrollRoot:SetSize(-baseX * 2, -(baseY + HEADER_H) - baseX, 1.0, 1.0)
+        if win._scroll.Refresh then win._scroll:Refresh() end
+    end
+
+    local headerW = math.max(100, ((win.root and win.root.width) or w) - baseX * 2)
+    local stickyHeader = ui.Layer.new(win.root)
+    stickyHeader:SetPos(baseX, baseY)
+    stickyHeader:SetSize(headerW, HEADER_H)
+    local stickyBg = ui.Rectangle.new(stickyHeader)
+    stickyBg.colour = Theme.COL_BG_SOLID
+    stickyBg.fill = true
+    stickyBg:SetPos(0, 0)
+    stickyBg:SetSize(headerW, HEADER_H)
+    local stickyDiv = ui.Rectangle.new(stickyHeader)
+    stickyDiv.colour = Theme.makeColour(0.32, 0.28, 0.22, 0.90)
+    stickyDiv.fill = true
+    stickyDiv:SetPos(0, HEADER_H - 1)
+    stickyDiv:SetSize(headerW, 1)
+    self.stickyHeaderDiv = stickyDiv
+    self.stickyHeader = stickyHeader
+    self.stickyHeaderBg = stickyBg
+
+    self:buildContentComponents(win.content, stickyHeader)
     self.tooltip = Tooltip.new(parent, function(comp, delta)
         return self:handleScrollWheel(comp, delta)
     end)
@@ -234,7 +348,7 @@ function Window:buildFallbackWindow(parent, x, y, w, h)
     self.root = root
     self.contentParent = root
 
-    self:buildContentComponents(root)
+    self:buildContentComponents(root, root)
     self.tooltip = Tooltip.new(parent, function(comp, delta)
         return self:handleScrollWheel(comp, delta)
     end)
@@ -312,7 +426,8 @@ end
 -- Component Tree Construction
 -- ============================================================================
 
-function Window:buildContentComponents(container)
+function Window:buildContentComponents(container, tabsContainer)
+    tabsContainer = tabsContainer or container
     local function forwardScrollWheel(comp)
         if not comp or not comp.Subscribe or not ui or not ui.Hook or not ui.Hook.ONSCROLLWHEEL then return end
         pcall(function()
@@ -346,28 +461,55 @@ function Window:buildContentComponents(container)
         return self:handleScrollWheel(comp, delta)
     end
 
+    local resetColTabTip
     self.btnTabCollections = Widgets.createTabButton(
-        container,
+        tabsContainer,
         "Collections",
-        "View Archaeology collections, rewards, relic powers, turn-in readiness, and target collections for farming.",
-        function() self:switchTab("collections") end,
+        nil,
+        function()
+            if resetColTabTip then resetColTabTip() end
+            self:switchTab("collections")
+        end,
         onWheelPassthrough
     )
+    resetColTabTip = self:bindDelayedTooltip(
+        self.btnTabCollections,
+        "Collections",
+        "View Archaeology collections, rewards, relic powers, turn-in readiness, and target collections for farming."
+    )
 
+    local resetArtTabTip
     self.btnTabArtefacts = Widgets.createTabButton(
-        container,
+        tabsContainer,
         "Artefacts",
-        "View damaged artefacts in your Backpack & Bank, toggle which ones to track, and set quantities.",
-        function() self:switchTab("artefacts") end,
+        nil,
+        function()
+            if resetArtTabTip then resetArtTabTip() end
+            self:switchTab("artefacts")
+        end,
         onWheelPassthrough
     )
+    resetArtTabTip = self:bindDelayedTooltip(
+        self.btnTabArtefacts,
+        "Artefacts",
+        "View damaged artefacts in your Backpack & Bank, toggle which ones to track, and set quantities."
+    )
 
+    local resetMatTabTip
     self.btnTabMaterials = Widgets.createTabButton(
-        container,
+        tabsContainer,
         "Materials",
-        "View required materials, levels, locations, owned counts, and remaining deficits.",
-        function() self:switchTab("materials") end,
+        nil,
+        function()
+            if resetMatTabTip then resetMatTabTip() end
+            self:switchTab("materials")
+        end,
         onWheelPassthrough
+    )
+    resetMatTabTip = self:bindDelayedTooltip(
+        self.btnTabMaterials,
+        "Materials",
+        "View required materials, levels, locations, owned counts, and remaining deficits."
     )
 
     self.btnMaterialsTab = self.btnTabMaterials
@@ -375,7 +517,7 @@ function Window:buildContentComponents(container)
 
     -- 2. Contextual Control Toolbar
     self.btnSource = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Src: All",
         "Cycle which containers are counted (Backpack, Material Storage, Bank).",
         false,
@@ -386,7 +528,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnColFilter = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Show: All",
         "Filter collections: All, Incomplete Only, Targeted Only, or Relics/Powers.",
         false,
@@ -399,7 +541,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnTargetMax = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Target Max",
         "Set all tracked collections to the maximum possible completions from your current holdings.",
         false,
@@ -413,7 +555,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnClearTargets = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Clear",
         "Untrack all collections and reset target quantities to 1.",
         false,
@@ -427,7 +569,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnArtFilter = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Show: All",
         "Filter artefacts: Show All (inventory + tracked), Tracked (only artefacts needed for tracked collections), or Owned (only artefacts in bag/bank).",
         false,
@@ -439,7 +581,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnDupes = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Dupes: All",
         "Toggle artefact inclusion: Dupes: All, Dupes: 1x, or Include: 0 (clear all to 0 for selective repair).",
         false,
@@ -451,7 +593,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnFilter = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Show: All",
         "Toggle between showing all required materials or only materials you are short on.",
         true,
@@ -462,7 +604,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnPin = self:createToolbarButton(
-        container,
+        tabsContainer,
         "Pin",
         "Pin/lock the current damaged artefact list.",
         true,
@@ -473,7 +615,7 @@ function Window:buildContentComponents(container)
     )
 
     self.btnSpots = self:createToolbarButton(
-        container,
+        tabsContainer,
         (self.overlay and self.overlay.enabled) and "Spots: On" or "Spots: Off",
         "Toggle in-game world highlighting and overhead deficit indicators for excavation spots.",
         true,
@@ -491,21 +633,21 @@ function Window:buildContentComponents(container)
 
     -- 3. Sync Status Indicators (Word status badge for Collectors + Icon badges for Storage & Bank)
     self.badgeBoard = Widgets.createCollectorSyncPill(
-        container,
+        tabsContainer,
         bindRowHover,
         function() self:onHoverCollectorsStatus() end,
         onWheelPassthrough
     )
 
-    self.badgeWorkbench = Widgets.createSyncBadge(container, "Bench", Theme.WORKBENCH_ICON_OBJ_ID, bindRowHover, function()
+    self.badgeWorkbench = Widgets.createSyncBadge(tabsContainer, "Bench", Theme.WORKBENCH_ICON_OBJ_ID, bindRowHover, function()
         self:onHoverSyncBadge("workbench")
     end)
 
-    self.badgeStorage = Widgets.createSyncBadge(container, "Stor", Theme.STORAGE_ICON_OBJ_ID, bindRowHover, function()
+    self.badgeStorage = Widgets.createSyncBadge(tabsContainer, "Stor", Theme.STORAGE_ICON_OBJ_ID, bindRowHover, function()
         self:onHoverSyncBadge("storage")
     end)
 
-    self.badgeBank = Widgets.createSyncBadge(container, "Bank", Theme.BANK_ICON_OBJ_ID, bindRowHover, function()
+    self.badgeBank = Widgets.createSyncBadge(tabsContainer, "Bank", Theme.BANK_ICON_OBJ_ID, bindRowHover, function()
         self:onHoverSyncBadge("bank")
     end)
 
@@ -828,10 +970,31 @@ function Window:getAvailableContentWidth()
     return availW
 end
 
+function Window:updateStickyHeaderBounds()
+    if not self.stickyHeader then return end
+    local hx = self.stickyHeaderBaseX or 0
+    local hy = self.stickyHeaderBaseY or 0
+    local hh = self.stickyHeaderH or 65
+    local hw = (self.root and self.root.width and (self.root.width - hx * 2))
+        or (self:getAvailableContentWidth() + 16)
+    hw = math.max(100, math.floor(hw))
+    self.stickyHeader:SetPos(hx, hy)
+    self.stickyHeader:SetSize(hw, hh)
+    if self.stickyHeaderBg then
+        self.stickyHeaderBg:SetPos(0, 0)
+        self.stickyHeaderBg:SetSize(hw, hh)
+    end
+    if self.stickyHeaderDiv then
+        self.stickyHeaderDiv:SetPos(0, hh - 1)
+        self.stickyHeaderDiv:SetSize(hw, 1)
+    end
+end
+
 function Window:updateToolbarLayout(forceReflow)
     if self._inLayout or not self.root or not self.btnSource then
         return
     end
+    self:updateStickyHeaderBounds()
 
     self._inLayout = true
 
@@ -849,7 +1012,9 @@ function Window:updateToolbarLayout(forceReflow)
     local isMatTab = (self.activeTab == "materials")
     local tabKey = self.activeTab
 
-    if not forceReflow and self._lastAvailW == availW and self._lastTabLayout == tabKey then
+    local headerAvailW = math.max(availW, ((self.stickyHeader and self.stickyHeader.width) or (availW + 16)) - 16)
+
+    if not forceReflow and self._lastAvailW == availW and self._lastHeaderAvailW == headerAvailW and self._lastTabLayout == tabKey then
         self._inLayout = false
         return
     end
@@ -861,21 +1026,23 @@ function Window:updateToolbarLayout(forceReflow)
         availW = updatedAvailW
         self:reflowDynamicContent(availW, true)
     end
+    headerAvailW = math.max(availW, ((self.stickyHeader and self.stickyHeader.width) or (availW + 16)) - 16)
 
-    if forceReflow or self._lastAvailW ~= availW or self._lastTabLayout ~= tabKey then
+    if forceReflow or self._lastAvailW ~= availW or self._lastHeaderAvailW ~= headerAvailW or self._lastTabLayout ~= tabKey then
         self._lastAvailW = availW
+        self._lastHeaderAvailW = headerAvailW
         self._lastTabLayout = tabKey
         local gap = 6
 
-        -- Top row (y = 5): [ Collections ] [ Artefacts ] [ Materials ] (full width)
-        local tabW = math.floor((availW - (gap * 2)) / 3)
+        -- Top row (y = 5): [ Collections ] [ Artefacts ] [ Materials ] (full header width)
+        local tabW = math.floor((headerAvailW - (gap * 2)) / 3)
         self.btnTabCollections.setBounds(8, 5, tabW, 26)
         self.btnTabArtefacts.setBounds(8 + tabW + gap, 5, tabW, 26)
-        self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 5, availW - (tabW * 2) - (gap * 2), 26)
+        self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 5, headerAvailW - (tabW * 2) - (gap * 2), 26)
 
         -- Second row (y = 36):
         -- Right side: [Collectors: 13/13] [Bench] [Stor] [Bank]
-        local xBank  = 8 + availW - Theme.BADGE_W
+        local xBank  = 8 + headerAvailW - Theme.BADGE_W
         local xStor  = xBank - gap - Theme.BADGE_W
         local xBench = xStor - gap - Theme.BADGE_W
         local pillW  = 142
@@ -947,7 +1114,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
         return
     end
 
-    local curY = 66
+    local curY = 7
     local noticeVisible = self.syncNotice and not self.syncNotice.root.hidden
     local noticeH = 0
     local hNoticeBody = 0
@@ -1171,6 +1338,7 @@ end
 
 function Window:onWindowGeometryChanged()
     if self._inLayout or not self.root then return end
+    self:updateStickyHeaderBounds()
 
     local rx = math.floor(self.root.x or Theme.DEFAULT_X)
     local ry = math.floor(self.root.y or Theme.DEFAULT_Y)

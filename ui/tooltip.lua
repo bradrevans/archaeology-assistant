@@ -117,28 +117,60 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
     end
 
     local textX = hasIcon and 50 or 10
-    local availTxtW = tipW - textX - 10
+    local hasSub = (subText ~= nil and subText ~= "")
+
+    local lines = {}
+    if type(detailText) == "table" then
+        lines = detailText
+    elseif detailText ~= nil and detailText ~= "" then
+        for line in string.gmatch(detailText .. "\n", "(.-)[\r\n]") do
+            table.insert(lines, line)
+        end
+    end
+
+    local function measureLineW(str)
+        if not str or str == "" then return 0 end
+        return Theme.getStringPxWidth(str)
+    end
+
+    local maxTextW = measureLineW(titleText)
+    if hasSub then
+        maxTextW = math.max(maxTextW, measureLineW(subText))
+    end
+    local hasDetails = false
+    for i = 1, #self.lines do
+        local entry = lines[i]
+        local text = type(entry) == "table" and entry.text or entry
+        if text ~= nil and text ~= "" then
+            hasDetails = true
+            maxTextW = math.max(maxTextW, measureLineW(text))
+        end
+    end
+
+    local tipW = math.max(hasIcon and 64 or 40, math.min(460, math.ceil(textX + maxTextW + 12)))
+    local availTxtW = math.max(20, tipW - textX - 10)
     local hTitle = Theme.measureWrappedTextHeight(titleText, availTxtW)
-    local hSub = Theme.measureWrappedTextHeight(subText, availTxtW)
 
     self.title.colour = titleCol or Theme.COL_GOLD
     self.title.content = titleText
     self.title:SetPos(textX, 8)
     self.title:SetSize(-(textX + 10), hTitle, 1.0, 0)
 
-    local subY = 8 + hTitle + 3
-    self.sub.content = subText
-    self.sub:SetPos(textX, subY)
-    self.sub:SetSize(-(textX + 10), hSub, 1.0, 0)
-
-    local currentY = subY + hSub + 4
-    local lines = {}
-    if type(detailText) == "table" then
-        lines = detailText
+    local currentY = 8 + hTitle
+    if hasSub then
+        local hSub = Theme.measureWrappedTextHeight(subText, availTxtW)
+        self.sub.hidden = false
+        self.sub.content = subText
+        self.sub:SetPos(textX, currentY + 3)
+        self.sub:SetSize(-(textX + 10), hSub, 1.0, 0)
+        currentY = currentY + 3 + hSub
     else
-        for line in string.gmatch((detailText or "") .. "\n", "(.-)[\r\n]") do
-            table.insert(lines, line)
-        end
+        self.sub.hidden = true
+        self.sub.content = ""
+    end
+
+    if hasDetails then
+        currentY = currentY + 4
     end
 
     for i = 1, #self.lines do
@@ -155,7 +187,7 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
             lineTxt:SetPos(textX, currentY)
             lineTxt:SetSize(-(textX + 10), hLine, 1.0, 0)
             currentY = currentY + hLine + 2
-        elseif text == "" then
+        elseif hasDetails and text == "" then
             lineTxt.hidden = true
             currentY = currentY + 4
         else
@@ -163,7 +195,7 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
         end
     end
 
-    local minH = hasIcon and 52 or 40
+    local minH = hasIcon and 52 or 24
     local tipH = math.max(minH, currentY + 8)
 
     local fallbackX = (windowRoot and windowRoot.x or 100) + 120
