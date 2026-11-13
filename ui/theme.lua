@@ -67,10 +67,16 @@ Theme.MAX_COLLECTION_ROWS = 80
 Theme.ROW_HEIGHT          = 24
 Theme.BADGE_W             = 42
 
-Theme.BANK_ICON_OBJ_ID    = 995
-Theme.STORAGE_ICON_OBJ_ID = 49429
-Theme.BOARD_ICON_OBJ_ID   = 49430
-Theme.WORKBENCH_ICON_OBJ_ID = 49921 -- Venator dagger (damaged): represents the Workbench damaged artefact storage
+local function resolveItemId(name)
+    if not id then return nil end
+    local tbl = id.Item or id.Obj or id.Object
+    return tbl and tbl[name] or nil
+end
+
+Theme.BANK_ICON_OBJ_ID      = resolveItemId("COINS")
+Theme.STORAGE_ICON_OBJ_ID   = resolveItemId("ARCH_JOURNAL")
+Theme.BOARD_ICON_OBJ_ID     = resolveItemId("ARCH_CURRENCY_CHRONOTES")
+Theme.WORKBENCH_ICON_OBJ_ID = resolveItemId("ARCH_VENATOR_DAGGER") -- Venator dagger: represents the Workbench damaged artefact storage
 
 -- Font & Text Measurement
 local cachedBodyFont = nil

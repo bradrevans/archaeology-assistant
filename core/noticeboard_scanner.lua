@@ -142,20 +142,20 @@ local function resolveTargetCollectionsForArtefact(matchedArtName, activeCollect
     return targetCollections
 end
 
---- Returns true if Interface 657 (Collector Information Noticeboard) is currently open.
+--- Returns true if the Collector Information Noticeboard (id.Interface.COLLECTOR_BOARD) is currently open.
 function NoticeboardScanner.isNoticeboardOpen()
-    if not ui or not ui.Interfaces then return false end
-    local ok2, c2 = pcall(function() return ui.Interfaces:GetComponent(657, 2) end)
+    if not ui or not ui.Interfaces or not id or not id.Interface then return false end
+    local ok2, c2 = pcall(function() return ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 2) end)
     if ok2 and c2 ~= nil then return true end
-    local ok0, c0 = pcall(function() return ui.Interfaces:GetComponent(657, 0) end)
+    local ok0, c0 = pcall(function() return ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 0) end)
     return (ok0 and c0 ~= nil)
 end
 
---- Lightweight BFS on Interface 657 to detect the currently selected collector name.
+--- Lightweight BFS on id.Interface.COLLECTOR_BOARD to detect the currently selected collector name.
 function NoticeboardScanner.detectActiveCollector()
-    if not ui or not ui.Interfaces then return nil end
+    if not ui or not ui.Interfaces or not id or not id.Interface then return nil end
     local ok, c2 = pcall(function()
-        return ui.Interfaces:GetComponent(657, 2) or ui.Interfaces:GetComponent(657, 0)
+        return ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 2) or ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 0)
     end)
     if not ok or not c2 then return nil end
 
@@ -332,7 +332,7 @@ function NoticeboardScanner.scanCollectorInterface(tracker)
             end
         end
 
-        if ifId == 657 then
+        if ifId == id.Interface.COLLECTOR_BOARD then
             if isInterface657FullColor(comp) then
                 isDone = true
             else
@@ -367,32 +367,32 @@ function NoticeboardScanner.scanCollectorInterface(tracker)
         end
     end
 
-    local hasNoticeboard657 = false
-    local ok657, iface657 = pcall(function() return ui.Interfaces:GetInterface(657) end)
-    if (ok657 and iface657)
-        or ui.Interfaces:GetComponent(657, 0)
-        or ui.Interfaces:GetComponent(657, 24)
-        or ui.Interfaces:GetComponent(657, 2) then
-        hasNoticeboard657 = true
+    local hasNoticeboard = false
+    local okBoard, ifaceBoard = pcall(function() return ui.Interfaces:GetInterface(id.Interface.COLLECTOR_BOARD) end)
+    if (okBoard and ifaceBoard)
+        or ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 0)
+        or ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 24)
+        or ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 2) then
+        hasNoticeboard = true
     end
 
-    if hasNoticeboard657 then
+    if hasNoticeboard then
         local queue = {}
         local qHead = 1
 
-        local function enqueue657(comp, depth)
+        local function enqueueBoard(comp, depth)
             if comp and depth <= 16 then
                 table.insert(queue, { comp = comp, depth = depth })
             end
         end
 
         local c2 = nil
-        pcall(function() c2 = ui.Interfaces:GetComponent(657, 2) end)
-        if c2 then enqueue657(c2, 1) end
+        pcall(function() c2 = ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 2) end)
+        if c2 then enqueueBoard(c2, 1) end
 
         local c0 = nil
-        pcall(function() c0 = ui.Interfaces:GetComponent(657, 0) end)
-        if c0 and not c2 then enqueue657(c0, 1) end
+        pcall(function() c0 = ui.Interfaces:GetComponent(id.Interface.COLLECTOR_BOARD, 0) end)
+        if c0 and not c2 then enqueueBoard(c0, 1) end
 
         while qHead <= #queue and qHead < 2500 do
             local node = queue[qHead]
@@ -400,20 +400,20 @@ function NoticeboardScanner.scanCollectorInterface(tracker)
             local comp = node.comp
             local depth = node.depth
 
-            inspectCompNode(comp, depth, 657)
+            inspectCompNode(comp, depth, id.Interface.COLLECTOR_BOARD)
 
             if depth < 12 then
                 if comp.IterateStaticComponents then
                     pcall(comp.IterateStaticComponents, comp, function(a, b)
                         local child = safeExtractChild(a, b)
-                        if child then enqueue657(child, depth + 1) end
+                        if child then enqueueBoard(child, depth + 1) end
                         return false
                     end)
                 end
                 if comp.IterateDynamicComponents then
                     pcall(comp.IterateDynamicComponents, comp, function(a, b)
                         local child = safeExtractChild(a, b)
-                        if child then enqueue657(child, depth + 1) end
+                        if child then enqueueBoard(child, depth + 1) end
                         return false
                     end)
                 end
