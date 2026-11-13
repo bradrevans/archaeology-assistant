@@ -4,7 +4,7 @@ This document compiles community feature requests and suggestions collected from
 
 ---
 
-## 📋 Near-Term Features (Tier 1: Low-to-Medium Cost)
+## Near-Term Features (Tier 1: Low-to-Medium Cost)
 
 Planned for upcoming updates:
 
@@ -33,7 +33,7 @@ Planned for upcoming updates:
 
 ---
 
-## 🔮 Advanced / Long-Term Features (Tier 2: High-Value Systems)
+## Advanced / Long-Term Features (Tier 2: High-Value Systems)
 
 Planned for future major updates:
 
