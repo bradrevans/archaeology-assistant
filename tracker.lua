@@ -595,7 +595,6 @@ function Tracker:clearAllCache()
     self.completedCollections     = {}
     self.scannedCollectors        = {}
     self.liveScannedCollectors    = {}
-    self.lastCollectorScanSummary = nil
     if self.storageInvId and self.storageInvId >= 0 then
         self._knownStorageInvId = self.storageInvId
     end
@@ -1346,35 +1345,8 @@ function Tracker:checkBackpackChanged()
     return InventoryScanner.checkBackpackChanged(self)
 end
 
-function Tracker:scanCollectorInterface(forceLog)
-    return NoticeboardScanner.scanCollectorInterface(self, forceLog)
-end
-
-function Tracker:isNoticeboardOpen()
-    return NoticeboardScanner.isNoticeboardOpen()
-end
-
-function Tracker:detectActiveCollector()
-    return NoticeboardScanner.detectActiveCollector()
-end
-
 function Tracker:syncCollectionsDoneStatus(forceLog)
     return NoticeboardScanner.syncCollectionsDoneStatus(self, forceLog)
-end
-
-function Tracker:syncCollectorBoard(forceLog)
-    local isForce = (forceLog ~= false)
-    self:syncCollectionsDoneStatus(isForce)
-    local success, _, collectorScanned = self:scanCollectorInterface(isForce)
-    local cScanned = collectorScanned or self:detectActiveCollector()
-    if success and cScanned and cScanned ~= "" and cScanned ~= "Noticeboard" then
-        self.scannedCollectors[cScanned] = 1
-        self.liveScannedCollectors = self.liveScannedCollectors or {}
-        self.liveScannedCollectors[cScanned] = 1
-        DB.set("arch_scanned_collectors", DB.serializeCountMap(self.scannedCollectors))
-    end
-    self:recalculate()
-    return self.lastResult
 end
 
 function Tracker:onLogicTick()
@@ -1423,40 +1395,8 @@ function Tracker:onLogicTick()
         end
     end
 
-    local isNoticeboardOpen = (self.noticeboardOpenTicks and self.noticeboardOpenTicks > 0)
-    local checkInterval = isNoticeboardOpen and 8 or 20
-    if (self._logicTicks % checkInterval) ~= 0 then
+    if (self._logicTicks % 20) ~= 0 then
         return updated
-    end
-
-    if self:isNoticeboardOpen() then
-        self.noticeboardOpenTicks = (self.noticeboardOpenTicks or 0) + 1
-        local activeCollector = self:detectActiveCollector() or "Noticeboard"
-
-        if (not self.noticeboardScanned) or (activeCollector ~= self._lastReportedCollector) then
-            self._lastReportedCollector = activeCollector
-            self.noticeboardScanned = true
-
-            local success, _, collectorScanned = self:scanCollectorInterface(false)
-            if success then
-                self.boardSyncedLive = true
-                self.boardHasCache = true
-                DB.set("arch_board_has_cache", 1)
-                local cScanned = collectorScanned or (activeCollector ~= "Noticeboard" and activeCollector)
-                if cScanned and cScanned ~= "" then
-                    self.scannedCollectors[cScanned] = 1
-                    self.liveScannedCollectors = self.liveScannedCollectors or {}
-                    self.liveScannedCollectors[cScanned] = 1
-                    DB.set("arch_scanned_collectors", DB.serializeCountMap(self.scannedCollectors))
-                end
-                self:recalculate()
-                updated = true
-            end
-        end
-    else
-        self.noticeboardScanned = false
-        self.noticeboardOpenTicks = 0
-        self._lastReportedCollector = nil
     end
 
     self._achCheckTicks = (self._achCheckTicks or 0) + 1

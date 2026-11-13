@@ -1634,14 +1634,14 @@ function Window:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, comp
                     true,
                     "red",
                     string.format("COLLECTORS NOT SYNCED (0 / %d)", totalCount),
-                    "Right-click your Archaeology Journal -> 'Collector information' (or use the Guild Noticeboard) and click each collector to sync."
+                    "Carry or equip your Archaeology Journal, or walk near the Guild Noticeboard to sync all collectors automatically."
                 )
             elseif (totalCount or 0) > 0 and (syncedCount or 0) < totalCount then
                 self.syncNotice.update(
                     true,
                     "amber",
                     string.format("%d OF %d COLLECTORS UNSYNCED", totalCount - syncedCount, totalCount),
-                    string.format("Click 'Collectors: %d/%d' above to filter unsynced collections, or open 'Collector information' in your Archaeology Journal.", syncedCount, totalCount)
+                    "Carry your Archaeology Journal or walk near the Guild Noticeboard to sync remaining collectors automatically."
                 )
             else
                 self.syncNotice.update(false)

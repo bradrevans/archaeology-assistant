@@ -314,9 +314,9 @@ function Tooltip.buildCollectorsStatusTooltip(tracker)
     if liveCount == totalCount and totalCount > 0 then
         subText = "All collectors synced live this session!"
     elseif syncedCount == totalCount and totalCount > 0 then
-        subText = "Using cached collector data from a previous session. Resync via Journal or Noticeboard if changed."
+        subText = "Using cached collector data from a previous session. Carry your Archaeology journal or visit the Guild noticeboard to refresh."
     else
-        subText = "Noticeboard or Journal scan needed to track turned-in artefacts for unsynced collectors."
+        subText = "Carry your Archaeology journal or visit the Guild noticeboard to automatically sync all collectors."
     end
 
     local lines = { "COLLECTORS:" }
@@ -330,9 +330,9 @@ function Tooltip.buildCollectorsStatusTooltip(tracker)
 
     table.insert(lines, "")
     table.insert(lines, "HOW TO SYNC:")
-    table.insert(lines, "• Click the 'Collector Information Noticeboard' at Arch Guild, OR")
-    table.insert(lines, "• Right-click Archaeology Journal -> select 'Collector information'.")
-    table.insert(lines, "• Click each collector on the list to automatically sync!")
+    table.insert(lines, "• Carry or equip your Archaeology Journal (syncs automatically), OR")
+    table.insert(lines, "• Walk near the Collector Information Noticeboard at the Arch Guild.")
+    table.insert(lines, "• All 13 collectors and turned-in artefacts sync at once!")
 
     return titleText, subText, lines, titleCol, Theme.BOARD_ICON_OBJ_ID
 end
