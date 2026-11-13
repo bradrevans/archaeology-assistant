@@ -1377,7 +1377,7 @@ function Tracker:onLogicTick()
             if self.lastAction == "workbench_storage" then
                 self.lastAction = nil
             end
-        elseif self.pendingWorkbenchScan and (self.workbenchActionTicks == 24 or self.workbenchActionTicks == 18 or self.workbenchActionTicks == 12 or self.workbenchActionTicks == 6) then
+        elseif self.pendingWorkbenchScan and (self.workbenchActionTicks % 6 == 0) then
             local wasSynced = self.workbenchSyncedLive
             local prevTotal = self:getWorkbenchArtefactTotal()
             self:recalculate()
@@ -1458,39 +1458,39 @@ function Tracker:onMiniMenuAction(verb, full)
         self.pendingWorkbenchScan = false
     elseif string.find(fLower, "material storage") or string.find(vLower, "material storage") then
         self.lastAction = "storage"
-        self.storageActionTicks = 40
+        self.storageActionTicks = 250
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
         self.workbenchActionTicks = 0
         self.pendingWorkbenchScan = false
     elseif string.find(vLower, "restore") or string.find(fLower, "restore") then
         self.lastAction = "restore"
-        self.workbenchActionTicks = 30
+        self.workbenchActionTicks = 200
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "artefact storage") or string.find(fLower, "artifact storage")
         or string.find(fLower, "damaged artefact") or string.find(fLower, "damaged artifact")
         or (string.find(vLower, "store") and string.find(fLower, "workbench")) then
         self.lastAction = "workbench_storage"
-        self.workbenchActionTicks = 30
+        self.workbenchActionTicks = 200
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "workbench") or string.find(vLower, "workbench") then
         -- Interacting with the archaeologist's workbench itself defaults to restoration crafting
         self.lastAction = "restore"
-        self.workbenchActionTicks = 30
+        self.workbenchActionTicks = 200
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "storage") then
         self.lastAction = "storage"
-        self.storageActionTicks = 24
+        self.storageActionTicks = 250
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
     elseif string.find(vLower, "excavate", 1, true) then
         self.lastExcavateTarget = Utils.cleanText(string.gsub(full or "", "^[Ee]xcavate%s*", ""))
     elseif string.find(fLower, "cart") or string.find(fLower, "deposit") or string.find(vLower, "store") then
         self.lastAction = "storage"
-        self.storageActionTicks = 45
+        self.storageActionTicks = 250
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
     elseif string.find(vLower, "loot") or string.find(fLower, "loot")

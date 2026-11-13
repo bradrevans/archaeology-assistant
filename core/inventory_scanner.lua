@@ -849,7 +849,7 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
         local bagId  = safeId(okBag and bagRef)
         local wornId = safeId(okWorn and wornRef)
         local bankId = safeId(okBank and bankRef)
-        for invId = 1, 950 do
+        for invId = 1, 1500 do
             if invId ~= bagId and invId ~= wornId and invId ~= bankId and invId ~= tracker.bankInvId then
                 local inv = InventoryScanner.findInventory(invId)
                 if inv and tryApplyStorageInv(inv, invId) then
