@@ -2,10 +2,11 @@
 -- Single-responsibility module for scanning Interface 657 (Collector Information Noticeboard)
 -- and syncing completed collections/artefacts via RS3's config.Achievement API.
 
-local Artefacts   = require("data/artefacts")
-local Collections = require("data/collections")
-local Utils       = require("core/utils")
-local DB          = require("core/db")
+local Artefacts        = require("data/artefacts")
+local Collections      = require("data/collections")
+local Utils            = require("core/utils")
+local DB               = require("core/db")
+local InventoryScanner = require("core/inventory_scanner")
 
 local NoticeboardScanner = {}
 
@@ -443,17 +444,136 @@ end
 
 --- Synchronizes completed collections and submitted artefacts from in-game achievements (config.Achievement.FromID)
 --- strictly for collectors that have already been synced by the user.
+local function hasArchaeologyJournal()
+    local invRefs = {}
+    if config and config.Inv then
+        if config.Inv.INV then table.insert(invRefs, config.Inv.INV) end
+        if config.Inv.WORN then table.insert(invRefs, config.Inv.WORN) end
+    elseif id and id.Inv then
+        if id.Inv.INV then table.insert(invRefs, id.Inv.INV) end
+        if id.Inv.WORN then table.insert(invRefs, id.Inv.WORN) end
+    end
+    local journalObjId = (config and config.Obj and config.Obj.ARCH_JOURNAL and config.Obj.ARCH_JOURNAL.id)
+        or (id and id.Obj and id.Obj.ARCH_JOURNAL)
+    for _, invRef in ipairs(invRefs) do
+        local inv = InventoryScanner.findInventory(invRef)
+        if inv then
+            for _, slot in ipairs(InventoryScanner.getInventorySlots(inv)) do
+                local itemId, count, itemName = InventoryScanner.getSlotItemInfo(slot)
+                if count > 0 then
+                    if (journalObjId and itemId == journalObjId)
+                        or (itemName and string.find(string.lower(itemName), "archaeology journal", 1, true)) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function isNearGuildNoticeboard()
+    local pCoord = nil
+    pcall(function()
+        local pEntity = (Player and Player.GetEntity and Player.GetEntity())
+            or (PlayerList and PlayerList.Self and PlayerList.Self())
+        if pEntity then pCoord = pEntity.coordGrid end
+    end)
+    if pCoord and pCoord.x and pCoord.z then
+        -- Archaeology Guild collector noticeboard sits at (3361, 3397)
+        if math.abs(pCoord.x - 3361) <= 32 and math.abs(pCoord.z - 3397) <= 32 then
+            return true
+        end
+    end
+    return NoticeboardScanner.isNoticeboardOpen()
+end
+
+function NoticeboardScanner.canSyncCollectorVarps()
+    return hasArchaeologyJournal() or isNearGuildNoticeboard()
+end
+
 function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
     local syncedCount = 0
-    if not Collections or not Collections.LIST then return 0 end
-    if not tracker or not tracker.scannedCollectors or next(tracker.scannedCollectors) == nil then
-        return 0
-    end
-    if not config or not config.Achievement or not config.Achievement.FromID then
-        return 0
-    end
+    if not Collections or not Collections.LIST or not tracker then return 0 end
 
     local submittedChanged = false
+    local completedChanged = false
+    local scannedChanged = false
+
+    -- Sync via VarPlayer.COLLECTION_* when carrying the Archaeology journal or within 32 tiles of the Guild noticeboard
+    if var and var.VarPlayer and NoticeboardScanner.canSyncCollectorVarps() then
+        if var.VarPlayer.ARCH_TUTORIAL then
+            local okTut, tutVal = pcall(function() return var.VarPlayer.ARCH_TUTORIAL.value end)
+            if okTut and type(tutVal) == "number" and tutVal >= 100 then
+                if not tracker.completedCollections["Museum - Training Weapons"] then
+                    tracker.completedCollections["Museum - Training Weapons"] = 1
+                    completedChanged = true
+                    syncedCount = syncedCount + 1
+                end
+            end
+        end
+
+        for _, col in ipairs(Collections.LIST) do
+            if col.configName then
+                local vpComp = var.VarPlayer[col.configName .. "_COMPLETE"]
+                local compVal = vpComp and vpComp.value
+                if type(compVal) == "number" and compVal > 0 then
+                    local prev = tracker.completedCollections[col.name] or 0
+                    if compVal > prev then
+                        tracker.completedCollections[col.name] = compVal
+                        completedChanged = true
+                        syncedCount = syncedCount + 1
+                    end
+                    if not col.isRepeatable and tracker.submittedArtefacts and tracker.submittedArtefacts[col.name] then
+                        tracker.submittedArtefacts[col.name] = nil
+                        submittedChanged = true
+                    end
+                end
+
+                if col.artObjConfigs then
+                    for artName, artCfg in pairs(col.artObjConfigs) do
+                        local vpArt = var.VarPlayer[col.configName .. "_" .. artCfg]
+                        local artVal = vpArt and vpArt.value
+                        if type(artVal) == "number" then
+                            if artVal > 0 then
+                                tracker.submittedArtefacts[col.name] = tracker.submittedArtefacts[col.name] or {}
+                                if not tracker.submittedArtefacts[col.name][artName] then
+                                    tracker.submittedArtefacts[col.name][artName] = true
+                                    submittedChanged = true
+                                    syncedCount = syncedCount + 1
+                                end
+                            elseif tracker.submittedArtefacts[col.name] and tracker.submittedArtefacts[col.name][artName] then
+                                tracker.submittedArtefacts[col.name][artName] = nil
+                                submittedChanged = true
+                                syncedCount = syncedCount + 1
+                            end
+                        end
+                    end
+                end
+
+                if col.collector and col.collector ~= "" and col.collector ~= "Unknown" then
+                    if (tracker.scannedCollectors[col.collector] or 0) == 0 then
+                        tracker.scannedCollectors[col.collector] = 1
+                        scannedChanged = true
+                    end
+                    tracker.liveScannedCollectors = tracker.liveScannedCollectors or {}
+                    tracker.liveScannedCollectors[col.collector] = 1
+                    tracker.boardSyncedLive = true
+                    if not tracker.boardHasCache then
+                        tracker.boardHasCache = true
+                        DB.set("arch_board_has_cache", 1)
+                    end
+                end
+            end
+        end
+    end
+
+    if scannedChanged then
+        DB.set("arch_scanned_collectors", DB.serializeCountMap(tracker.scannedCollectors))
+    end
+
+    if tracker.scannedCollectors and next(tracker.scannedCollectors) ~= nil
+        and config and config.Achievement and config.Achievement.FromID then
 
     for _, col in ipairs(Collections.LIST) do
         local isCollectorScanned = (tracker.scannedCollectors[col.collector] or 0) > 0
@@ -524,12 +644,13 @@ function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
             end
         end
     end
+    end
 
     if submittedChanged then
         DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(tracker.submittedArtefacts))
     end
-    if syncedCount > 0 or submittedChanged then
-        if syncedCount > 0 then
+    if syncedCount > 0 or completedChanged or submittedChanged then
+        if completedChanged or syncedCount > 0 then
             DB.set("arch_completed_collections", DB.serializeCountMap(tracker.completedCollections))
         end
         tracker:recalculate()

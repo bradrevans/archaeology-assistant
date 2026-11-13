@@ -311,8 +311,7 @@ end
 
 local function isWorkbenchStorageUiOpen()
     if not id or not id.Interface then return false end
-    return isInterfaceOpen(id.Interface.MODAL_STORAGE)
-        or isInterfaceOpen(id.Interface.ARCH_RESTORATION_INSPECT)
+    return isInterfaceOpen(id.Interface.ARCH_RESTORATION_INSPECT)
 end
 
 --- Scans the Archaeologist's workbench damaged-artefact storage via (1) the triggering inventory,
@@ -374,11 +373,10 @@ local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
         end
     end
 
-    local benchUiOpen = isWorkbenchStorageUiOpen()
-    if (tracker.workbenchCacheCleared or not tracker.workbenchSyncedLive) and not benchUiOpen and not isWorkbenchAction and not triggeredByBench then
+    if (tracker.workbenchCacheCleared or not tracker.workbenchSyncedLive) and not isWorkbenchAction and not triggeredByBench then
         return nil
     end
-    if benchUiOpen or triggeredByBench or isWorkbenchAction then
+    if triggeredByBench or isWorkbenchAction then
         tracker.workbenchCacheCleared = false
     end
 
@@ -388,12 +386,12 @@ local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
         local benchInv = InventoryScanner.findInventory(targetBenchRef)
         if benchInv then
             local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(benchInv)
-            if matSlots == 0 and otherSlots == 0 and (dmgSlots > 0 or benchUiOpen or isWorkbenchAction or triggeredByBench or tracker.workbenchSyncedLive) then
+            if matSlots == 0 and otherSlots == 0 and (dmgSlots > 0 or isWorkbenchAction or triggeredByBench or tracker.workbenchSyncedLive) then
                 local snapId = benchRefId or (tracker.workbenchInvId and tracker.workbenchInvId > 0 and tracker.workbenchInvId) or nil
                 local inc, dec = applyWorkbenchSnapshot(tracker, counts, snapId)
                 tracker.pendingWorkbenchScan = false
                 tracker.workbenchCacheCleared = false
-                return inc, dec, benchUiOpen or isWorkbenchAction or triggeredByBench
+                return inc, dec, triggeredByBench
             end
         end
     end
@@ -792,7 +790,9 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
                 tracker.storageSyncedLive = true
                 tracker.storageHasCache = true
                 tracker.storageCacheCleared = false
-                tracker.pendingJournalStorageScan = false
+                if (tracker.storageActionTicks or 0) <= 0 then
+                    tracker.pendingJournalStorageScan = false
+                end
                 if type(candidateId) == "number" and candidateId >= 0 then
                     tracker.storageInvId = candidateId
                     tracker._knownStorageInvId = candidateId
@@ -1051,10 +1051,16 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
     if bagInv then
         bagMats, _, _, bagArts, bagRestored = tracker:extractMaterialsFromInv(bagInv)
     end
-    benchDeposits, benchWithdrawals, benchTriggered = scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
+    local skipExternal = tracker._skipExternalContainerScan == true
+    if not skipExternal then
+        benchDeposits, benchWithdrawals, benchTriggered = scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
+    end
 
     -- 2. Scan Bank (config.Inv.BANK or bankInvId)
-    local checkedBank, bankInv = scanBankContainer(tracker, triggerInvType)
+    local checkedBank, bankInv = false, nil
+    if not skipExternal then
+        checkedBank, bankInv = scanBankContainer(tracker, triggerInvType)
+    end
 
     if bagInv then
         tracker.backpackRestored = bagRestored or {}
@@ -1084,10 +1090,14 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
     end
 
     -- 4. Check if triggerInvType is the Material Storage container, or scan known/in-memory storage when explicitly opened
-    if triggerInvType and not benchTriggered then
-        scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
-    elseif tracker.pendingJournalStorageScan or isMaterialStorageUiOpen() then
-        scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
+    if not skipExternal then
+        local gotStor = false
+        if triggerInvType and not benchTriggered then
+            gotStor = scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
+        end
+        if not gotStor and (tracker.pendingJournalStorageScan or isMaterialStorageUiOpen()) then
+            scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
+        end
     end
 end
 

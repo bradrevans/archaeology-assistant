@@ -606,6 +606,7 @@ function Tracker:clearAllCache()
     self.storageActionTicks       = 0
     self.workbenchActionTicks     = 0
     self.pendingJournalStorageScan = false
+    self.pendingWorkbenchScan     = false
     self.cacheCleared             = true
     self.bankCacheCleared         = true
     self.storageCacheCleared      = true
@@ -632,7 +633,11 @@ function Tracker:clearAllCache()
     DB.set("arch_completed_collections", "")
     DB.set("arch_scanned_collectors", "")
 
-    return self:recalculate()
+    self:syncCollectionsDoneStatus(false)
+    self._skipExternalContainerScan = true
+    local res = self:recalculate()
+    self._skipExternalContainerScan = false
+    return res
 end
 
 function Tracker:togglePin()
@@ -1383,7 +1388,7 @@ function Tracker:onLogicTick()
             if self.lastAction == "storage" then
                 self.lastAction = nil
             end
-        elseif self.pendingJournalStorageScan and (self.storageActionTicks == 18 or self.storageActionTicks == 6) then
+        elseif self.pendingJournalStorageScan and (self.storageActionTicks % 4 == 2) then
             local wasSynced = self.storageSyncedLive
             local prevCount = countMapEntries(self.storageMaterials)
             self:recalculate()
@@ -1455,7 +1460,7 @@ function Tracker:onLogicTick()
     end
 
     self._achCheckTicks = (self._achCheckTicks or 0) + 1
-    if self._achCheckTicks >= 60 then
+    if self._achCheckTicks >= 5 then
         self._achCheckTicks = 0
         local synced = self:syncCollectionsDoneStatus(false)
         if synced > 0 then
@@ -1507,11 +1512,17 @@ function Tracker:onMiniMenuAction(verb, full)
     elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box") then
         self.lastAction = "bank"
         self.bankCacheCleared = false
+        self.storageActionTicks = 0
+        self.pendingJournalStorageScan = false
+        self.workbenchActionTicks = 0
+        self.pendingWorkbenchScan = false
     elseif string.find(fLower, "material storage") or string.find(vLower, "material storage") then
         self.lastAction = "storage"
-        self.storageActionTicks = 24
+        self.storageActionTicks = 40
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
+        self.workbenchActionTicks = 0
+        self.pendingWorkbenchScan = false
     elseif string.find(vLower, "restore") or string.find(fLower, "restore") then
         self.lastAction = "restore"
         self.workbenchActionTicks = 30
@@ -1527,6 +1538,9 @@ function Tracker:onMiniMenuAction(verb, full)
     elseif string.find(fLower, "workbench") or string.find(vLower, "workbench") then
         -- Interacting with the archaeologist's workbench itself defaults to restoration crafting
         self.lastAction = "restore"
+        self.workbenchActionTicks = 30
+        self.pendingWorkbenchScan = true
+        self.workbenchCacheCleared = false
     elseif string.find(fLower, "storage") then
         self.lastAction = "storage"
         self.storageActionTicks = 24
@@ -1666,7 +1680,6 @@ local function buildMaterialRows(self, requiredByMat, mode)
             local matDef = Materials.get(matName) or {
                 name           = matName,
                 level          = 1,
-                culture        = "Other",
                 isArchMaterial = false,
                 caches         = {},
                 order          = 999,
