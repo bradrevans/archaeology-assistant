@@ -143,19 +143,21 @@ local function iterateEntities(list, callback)
     end
 end
 
---- Projects a 3D world entity or coordinate grid to 2D screen coordinates via `ScreenConvert`.
+--- Projects a 3D world coordinate grid (or entity fallback) to 2D screen coordinates via `ScreenConvert`.
 local function projectToScreen(entity, coordGrid, height)
-    local pos = nil
+    if coordGrid then
+        local ok, pos = pcall(ScreenConvert.CoordGridToScreen, coordGrid, height)
+        if ok and pos then return pos end
+    end
     if entity then
-        pcall(function() pos = ScreenConvert.CoordGridToScreen(entity, height) end)
-        if not pos then
-            pcall(function() pos = ScreenConvert.CoordFineToScreen(entity, height) end)
+        local ok, pos = pcall(ScreenConvert.CoordGridToScreen, entity, height)
+        if ok and pos then return pos end
+        if ScreenConvert.CoordFineToScreen then
+            local okF, posF = pcall(ScreenConvert.CoordFineToScreen, entity, height)
+            if okF and posF then return posF end
         end
     end
-    if not pos and coordGrid then
-        pcall(function() pos = ScreenConvert.CoordGridToScreen(coordGrid, height) end)
-    end
-    return pos
+    return nil
 end
 
 --- Measures string width in pixels using font metrics or character width fallback.
@@ -453,7 +455,18 @@ function Overlay:scanWorldSpots(force)
                 table.insert(kept, spot)
             end
         end
-        table.sort(kept, function(a, b) return (a.distSq or 999999) < (b.distSq or 999999) end)
+        table.sort(kept, function(a, b)
+            if (a.isExcavating == true) ~= (b.isExcavating == true) then
+                return a.isExcavating == true
+            end
+            if (a.distSq or 999999) ~= (b.distSq or 999999) then
+                return (a.distSq or 999999) < (b.distSq or 999999)
+            end
+            local ax = (a.coordGrid and a.coordGrid.x) or 0
+            local bx = (b.coordGrid and b.coordGrid.x) or 0
+            if ax ~= bx then return ax < bx end
+            return ((a.coordGrid and a.coordGrid.z) or 0) < ((b.coordGrid and b.coordGrid.z) or 0)
+        end)
         self.activeSpots = kept
     end
 
@@ -613,7 +626,13 @@ function Overlay:scanWorldSpots(force)
         if (a.isExcavating == true) ~= (b.isExcavating == true) then
             return a.isExcavating == true
         end
-        return (a.distSq or 999999) < (b.distSq or 999999)
+        if (a.distSq or 999999) ~= (b.distSq or 999999) then
+            return (a.distSq or 999999) < (b.distSq or 999999)
+        end
+        local ax = (a.coordGrid and a.coordGrid.x) or 0
+        local bx = (b.coordGrid and b.coordGrid.x) or 0
+        if ax ~= bx then return ax < bx end
+        return ((a.coordGrid and a.coordGrid.z) or 0) < ((b.coordGrid and b.coordGrid.z) or 0)
     end)
     self.activeSpots = matched
 end
@@ -649,81 +668,109 @@ function Overlay:onDraw()
                 local sx, sy = overheadPos.x, overheadPos.y
                 if sx >= -100 and sx <= parentW + 100 and sy >= -50 and sy <= parentH + 100 then
                     local totalPossible = spot.totalPossible or 1
-                    local pct           = math.floor((100 / totalPossible) + 0.5)
-                    local hasArts       = (spot.hasArtefacts == true)
                     local numItems      = math.min(#spot.materials, MAX_SLOTS_PER_INDICATOR)
-                    local pillH         = math.max(28, (numItems * ROW_H) + 6)
-                    local maxTextW      = 60
+                    local hasArts       = (spot.hasArtefacts == true)
 
-                    for s = 1, MAX_SLOTS_PER_INDICATOR do
-                        local slot = widget.slots[s]
-                        local item = spot.materials[s]
+                    -- Build lightweight key so slot text/layout only updates when spot data changes
+                    local firstItem = spot.materials[1]
+                    local renderKey = string.format("%s|%d|%d|%s|%s",
+                        tostring(spot.coordGrid.x or 0) .. "_" .. tostring(spot.coordGrid.z or 0),
+                        numItems,
+                        firstItem and (firstItem.short or 0) or 0,
+                        tostring(hasArts),
+                        tostring(totalPossible)
+                    )
 
-                        if item then
-                            local str
-                            if item.isArtefact then
-                                str = string.format("x%d %s", item.short, item.name)
-                                slot.text.colour = COL_CYAN
+                    local pillW = widget.lastPillW or 105
+                    local pillH = widget.lastPillH or 28
+                    local sizeChanged = false
+
+                    if widget.lastRenderKey ~= renderKey or widget.lastSpotRef ~= spot then
+                        widget.lastRenderKey = renderKey
+                        widget.lastSpotRef   = spot
+
+                        local pct      = math.floor((100 / totalPossible) + 0.5)
+                        local maxTextW = 60
+                        pillH = math.max(28, (numItems * ROW_H) + 6)
+
+                        for s = 1, MAX_SLOTS_PER_INDICATOR do
+                            local slot = widget.slots[s]
+                            local item = spot.materials[s]
+
+                            if item then
+                                local str
+                                if item.isArtefact then
+                                    str = string.format("x%d %s", item.short, item.name)
+                                    slot.text.colour = COL_CYAN
+                                else
+                                    str = string.format("x%d (%d%%)", item.short, pct)
+                                    slot.text.colour = COL_GOLD
+                                end
+                                slot.text.content = str
+
+                                local textW = measureTextWidth(str, slot.text.font, 8.0)
+                                if textW > maxTextW then maxTextW = textW end
+
+                                local rowY = 3 + (s - 1) * ROW_H
+                                slot.icon:SetPos(6, rowY + 1)
+                                slot.text:SetPos(30, rowY + 2)
+
+                                if item.id and item.id > 0 and slot.currentObjId ~= item.id then
+                                    pcall(function() slot.icon:SetAssociatedObject(item.id) end)
+                                    slot.currentObjId = item.id
+                                end
+
+                                slot.icon.hidden = false
+                                slot.text.hidden = false
                             else
-                                str = string.format("x%d (%d%%)", item.short, pct)
-                                slot.text.colour = COL_GOLD
+                                slot.icon.hidden = true
+                                slot.text.hidden = true
                             end
-                            slot.text.content = str
-
-                            local textW = measureTextWidth(str, slot.text.font, 8.0)
-                            if textW > maxTextW then maxTextW = textW end
-
-                            local rowY = 3 + (s - 1) * ROW_H
-                            slot.icon:SetPos(6, rowY + 1)
-                            slot.text:SetPos(30, rowY + 2)
-
-                            if item.id and item.id > 0 and slot.currentObjId ~= item.id then
-                                pcall(function() slot.icon:SetAssociatedObject(item.id) end)
-                                slot.currentObjId = item.id
-                            end
-
-                            slot.icon.hidden = false
-                            slot.text.hidden = false
-                        else
-                            slot.icon.hidden = true
-                            slot.text.hidden = true
                         end
+
+                        pillW = math.max(105, math.min(240, maxTextW + 36))
+                        for s = 1, numItems do
+                            widget.slots[s].text:SetSize(pillW - 32, 18)
+                        end
+
+                        sizeChanged = (widget.lastPillW ~= pillW or widget.lastPillH ~= pillH)
+                        if sizeChanged then
+                            widget.lastPillW = pillW
+                            widget.lastPillH = pillH
+                            widget.pill:SetSize(pillW, pillH)
+                            widget.pillBorder:SetSize(pillW, pillH)
+                            widget.pillBg:SetSize(pillW - 2, pillH - 2)
+                        end
+
+                        local accentCol = hasArts and COL_CYAN or COL_GOLD
+                        widget.pillBorder.colour = accentCol
+                        widget.pinP1.colour      = accentCol
+                        widget.pinP2.colour      = accentCol
+                        widget.pinP3.colour      = accentCol
+                        widget.pinP4.colour      = accentCol
                     end
 
-                    local pillW = math.max(105, math.min(240, maxTextW + 36))
-                    for s = 1, numItems do
-                        widget.slots[s].text:SetSize(pillW - 32, 18)
+                    local pillX = sx - (pillW / 2)
+                    local pillY = sy - pillH - 44
+                    if pillX ~= widget.lastPillX or pillY ~= widget.lastPillY or sizeChanged or widget.root.hidden then
+                        widget.lastPillX = pillX
+                        widget.lastPillY = pillY
+                        local centerX = pillX + (pillW / 2)
+                        local topY    = pillY + pillH
+
+                        widget.pill:SetPos(pillX, pillY)
+                        widget.pinP1:SetPos(centerX - 6, topY)
+                        widget.pinP2:SetPos(centerX - 4, topY + 2)
+                        widget.pinP3:SetPos(centerX - 2, topY + 4)
+                        widget.pinP4:SetPos(centerX - 1, topY + 6)
                     end
 
-                    if widget.lastPillW ~= pillW or widget.lastPillH ~= pillH then
-                        widget.lastPillW = pillW
-                        widget.lastPillH = pillH
-                        widget.pill:SetSize(pillW, pillH)
-                        widget.pillBorder:SetSize(pillW, pillH)
-                        widget.pillBg:SetSize(pillW - 2, pillH - 2)
-                    end
-
-                    local accentCol = hasArts and COL_CYAN or COL_GOLD
-                    widget.pillBorder.colour = accentCol
-                    widget.pinP1.colour      = accentCol
-                    widget.pinP2.colour      = accentCol
-                    widget.pinP3.colour      = accentCol
-                    widget.pinP4.colour      = accentCol
-
-                    local pillX   = math.floor(sx - (pillW / 2))
-                    local pillY   = math.floor(sy - pillH - 44)
-                    local centerX = math.floor(pillX + (pillW / 2))
-                    local topY    = pillY + pillH
-
-                    widget.pill:SetPos(pillX, pillY)
-                    widget.pinP1:SetPos(centerX - 6, topY)
-                    widget.pinP2:SetPos(centerX - 4, topY + 2)
-                    widget.pinP3:SetPos(centerX - 2, topY + 4)
-                    widget.pinP4:SetPos(centerX - 1, topY + 6)
                     widget.root.hidden = false
-                    if spot.isExcavating or i == 1 then
+                    local shouldFront = (spot.isExcavating == true) or (i == 1)
+                    if shouldFront and not widget.lastFront then
                         pcall(function() widget.root:MoveToFront() end)
                     end
+                    widget.lastFront = shouldFront
                 else
                     widget.root.hidden = true
                 end
