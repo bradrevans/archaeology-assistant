@@ -30,6 +30,17 @@ if _G.__arch_assistant_window then
     _G.__arch_assistant_window = nil
 end
 
+xpcall(function()
+    local DBExtractor = require("core/db_extractor")
+    local Materials   = require("data/materials")
+    local Artefacts   = require("data/artefacts")
+    local Collections = require("data/collections")
+    local Hotspots    = require("data/hotspots")
+    DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
+end, function(e)
+    recordError("DBExtractor.syncAll", e)
+end)
+
 if okTracker and Tracker then
     local okInitT, tInstance = xpcall(function() return Tracker.new() end, function(e)
         recordError("Tracker.new", e)
