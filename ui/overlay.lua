@@ -644,7 +644,7 @@ function Overlay:onDraw()
         local spot   = self.activeSpots[i]
 
         if spot and spot.coordGrid and isEntityAlive(spot.entity) then
-            local overheadPos = projectToScreen(spot.entity, spot.coordGrid, 450)
+            local overheadPos = projectToScreen(spot.entity, spot.coordGrid, 850)
             if overheadPos and overheadPos.x and overheadPos.y then
                 local sx, sy = overheadPos.x, overheadPos.y
                 if sx >= -100 and sx <= parentW + 100 and sy >= -50 and sy <= parentH + 100 then
@@ -711,7 +711,7 @@ function Overlay:onDraw()
                     widget.pinP4.colour      = accentCol
 
                     local pillX   = math.floor(sx - (pillW / 2))
-                    local pillY   = math.floor(sy - pillH - 8)
+                    local pillY   = math.floor(sy - pillH - 44)
                     local centerX = math.floor(pillX + (pillW / 2))
                     local topY    = pillY + pillH
 
