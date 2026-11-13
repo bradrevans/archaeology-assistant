@@ -92,6 +92,26 @@ local function getPlayerCoordGrid()
     return pCoord
 end
 
+local function getPlayerExcavateState()
+    local pEntity, isAnimating, interacting = nil, false, nil
+    pcall(function()
+        pEntity = (Player and Player.GetEntity and Player.GetEntity())
+            or (PlayerList and PlayerList.Self and PlayerList.Self())
+        if Player and Player.IsAnimating then
+            isAnimating = Player.IsAnimating() == true
+        end
+        if not isAnimating and pEntity then
+            isAnimating = (pEntity.isAnimating == true) or (type(pEntity.animation) == "number" and pEntity.animation ~= -1)
+        end
+        if Player and Player.GetInteracting then
+            interacting = Player.GetInteracting()
+        elseif pEntity and pEntity.interacting then
+            interacting = pEntity.interacting
+        end
+    end)
+    return pEntity, isAnimating, interacting
+end
+
 --- Queries nearby world location entities within 32 tiles of `pCoord`.
 local function queryNearbyLocations(pCoord)
     local locs = nil
@@ -547,7 +567,54 @@ function Overlay:scanWorldSpots(force)
         end
     end)
 
-    table.sort(matched, function(a, b) return (a.distSq or 999999) < (b.distSq or 999999) end)
+    local _, isAnimating, interacting = getPlayerExcavateState()
+    local lastExcavateTarget = self.tracker and self.tracker.lastExcavateTarget and string.lower(self.tracker.lastExcavateTarget) or nil
+    local hasDirectExcavate = false
+    for _, spot in ipairs(matched) do
+        spot.isExcavating = false
+        if interacting and spot.entity then
+            local sameEntity = (spot.entity == interacting)
+            if not sameEntity and interacting.coordGrid and spot.coordGrid then
+                sameEntity = (interacting.coordGrid.x == spot.coordGrid.x and interacting.coordGrid.z == spot.coordGrid.z)
+            end
+            if sameEntity then
+                spot.isExcavating = true
+                hasDirectExcavate = true
+            end
+        end
+    end
+
+    if not hasDirectExcavate then
+        local bestTargetSpot = nil
+        local bestAnimSpot = nil
+        for _, spot in ipairs(matched) do
+            local d = spot.distSq or 999999
+            if not spot.isCache and lastExcavateTarget and lastExcavateTarget ~= "" and d <= 9 then
+                local spotNameLower = string.lower(spot.displayName or "")
+                if spotNameLower == lastExcavateTarget or string.find(lastExcavateTarget, spotNameLower, 1, true) then
+                    if not bestTargetSpot or d < (bestTargetSpot.distSq or 999999) then
+                        bestTargetSpot = spot
+                    end
+                end
+            end
+            if not spot.isCache and isAnimating and d <= 6 then
+                if not bestAnimSpot or d < (bestAnimSpot.distSq or 999999) then
+                    bestAnimSpot = spot
+                end
+            end
+        end
+        local chosen = bestTargetSpot or bestAnimSpot
+        if chosen then
+            chosen.isExcavating = true
+        end
+    end
+
+    table.sort(matched, function(a, b)
+        if (a.isExcavating == true) ~= (b.isExcavating == true) then
+            return a.isExcavating == true
+        end
+        return (a.distSq or 999999) < (b.distSq or 999999)
+    end)
     self.activeSpots = matched
 end
 
@@ -565,7 +632,14 @@ function Overlay:onDraw()
     local parentW = (self.parent and self.parent.width and self.parent.width > 0) and self.parent.width or 3840
     local parentH = (self.parent and self.parent.height and self.parent.height > 0) and self.parent.height or 2160
 
-    for i = 1, MAX_INDICATORS do
+    local drawCount = math.min(MAX_INDICATORS, #self.activeSpots)
+    for i = drawCount + 1, MAX_INDICATORS do
+        if self.widgets[i] and self.widgets[i].root then
+            self.widgets[i].root.hidden = true
+        end
+    end
+
+    for i = drawCount, 1, -1 do
         local widget = self.widgets[i]
         local spot   = self.activeSpots[i]
 
@@ -647,6 +721,9 @@ function Overlay:onDraw()
                     widget.pinP3:SetPos(centerX - 2, topY + 4)
                     widget.pinP4:SetPos(centerX - 1, topY + 6)
                     widget.root.hidden = false
+                    if spot.isExcavating or i == 1 then
+                        pcall(function() widget.root:MoveToFront() end)
+                    end
                 else
                     widget.root.hidden = true
                 end

@@ -1531,6 +1531,8 @@ function Tracker:onMiniMenuAction(verb, full)
         self.storageActionTicks = 24
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
+    elseif string.find(vLower, "excavate", 1, true) then
+        self.lastExcavateTarget = Utils.cleanText(string.gsub(full or "", "^[Ee]xcavate%s*", ""))
     elseif string.find(fLower, "cart") or string.find(fLower, "deposit") or string.find(vLower, "store") then
         self.lastAction = "storage"
         self.storageActionTicks = 45
