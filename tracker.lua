@@ -1148,8 +1148,6 @@ function Tracker:getCollectionsForDisplay(filterMode)
             include = not progress.isCompleted
         elseif filterMode == "targeted" then
             include = progress.isTargeted
-        elseif filterMode == "level" then
-            include = (col.level or 1) <= playerLvl
         elseif filterMode == "powers" then
             include = (col.benefitType == "relic" or col.benefitType == "weapon" or col.benefitType == "mystery")
         elseif filterMode == "tetra" then
@@ -1658,10 +1656,10 @@ local function buildMaterialRows(self, requiredByMat, mode)
     local distinctMaterialsRequired = 0
     local distinctMaterialsShort    = 0
     local totalMaterialsShort       = 0
+    local playerLvl                 = self:getPlayerArchLevel()
 
     for matName, reqCount in pairs(requiredByMat) do
         if reqCount > 0 then
-            distinctMaterialsRequired = distinctMaterialsRequired + 1
             local matDef = Materials.get(matName) or {
                 name           = matName,
                 level          = 1,
@@ -1670,35 +1668,38 @@ local function buildMaterialRows(self, requiredByMat, mode)
                 caches         = {},
                 order          = 999,
             }
+            if not self.filterByLevel or matDef.isArchMaterial == false or (matDef.level or 1) <= playerLvl then
+                distinctMaterialsRequired = distinctMaterialsRequired + 1
 
-            local inBag     = (self.srcBag ~= false) and (self.backpackMaterials[matName] or 0) or 0
-            local inStorage = (self.srcStorage ~= false) and (self.storageMaterials[matName] or 0) or 0
-            local inBank    = (self.srcBank ~= false) and (self.bankMaterials[matName] or 0) or 0
-            local owned     = self:getOwnedMaterialCount(matName, mode)
+                local inBag     = (self.srcBag ~= false) and (self.backpackMaterials[matName] or 0) or 0
+                local inStorage = (self.srcStorage ~= false) and (self.storageMaterials[matName] or 0) or 0
+                local inBank    = (self.srcBank ~= false) and (self.bankMaterials[matName] or 0) or 0
+                local owned     = self:getOwnedMaterialCount(matName, mode)
 
-            local short   = math.max(0, reqCount - owned)
-            local surplus = math.max(0, owned - reqCount)
-            if short > 0 then
-                distinctMaterialsShort = distinctMaterialsShort + 1
-                totalMaterialsShort    = totalMaterialsShort + short
-            end
+                local short   = math.max(0, reqCount - owned)
+                local surplus = math.max(0, owned - reqCount)
+                if short > 0 then
+                    distinctMaterialsShort = distinctMaterialsShort + 1
+                    totalMaterialsShort    = totalMaterialsShort + short
+                end
 
-            local row = {
-                name         = matName,
-                material     = matDef,
-                required     = reqCount,
-                owned        = owned,
-                ownedBag     = inBag,
-                ownedStorage = inStorage,
-                ownedBank    = inBank,
-                short        = short,
-                surplus      = surplus,
-                isReady      = (short == 0),
-            }
+                local row = {
+                    name         = matName,
+                    material     = matDef,
+                    required     = reqCount,
+                    owned        = owned,
+                    ownedBag     = inBag,
+                    ownedStorage = inStorage,
+                    ownedBank    = inBank,
+                    short        = short,
+                    surplus      = surplus,
+                    isReady      = (short == 0),
+                }
 
-            table.insert(materialsList, row)
-            if not self.shortOnly or short > 0 then
-                table.insert(filteredMaterials, row)
+                table.insert(materialsList, row)
+                if not self.shortOnly or short > 0 then
+                    table.insert(filteredMaterials, row)
+                end
             end
         end
     end
@@ -1763,6 +1764,7 @@ function Tracker:recalculate(triggerInvType)
     local mode         = self:getSourceMode()
     local combinedArts = buildCombinedArtefactsMap(self)
     local hasTargeted  = self:hasAnyTargetedCollections()
+    local playerLvl    = self:getPlayerArchLevel()
 
     local artefactsList   = {}
     local requiredByMat   = {}
@@ -1787,7 +1789,7 @@ function Tracker:recalculate(triggerInvType)
 
         if keep and (info.isTargetedCol or rawCount > 0 or minTarget > 0) then
             local art = Artefacts.findByName(damagedName)
-            if art then
+            if art and (not self.filterByLevel or (art.level or 1) <= playerLvl) then
                 uniqueArtefacts = uniqueArtefacts + 1
                 local isExcluded     = (self.excludedArtefacts[art.damagedName] ~= nil)
                 local defaultQty     = resolveDefaultArtefactQty(self, art, info, rawCount, minTarget)
