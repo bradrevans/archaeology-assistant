@@ -87,7 +87,6 @@ local function ensureMaterial(Materials, matId, matName, matLevel, isArch)
         id             = matId,
         name           = matName,
         level          = matLevel or 1,
-        culture        = isArch and "Agnostic" or "Secondary",
         isArchMaterial = isArch == true,
         caches         = {},
     }
@@ -107,6 +106,15 @@ local function addUniqueString(list, val)
 end
 
 local function rebuildMaterialIndices(Materials)
+    table.sort(Materials.LIST, function(a, b)
+        local aArch = a.isArchMaterial ~= false
+        local bArch = b.isArchMaterial ~= false
+        if aArch ~= bArch then return aArch end
+        local aLvl = a.level or 1
+        local bLvl = b.level or 1
+        if aLvl ~= bLvl then return aLvl < bLvl end
+        return (a.name or "") < (b.name or "")
+    end)
     Materials.BY_NAME  = {}
     Materials.BY_LOWER = {}
     Materials.BY_ID    = {}
@@ -121,6 +129,12 @@ local function rebuildMaterialIndices(Materials)
 end
 
 local function rebuildArtefactIndices(Artefacts)
+    table.sort(Artefacts.LIST, function(a, b)
+        local aLvl = a.level or 1
+        local bLvl = b.level or 1
+        if aLvl ~= bLvl then return aLvl < bLvl end
+        return (a.name or "") < (b.name or "")
+    end)
     Artefacts.BY_DAMAGED_LOWER = {}
     Artefacts.BY_BASE_LOWER    = {}
     Artefacts.BY_ID            = {}
@@ -139,6 +153,12 @@ local function rebuildArtefactIndices(Artefacts)
 end
 
 local function rebuildCollectionIndices(Collections)
+    table.sort(Collections.LIST, function(a, b)
+        local aLvl = a.level or 1
+        local bLvl = b.level or 1
+        if aLvl ~= bLvl then return aLvl < bLvl end
+        return (a.name or "") < (b.name or "")
+    end)
     Collections.BY_NAME           = {}
     Collections.BY_LOWER          = {}
     Collections.BY_ARTEFACT_LOWER = {}
@@ -205,7 +225,8 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
         local damagedId, damagedName   = safeObjInfo(damagedObj)
         local restoredId, restoredName = safeObjInfo(restoredObj)
 
-        if restoredName and restoredName ~= "" and damagedId then
+        if restoredName and restoredName ~= "" and (damagedId or restoredId) then
+            local primaryId = damagedId or restoredId
             local recipeMats = extractRecipeMaterials(restoredObj, damagedId)
             local recipeXp   = extractRecipeXp(restoredObj)
 
@@ -213,16 +234,16 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                 ensureMaterial(Materials, m.id, m.name, nil, false)
             end
 
-            local art = Artefacts.findById(damagedId)
+            local art = Artefacts.findById(primaryId)
                 or (restoredId and Artefacts.findById(restoredId))
                 or Artefacts.findRestoredByName(restoredName)
 
             if art then
-                art.id          = damagedId
+                art.id          = primaryId
                 art.damagedId   = damagedId
                 art.restoredId  = restoredId or art.restoredId
                 art.name        = restoredName
-                art.damagedName = damagedName or art.damagedName or (restoredName .. " (damaged)")
+                art.damagedName = damagedName or art.damagedName or (damagedId and (restoredName .. " (damaged)") or restoredName)
                 if level and level > 0 then art.level = level end
                 if recipeXp and recipeXp > 0 then art.xp = recipeXp end
                 if #recipeMats > 0 then
@@ -237,15 +258,15 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                     table.insert(cleanMats, { name = m.name, count = m.count })
                 end
                 art = {
-                    id          = damagedId,
+                    id          = primaryId,
                     damagedId   = damagedId,
                     restoredId  = restoredId,
                     name        = restoredName,
-                    damagedName = damagedName or (restoredName .. " (damaged)"),
+                    damagedName = damagedName or (damagedId and (restoredName .. " (damaged)") or restoredName),
                     level       = level or 1,
                     location    = "Archaeology Dig Site",
                     xp          = recipeXp or 0,
-                    chronotes   = 0,
+                    chronotes   = (Artefacts.CHRONOTES and (Artefacts.CHRONOTES[restoredName] or Artefacts.CHRONOTES[Utils.normalizeName(restoredName)])) or 0,
                     materials   = cleanMats,
                 }
                 table.insert(Artefacts.LIST, art)
@@ -312,11 +333,11 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                     end
                 end
             end
-            if #spotMats > 0 or not Hotspots.BY_NAME[hName] then
+            if #spotMats > 0 then
                 local existingSpot = Hotspots.BY_NAME[hName]
                 Hotspots.BY_NAME[hName] = {
                     level     = hLvl or (existingSpot and existingSpot.level) or 1,
-                    materials = (#spotMats > 0) and spotMats or (existingSpot and existingSpot.materials) or {},
+                    materials = spotMats,
                 }
                 stats.spots = stats.spots + 1
             end
@@ -336,6 +357,89 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
     rebuildHotspotIndices(Hotspots)
 
     -- 4. Extract / update Collectors & Collections from COLLECTOR -> COLLECTION_LOG -> COLLECTION
+    local seenColRows = {}
+    local function processCollectionRow(colRow, collectorName)
+        if not colRow or (colRow.id and seenColRows[colRow.id]) then return end
+        if tonumber(getFirst(colRow, 3)) ~= 2 then return end
+        local colName = getFirst(colRow, 5)
+        if not colName or colName == "" then return end
+        if colRow.id then seenColRows[colRow.id] = true end
+
+        local flags = getCol(colRow, 6)
+        local isRepeatable = (flags[2] == true)
+        local oneTimeNote = getFirst(colRow, 7)
+        local recurringText = getFirst(colRow, 8)
+        local achObj = getFirst(colRow, 10)
+        local achId = nil
+        pcall(function() achId = achObj and achObj.id end)
+
+        local artNames = {}
+        local artObjConfigs = {}
+        local maxArtLvl = 1
+        for _, artObj in ipairs(getCol(colRow, 14)) do
+            local aId, aName = safeObjInfo(artObj)
+            if aName and aName ~= "" then
+                table.insert(artNames, aName)
+                local okCfg, aCfg = pcall(function() return artObj.configName end)
+                if okCfg and aCfg and aCfg ~= "" then
+                    artObjConfigs[aName] = aCfg
+                end
+                local artDef = (aId and Artefacts.findById(aId)) or Artefacts.findRestoredByName(aName)
+                if artDef and artDef.level and artDef.level > maxArtLvl then
+                    maxArtLvl = artDef.level
+                end
+            end
+        end
+
+        local colCfgName = nil
+        pcall(function() colCfgName = colRow.configName end)
+
+        local resolvedCollector = collectorName
+        if not resolvedCollector or resolvedCollector == "" then
+            resolvedCollector = string.find(colName, "^Museum %-") and "Velucia" or "Unknown"
+        end
+
+        local col = Collections.BY_NAME[colName] or Collections.BY_LOWER[Utils.normalizeName(colName)]
+        if col then
+            if colCfgName and colCfgName ~= "" then col.configName = colCfgName end
+            if next(artObjConfigs) ~= nil then col.artObjConfigs = artObjConfigs end
+            if resolvedCollector ~= "Unknown" then col.collector = resolvedCollector end
+            col.isRepeatable = isRepeatable
+            if oneTimeNote and oneTimeNote ~= "" and (not col.oneTimeReward or col.oneTimeReward == "") then
+                col.oneTimeReward = oneTimeNote
+            end
+            if recurringText and recurringText ~= "" and (not col.recurringReward or col.recurringReward == "") then
+                col.recurringReward = recurringText
+            end
+            if achId then col.achievementId = achId end
+            if #artNames > 0 then col.artefacts = artNames end
+            if maxArtLvl > 1 and (not col.level or col.level <= 1) then
+                col.level = maxArtLvl
+            end
+        else
+            local extra = Collections.EXTRAS and (Collections.EXTRAS[colName] or Collections.EXTRAS[Utils.normalizeName(colName)])
+            table.insert(Collections.LIST, {
+                order           = #Collections.LIST + 1,
+                name            = colName,
+                configName      = colCfgName,
+                artObjConfigs   = artObjConfigs,
+                level           = maxArtLvl,
+                collector       = resolvedCollector,
+                oneTimeReward   = oneTimeNote or "",
+                recurringReward = recurringText or "",
+                chronotes       = (extra and extra.chronotes) or "",
+                isRepeatable    = isRepeatable,
+                achievementId   = achId,
+                benefitType     = (extra and extra.benefitType) or "",
+                specialBenefit  = (extra and extra.specialBenefit) or "",
+                artefacts       = artNames,
+            })
+            Collections.BY_NAME[colName] = Collections.LIST[#Collections.LIST]
+            Collections.BY_LOWER[Utils.normalizeName(colName)] = Collections.LIST[#Collections.LIST]
+            stats.cols = stats.cols + 1
+        end
+    end
+
     for _, cRow in ipairs(collectorRows) do
         local collectorName = getFirst(cRow, 2)
         local collectorLoc  = getFirst(cRow, 6)
@@ -347,62 +451,24 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
         local logRow = getFirst(cRow, 8)
         if logRow then
             for _, colRow in ipairs(getCol(logRow, 8)) do
-                if tonumber(getFirst(colRow, 3)) == 2 then
-                    local colName = getFirst(colRow, 5)
-                    if colName and colName ~= "" then
-                        local flags = getCol(colRow, 6)
-                        local isRepeatable = (flags[2] == true)
-                        local oneTimeNote = getFirst(colRow, 7)
-                        local achObj = getFirst(colRow, 10)
-                        local achId = nil
-                        pcall(function() achId = achObj and achObj.id end)
-
-                        local artNames = {}
-                        local maxArtLvl = 1
-                        for _, artObj in ipairs(getCol(colRow, 14)) do
-                            local aId, aName = safeObjInfo(artObj)
-                            if aName and aName ~= "" then
-                                table.insert(artNames, aName)
-                                local artDef = (aId and Artefacts.findById(aId)) or Artefacts.findRestoredByName(aName)
-                                if artDef and artDef.level and artDef.level > maxArtLvl then
-                                    maxArtLvl = artDef.level
-                                end
-                            end
-                        end
-
-                        local col = Collections.BY_NAME[colName] or Collections.BY_LOWER[Utils.normalizeName(colName)]
-                        if col then
-                            if collectorName and collectorName ~= "" then col.collector = collectorName end
-                            col.isRepeatable = isRepeatable
-                            if oneTimeNote and oneTimeNote ~= "" and (not col.oneTimeReward or col.oneTimeReward == "") then
-                                col.oneTimeReward = oneTimeNote
-                            end
-                            if achId then col.achievementId = achId end
-                            if #artNames > 0 then col.artefacts = artNames end
-                            if maxArtLvl > 1 and (not col.level or col.level <= 1) then
-                                col.level = maxArtLvl
-                            end
-                        else
-                            table.insert(Collections.LIST, {
-                                order           = #Collections.LIST + 1,
-                                name            = colName,
-                                level           = maxArtLvl,
-                                collector       = collectorName or "Unknown",
-                                oneTimeReward   = "",
-                                recurringReward = "",
-                                chronotes       = "",
-                                isRepeatable    = isRepeatable,
-                                achievementId   = achId,
-                                benefitType     = "",
-                                specialBenefit  = "",
-                                artefacts       = artNames,
-                            })
-                            stats.cols = stats.cols + 1
-                        end
-                    end
-                end
+                processCollectionRow(colRow, collectorName)
             end
         end
+    end
+
+    -- Also pick up permanent collections in ARCH_COLLECTOR_COLLECTION_LIST not attached to a collector log (e.g. Museum - Training Weapons),
+    -- while excluding limited-time seasonal event collections (Bounty of Bones, Horrible Hollow Histories).
+    if config.Enum and config.Enum.ARCH_COLLECTOR_COLLECTION_LIST then
+        pcall(function()
+            local e = config.Enum.ARCH_COLLECTOR_COLLECTION_LIST
+            local count = e.valueCount or 0
+            for i = 0, count - 1 do
+                local colRow = e:GetOutputValue(i)
+                if colRow then
+                    processCollectionRow(colRow, nil)
+                end
+            end
+        end)
     end
     rebuildCollectionIndices(Collections)
 

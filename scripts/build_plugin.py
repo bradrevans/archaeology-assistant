@@ -120,40 +120,16 @@ def validate_data_integrity(repo_root: Path) -> None:
     cols_content = cols_path.read_text(encoding="utf-8")
     spots_content = spots_path.read_text(encoding="utf-8")
 
-    # 1. Check defined materials vs recipe materials
-    defined_mats = {
-        m.group(1)
-        for m in re.finditer(r'name\s*=\s*"([^"]+)",\s*level\s*=', mats_content)
-    }
-    recipe_mats = {
-        m.group(1)
-        for m in re.finditer(r'\{\s*name\s*=\s*"([^"]+)",\s*count\s*=\s*\d+\s*\}', arts_content)
-    }
-    missing_mats = sorted(recipe_mats - defined_mats)
-    if missing_mats:
-        raise RuntimeError(
-            "Artefact recipes reference materials missing from data/materials.lua: "
-            + ", ".join(missing_mats)
-        )
+    # 1. Validate slim supplemental data tables (chronotes & collection extras)
+    chronote_entries = re.findall(r"\[(?:\d+|\"[^\"]+\")\]\s*=\s*\d+", arts_content)
+    if not chronote_entries:
+        raise RuntimeError("data/artefacts.lua is missing Artefacts.CHRONOTES entries")
 
-    # 2. Check defined artefacts vs collection artefacts
-    defined_arts = {
-        m.group(1)
-        for m in re.finditer(r'(?m)^\s*name\s*=\s*"([^"]+)",\s*$', arts_content)
-    }
-    col_art_blocks = re.findall(r"artefacts\s*=\s*\{([^}]+)\}", cols_content)
-    col_arts: set[str] = set()
-    for block in col_art_blocks:
-        for m in re.finditer(r'"([^"]+)"', block):
-            col_arts.add(m.group(1))
-    missing_col_arts = sorted(col_arts - defined_arts)
-    if missing_col_arts:
-        raise RuntimeError(
-            "Collections reference artefacts missing from data/artefacts.lua: "
-            + ", ".join(missing_col_arts)
-        )
+    extra_entries = re.findall(r'\["[^"]+"\]\s*=\s*\{[^}]+\}', cols_content)
+    if not extra_entries:
+        raise RuntimeError("data/collections.lua is missing Collections.EXTRAS entries")
 
-    # 3. Check for unescaped HTML entities across all data files
+    # 2. Check for unescaped HTML entities across all data files
     for data_name, content in (
         ("data/materials.lua", mats_content),
         ("data/artefacts.lua", arts_content),
@@ -164,8 +140,8 @@ def validate_data_integrity(repo_root: Path) -> None:
             raise RuntimeError(f"Unescaped HTML entities found in {data_name}")
 
     print(
-        f"      -> Verified {len(defined_mats)} materials, {len(defined_arts)} artefacts, "
-        f"and {len(col_art_blocks)} collections."
+        f"      -> Verified {len(chronote_entries)} artefact chronotes and "
+        f"{len(extra_entries)} collection extras (remaining data loaded from game DBTables)."
     )
 
 

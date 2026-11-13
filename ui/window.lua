@@ -1836,8 +1836,10 @@ function Window:populateCollectionRows(colList)
                     rowUI.rewardTxt.content = "Tetracompass piece"
                 else
                     rowUI.rewardTxt.colour = Theme.COL_MUTED
-                    local raw = col.chronotes ~= "" and col.chronotes
-                        or (col.recurringReward ~= "" and col.recurringReward or col.oneTimeReward)
+                    local raw = (col.specialBenefit ~= "" and col.specialBenefit)
+                        or (col.chronotes ~= "" and col.chronotes)
+                        or (col.oneTimeReward ~= "" and col.oneTimeReward)
+                        or col.recurringReward
                     rowUI.rewardTxt.content = Utils.getShortReward(raw)
                 end
 
@@ -2176,8 +2178,6 @@ function Window:refresh()
             local m = item.material
             if m then
                 if m.name and string.find(string.lower(m.name), matQuery, 1, true) then
-                    matched = true
-                elseif m.culture and string.find(string.lower(m.culture), matQuery, 1, true) then
                     matched = true
                 elseif m.caches then
                     for _, cName in ipairs(m.caches) do
