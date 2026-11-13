@@ -109,7 +109,9 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
     end
 
     local tipW = 460
-    local hasIcon = Theme.bindItemSprite(self.icon, objId, (tonumber(objId) == 995) and 10000 or 1)
+    local itemTbl = id and (id.Item or id.Obj or id.Object)
+    local isCoins = itemTbl and itemTbl.COINS and (tonumber(objId) == itemTbl.COINS)
+    local hasIcon = Theme.bindItemSprite(self.icon, objId, isCoins and 10000 or 1)
     if self.iconSlot then
         self.iconSlot.hidden = not hasIcon
     end
@@ -216,22 +218,35 @@ end
 function Tooltip.buildSyncBadgeTooltip(tracker, badgeKind)
     local status = tracker:getSyncStatus()
     local mode = tracker:getSourceMode()
-    local isStorage = (badgeKind == "storage")
 
-    local s = isStorage and status.storage or status.bank
-    local name = isStorage and "Material Storage" or "Bank"
-    local iconObjId = isStorage and Theme.STORAGE_ICON_OBJ_ID or Theme.BANK_ICON_OBJ_ID
-    local openHint = isStorage
-        and "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
-        or "Open your Bank to sync."
-    local contents = isStorage
-        and string.format("%d material types stored.", s.matTypes or 0)
-        or string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
+    local s, name, iconObjId, openHint, contents, ignoreHint
+    if badgeKind == "storage" then
+        s = status.storage
+        name = "Material Storage"
+        iconObjId = Theme.STORAGE_ICON_OBJ_ID
+        openHint = "Open Material Storage (at a workbench) or check Material storage information in your Archaeology journal to sync."
+        contents = string.format("%d material types stored.", s.matTypes or 0)
+        ignoreHint = "Click the Src button to include " .. name .. " in calculations."
+    elseif badgeKind == "workbench" then
+        s = status.workbench
+        name = "Workbench Storage"
+        iconObjId = Theme.WORKBENCH_ICON_OBJ_ID
+        openHint = "Inspect Damaged artefact storage at an Archaeologist's workbench to sync."
+        contents = string.format("%d damaged artefact types (%d total).", s.artTypes or 0, s.artTotal or 0)
+        ignoreHint = "Toggle Workbench Storage in Settings to include it in calculations."
+    else
+        s = status.bank
+        name = "Bank"
+        iconObjId = Theme.BANK_ICON_OBJ_ID
+        openHint = "Open your Bank to sync."
+        contents = string.format("%d material types, %d damaged artefact types.", s.matTypes or 0, s.artTypes or 0)
+        ignoreHint = "Click the Src button to include " .. name .. " in calculations."
+    end
 
     if not s.enabled then
         return name .. ": Ignored",
             "Current source mode: " .. mode.label .. ".",
-            "Click the Src button to include " .. name .. " in calculations.",
+            ignoreHint,
             Theme.COL_MUTED,
             iconObjId
     elseif s.synced then

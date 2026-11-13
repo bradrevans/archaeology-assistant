@@ -228,9 +228,23 @@ end
 --- Dumps all currently loaded inventories in the client to find the workbench container.
 function InventoryScanner.dumpLoadedInventories(tracker)
     print("[Archaeology Assistant] === Scanning Loaded Client Inventories (1..1100) ===")
-    local bagId  = (config.Inv.INV and config.Inv.INV.id) or 93
-    local wornId = (config.Inv.WORN and config.Inv.WORN.id) or 94
-    local bankId = (config.Inv.BANK and config.Inv.BANK.id) or 95
+    local okBag, bagRef   = pcall(function() return config.Inv.INV end)
+    local okWorn, wornRef = pcall(function() return config.Inv.WORN end)
+    local okBank, bankRef = pcall(function() return config.Inv.BANK end)
+    local okBench, benchRef0 = pcall(function() return config.Inv.ARCH_RESTORATION_WORKBENCH_STORAGE end)
+    local okMat, matStorRef  = pcall(function() return config.Inv.ARCH_MATERIAL_STORAGE end)
+
+    local function safeId(ref)
+        if not ref then return nil end
+        local ok, rid = pcall(function() return ref.id end)
+        return (ok and type(rid) == "number") and rid or nil
+    end
+
+    local bagId        = safeId(okBag and bagRef)
+    local wornId       = safeId(okWorn and wornRef)
+    local bankId       = safeId(okBank and bankRef)
+    local benchInvId   = safeId(okBench and benchRef0)
+    local matStorInvId = safeId(okMat and matStorRef)
     local found = 0
 
     for invId = 1, 1100 do
@@ -253,17 +267,17 @@ function InventoryScanner.dumpLoadedInventories(tracker)
                     end
                 end
             end
-            if occupied > 0 or (slots and #slots > 0 and invId ~= bagId and invId ~= wornId) or invId == 1008 or invId == 885 then
+            if occupied > 0 or (slots and #slots > 0 and invId ~= bagId and invId ~= wornId) or (benchInvId and invId == benchInvId) or (matStorInvId and invId == matStorInvId) then
                 found = found + 1
-                local isBag = (invId == bagId) and " [Backpack]" or ""
-                local isBank = (invId == bankId) and " [Bank]" or ""
-                local isWorn = (invId == wornId) and " [Worn]" or ""
-                local isBench = (invId == 1008) and " [ARCH_RESTORATION_WORKBENCH_STORAGE]" or ""
-                local isMat = (invId == 885) and " [ARCH_MATERIAL_STORAGE]" or ""
+                local isBag = (bagId and invId == bagId) and " [Backpack]" or ""
+                local isBank = (bankId and invId == bankId) and " [Bank]" or ""
+                local isWorn = (wornId and invId == wornId) and " [Worn]" or ""
+                local isBench = (benchInvId and invId == benchInvId) and " [ARCH_RESTORATION_WORKBENCH_STORAGE]" or ""
+                local isMat = (matStorInvId and invId == matStorInvId) and " [ARCH_MATERIAL_STORAGE]" or ""
                 local dmgFlag = hasDamaged and " *** CONTAINS DAMAGED ARTEFACTS ***" or ""
                 print(string.format("[Archaeology Assistant] Inv[%d]%s%s%s%s%s: %d/%d slots. Samples: %s%s",
                     invId, isBag, isBank, isWorn, isBench, isMat, occupied, #slots, table.concat(sample, ", "), dmgFlag))
-                if (hasDamaged or invId == 1008) and invId ~= bagId and invId ~= bankId then
+                if (hasDamaged or (benchInvId and invId == benchInvId)) and invId ~= bagId and invId ~= bankId then
                     if tracker then
                         local counts = InventoryScanner.extractDamagedArtefactsFromInv(inv)
                         applyWorkbenchSnapshot(tracker, counts, invId)
@@ -276,14 +290,53 @@ function InventoryScanner.dumpLoadedInventories(tracker)
     print(string.format("[Archaeology Assistant] === Finished Scan: %d Inventories Located ===", found))
 end
 
+local function isInterfaceOpen(ifId)
+    if not ifId or not ui or not ui.Interfaces then return false end
+    local ok0, c0 = pcall(function() return ui.Interfaces:GetComponent(ifId, 0) end)
+    if ok0 and c0 then
+        local okH, isHidden = pcall(function() return c0.hidden end)
+        if okH and isHidden == true then return false end
+        local okV, isVis = pcall(function() return c0.isVisible end)
+        if okV and isVis == false then return false end
+        return true
+    end
+    return false
+end
+
+local function isMaterialStorageUiOpen()
+    if not id or not id.Interface then return false end
+    return isInterfaceOpen(id.Interface.ARCH_MATERIAL_STORAGE)
+        or isInterfaceOpen(id.Interface.ARCH_MATERIAL_STORAGE_INFO)
+end
+
+local function isWorkbenchStorageUiOpen()
+    if not id or not id.Interface then return false end
+    return isInterfaceOpen(id.Interface.MODAL_STORAGE)
+        or isInterfaceOpen(id.Interface.ARCH_RESTORATION_INSPECT)
+end
+
 --- Scans the Archaeologist's workbench damaged-artefact storage via (1) the triggering inventory,
 --- (2) a previously discovered inventory id, (3) config.Inv candidates, or (4) probing loaded inventories.
 --- Returns maps of damaged artefact count increases (deposits) and decreases, and whether it was triggered.
 local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
     if not config or not config.Inv then return nil end
-    local bagId  = (config.Inv.INV and config.Inv.INV.id) or 93
-    local wornId = (config.Inv.WORN and config.Inv.WORN.id) or 94
-    local bankId = (config.Inv.BANK and config.Inv.BANK.id) or 95
+    local okBag, bagRef   = pcall(function() return config.Inv.INV end)
+    local okWorn, wornRef = pcall(function() return config.Inv.WORN end)
+    local okBank, bankRef = pcall(function() return config.Inv.BANK end)
+    local okBench, benchRef0 = pcall(function() return config.Inv.ARCH_RESTORATION_WORKBENCH_STORAGE end)
+    local okMat, matStorRef  = pcall(function() return config.Inv.ARCH_MATERIAL_STORAGE end)
+
+    local function safeId(ref)
+        if not ref then return nil end
+        local ok, rid = pcall(function() return ref.id end)
+        return (ok and type(rid) == "number") and rid or nil
+    end
+
+    local bagId        = safeId(okBag and bagRef)
+    local wornId       = safeId(okWorn and wornRef)
+    local bankId       = safeId(okBank and bankRef)
+    local benchInvId   = safeId(okBench and benchRef0)
+    local matStorInvId = safeId(okMat and matStorRef)
 
     local function isPlayerContainer(ref)
         if not ref then return false end
@@ -300,17 +353,48 @@ local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
         or tracker.pendingWorkbenchScan
         or ((tracker.workbenchActionTicks or 0) > 0)
 
-    -- 0. Direct check for known ARCH_RESTORATION_WORKBENCH_STORAGE (inventory 1008)
-    local benchRef = (config.Inv and config.Inv.ARCH_RESTORATION_WORKBENCH_STORAGE)
-        or (tracker.workbenchInvId and tracker.workbenchInvId > 0 and tracker.workbenchInvId)
-        or 1008
-    local benchInv = InventoryScanner.findInventory(benchRef)
-    if benchInv then
-        local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(benchInv)
-        if matSlots == 0 and otherSlots == 0 then
-            local inc, dec = applyWorkbenchSnapshot(tracker, counts, 1008)
-            tracker.pendingWorkbenchScan = false
-            return inc, dec, isWorkbenchAction
+    local okBench, benchRef = pcall(function() return config.Inv.ARCH_RESTORATION_WORKBENCH_STORAGE end)
+    benchRef = okBench and benchRef or nil
+    local benchRefId = nil
+    if benchRef then
+        local okBenchId, rid = pcall(function() return benchRef.id end)
+        if okBenchId and type(rid) == "number" then benchRefId = rid end
+    end
+
+    local triggeredByBench = false
+    if triggerInvType and not isPlayerContainer(triggerInvType) then
+        local cfgName = ""
+        pcall(function() cfgName = tostring(triggerInvType.configName or "") end)
+        local okId, trigId = pcall(function() return triggerInvType.id end)
+        trigId = okId and trigId or nil
+        if (type(trigId) == "number" and trigId >= 0 and trigId == tracker.workbenchInvId)
+            or (benchRefId and type(trigId) == "number" and trigId == benchRefId)
+            or isWorkbenchStorageName(cfgName) then
+            triggeredByBench = true
+        end
+    end
+
+    local benchUiOpen = isWorkbenchStorageUiOpen()
+    if (tracker.workbenchCacheCleared or not tracker.workbenchSyncedLive) and not benchUiOpen and not isWorkbenchAction and not triggeredByBench then
+        return nil
+    end
+    if benchUiOpen or triggeredByBench or isWorkbenchAction then
+        tracker.workbenchCacheCleared = false
+    end
+
+    -- 0. Direct check for known ARCH_RESTORATION_WORKBENCH_STORAGE
+    local targetBenchRef = benchRef or (tracker.workbenchInvId and tracker.workbenchInvId > 0 and tracker.workbenchInvId)
+    if targetBenchRef then
+        local benchInv = InventoryScanner.findInventory(targetBenchRef)
+        if benchInv then
+            local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(benchInv)
+            if matSlots == 0 and otherSlots == 0 and (dmgSlots > 0 or benchUiOpen or isWorkbenchAction or triggeredByBench or tracker.workbenchSyncedLive) then
+                local snapId = benchRefId or (tracker.workbenchInvId and tracker.workbenchInvId > 0 and tracker.workbenchInvId) or nil
+                local inc, dec = applyWorkbenchSnapshot(tracker, counts, snapId)
+                tracker.pendingWorkbenchScan = false
+                tracker.workbenchCacheCleared = false
+                return inc, dec, benchUiOpen or isWorkbenchAction or triggeredByBench
+            end
         end
     end
 
@@ -565,7 +649,7 @@ local function scanBankContainer(tracker, triggerInvType)
     local triggeredByBank = (triggerInvType ~= nil and config.Inv.BANK and triggerInvType == config.Inv.BANK)
         or (tracker.lastAction == "bank")
 
-    if tracker.cacheCleared and not triggeredByBank then
+    if tracker.bankCacheCleared and not triggeredByBank then
         if config.Inv.BANK then
             bankInv = InventoryScanner.findInventory(config.Inv.BANK)
         end
@@ -581,7 +665,7 @@ local function scanBankContainer(tracker, triggerInvType)
                 tracker.bankArtefacts = bankArts
                 tracker.bankRestored = bankRestored or {}
                 tracker.bankSyncedLive = true
-                tracker.cacheCleared = false
+                tracker.bankCacheCleared = false
                 checkedBank = true
                 local okId, invId = pcall(function() return config.Inv.BANK.id end)
                 if okId and type(invId) == "number" then
@@ -654,6 +738,10 @@ local function scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankI
         or InventoryScanner.isArtefactRecipeContainer(mats, archKinds)
 
     local isStorageAction = (tracker.lastAction == "storage") or ((tracker.storageActionTicks or 0) > 0)
+    local storUiOpen = isMaterialStorageUiOpen()
+    if (tracker.storageCacheCleared or not tracker.storageSyncedLive) and not storUiOpen and not isStorageAction then
+        return false
+    end
     local isStorage = (isStorageAction or (totalSlots >= 29 and archKinds >= 1) or (totalSlots >= 20 and archKinds >= 4))
         and (archKinds >= 1 or (isStorageAction and totalSlots >= 25))
         and totalSlots <= 90
@@ -665,6 +753,7 @@ local function scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankI
         tracker.storageMaterials = mats
         tracker.storageSyncedLive = true
         tracker.storageHasCache = true
+        tracker.storageCacheCleared = false
         tracker.lastAction = nil
         tracker.storageActionTicks = 0
         tracker.pendingJournalStorageScan = false
@@ -695,13 +784,14 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
         if isInspect or nonMatSlots > 0 or totalSlots < 25 or totalSlots > 90 then
             return false
         end
-        local isStorageAction = (tracker.lastAction == "storage") or ((tracker.storageActionTicks or 0) > 0) or tracker.pendingJournalStorageScan
+        local isStorageAction = (tracker.lastAction == "storage") or ((tracker.storageActionTicks or 0) > 0) or tracker.pendingJournalStorageScan or isMaterialStorageUiOpen()
         if archKinds >= 1 or isStorageAction then
             local currentStorCount = InventoryScanner.countMapEntries(tracker.storageMaterials)
             if isStorageAction or archKinds >= math.min(5, currentStorCount) then
                 tracker.storageMaterials = mats
                 tracker.storageSyncedLive = true
                 tracker.storageHasCache = true
+                tracker.storageCacheCleared = false
                 tracker.pendingJournalStorageScan = false
                 if type(candidateId) == "number" and candidateId >= 0 then
                     tracker.storageInvId = candidateId
@@ -748,9 +838,17 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
     -- 3. If user clicked Archaeology Journal -> Material storage information,
     -- probe loaded client inventories for the 30-50 slot Archaeology Material Storage container.
     if tracker.pendingJournalStorageScan then
-        local bagId  = (config.Inv.INV and config.Inv.INV.id) or 93
-        local wornId = (config.Inv.WORN and config.Inv.WORN.id) or 94
-        local bankId = (config.Inv.BANK and config.Inv.BANK.id) or 95
+        local function safeId(ref)
+            if not ref then return nil end
+            local ok, rid = pcall(function() return ref.id end)
+            return (ok and type(rid) == "number") and rid or nil
+        end
+        local okBag, bagRef   = pcall(function() return config.Inv.INV end)
+        local okWorn, wornRef = pcall(function() return config.Inv.WORN end)
+        local okBank, bankRef = pcall(function() return config.Inv.BANK end)
+        local bagId  = safeId(okBag and bagRef)
+        local wornId = safeId(okWorn and wornRef)
+        local bankId = safeId(okBank and bankRef)
         for invId = 1, 950 do
             if invId ~= bagId and invId ~= wornId and invId ~= bankId and invId ~= tracker.bankInvId then
                 local inv = InventoryScanner.findInventory(invId)
@@ -761,7 +859,7 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
         end
     end
 
-    -- 4. Fallback: check Archaeology UI interfaces (650..670) in case the journal view renders via UI components.
+    -- 4. Fallback: check Archaeology Material Storage / Journal UI interfaces.
     if tracker.pendingJournalStorageScan then
         if InventoryScanner.scanMaterialStorageInterface(tracker) then
             return true
@@ -773,7 +871,7 @@ end
 
 --- Scans open UI interfaces for the Archaeology Journal's "Material storage information" view.
 function InventoryScanner.scanMaterialStorageInterface(tracker)
-    if not ui or not ui.Interfaces then return false end
+    if not ui or not ui.Interfaces or not id or not id.Interface then return false end
 
     local function getCompText(c)
         if not c then return nil end
@@ -805,7 +903,7 @@ function InventoryScanner.scanMaterialStorageInterface(tracker)
     end
 
     local function scanInterfaceId(ifId)
-        if ifId == 657 or ifId == 1477 then return false end
+        if not ifId or ifId == id.Interface.COLLECTOR_BOARD or ifId == id.Interface.TOPLEVEL_V2 then return false end
         local okIf, iface = pcall(function() return ui.Interfaces:GetInterface(ifId) end)
         if not okIf or not iface then return false end
 
@@ -928,8 +1026,13 @@ function InventoryScanner.scanMaterialStorageInterface(tracker)
         return false
     end
 
-    for ifId = 650, 670 do
-        if scanInterfaceId(ifId) then return true end
+    local storageInterfaces = {
+        id.Interface.ARCH_MATERIAL_STORAGE,
+        id.Interface.ARCH_MATERIAL_STORAGE_INFO,
+        id.Interface.ARCH_JOURNAL,
+    }
+    for _, ifId in ipairs(storageInterfaces) do
+        if ifId and scanInterfaceId(ifId) then return true end
     end
     return false
 end
@@ -983,7 +1086,7 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
     -- 4. Check if triggerInvType is the Material Storage container, or scan known/in-memory storage when explicitly opened
     if triggerInvType and not benchTriggered then
         scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
-    elseif tracker.pendingJournalStorageScan then
+    elseif tracker.pendingJournalStorageScan or isMaterialStorageUiOpen() then
         scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
     end
 end

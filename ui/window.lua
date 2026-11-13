@@ -497,6 +497,10 @@ function Window:buildContentComponents(container)
         onWheelPassthrough
     )
 
+    self.badgeWorkbench = Widgets.createSyncBadge(container, "Bench", Theme.WORKBENCH_ICON_OBJ_ID, bindRowHover, function()
+        self:onHoverSyncBadge("workbench")
+    end)
+
     self.badgeStorage = Widgets.createSyncBadge(container, "Stor", Theme.STORAGE_ICON_OBJ_ID, bindRowHover, function()
         self:onHoverSyncBadge("storage")
     end)
@@ -836,6 +840,7 @@ function Window:updateToolbarLayout(forceReflow)
     self.btnTabArtefacts.setHidden(false)
     self.btnTabMaterials.setHidden(false)
     if self.badgeBoard     then if self.badgeBoard.setHidden then self.badgeBoard.setHidden(false) elseif self.badgeBoard.root then self.badgeBoard.root.hidden = false end end
+    if self.badgeWorkbench then if self.badgeWorkbench.setHidden then self.badgeWorkbench.setHidden(false) elseif self.badgeWorkbench.root then self.badgeWorkbench.root.hidden = false end end
     if self.badgeStorage   then if self.badgeStorage.setHidden then self.badgeStorage.setHidden(false) elseif self.badgeStorage.root then self.badgeStorage.root.hidden = false end end
     if self.badgeBank      then if self.badgeBank.setHidden then self.badgeBank.setHidden(false) elseif self.badgeBank.root then self.badgeBank.root.hidden = false end end
 
@@ -869,15 +874,17 @@ function Window:updateToolbarLayout(forceReflow)
         self.btnTabMaterials.setBounds(8 + (tabW * 2) + (gap * 2), 5, availW - (tabW * 2) - (gap * 2), 26)
 
         -- Second row (y = 36):
-        -- Right side: [Collectors: 13/13] [Stor] [Bank]
-        local xBank = 8 + availW - Theme.BADGE_W
-        local xStor = xBank - gap - Theme.BADGE_W
-        local pillW = 142
-        local xCol  = xStor - gap - pillW
+        -- Right side: [Collectors: 13/13] [Bench] [Stor] [Bank]
+        local xBank  = 8 + availW - Theme.BADGE_W
+        local xStor  = xBank - gap - Theme.BADGE_W
+        local xBench = xStor - gap - Theme.BADGE_W
+        local pillW  = 142
+        local xCol   = xBench - gap - pillW
         local totalBtnsW = math.max(120, xCol - 8 - gap)
 
         if self.badgeBank then self.badgeBank.setBounds(xBank, 36, Theme.BADGE_W, 26) end
         if self.badgeStorage then self.badgeStorage.setBounds(xStor, 36, Theme.BADGE_W, 26) end
+        if self.badgeWorkbench then self.badgeWorkbench.setBounds(xBench, 36, Theme.BADGE_W, 26) end
         if self.badgeBoard then self.badgeBoard.setBounds(xCol, 36, pillW, 26) end
 
         -- Left side buttons per tab: (PROPORTIONALLY SCALED - ALL BUTTONS RESIZE TOGETHER)
@@ -2109,6 +2116,10 @@ function Window:refresh()
         if s.synced then return "synced" end
         if s.cached then return "cached" end
         return "missing"
+    end
+    if self.badgeWorkbench then
+        self.badgeWorkbench.setState(getBadgeState(syncStatus.workbench))
+        self.badgeWorkbench.setIcon(Theme.WORKBENCH_ICON_OBJ_ID)
     end
     if self.badgeStorage then
         self.badgeStorage.setState(getBadgeState(syncStatus.storage))
