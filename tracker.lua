@@ -1431,7 +1431,7 @@ function Tracker:onRestoredArtefactSubmitted(artName, _countHandedIn)
                     end
 
                     if allSub then
-                        self.completedCollections[col.name] = 1
+                        self.completedCollections[col.name] = (self.completedCollections[col.name] or 0) + 1
                         self.submittedArtefacts[col.name] = nil
                         DB.set("arch_completed_collections", DB.serializeCountMap(self.completedCollections))
                         DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(self.submittedArtefacts))
@@ -1449,7 +1449,9 @@ function Tracker:onMiniMenuAction(verb, full)
     local fLower = string.lower(full or "")
     if vLower == "drop" or string.find(fLower, "drop") then
         self.lastAction = "drop"
-    elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box") then
+    elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box")
+        or string.find(fLower, "deposit carried") or string.find(fLower, "deposit worn") or string.find(fLower, "deposit beast") or string.find(fLower, "deposit familiar")
+        or (string.find(fLower, "deposit") and config and config.Inv and config.Inv.BANK and InventoryScanner.findInventory(config.Inv.BANK) ~= nil) then
         self.lastAction = "bank"
         self.bankCacheCleared = false
         self.storageActionTicks = 0

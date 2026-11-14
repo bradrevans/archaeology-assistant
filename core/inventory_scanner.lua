@@ -498,7 +498,7 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
             elseif tracker.lastAction == "bank" then
                 tracker.bankArtefacts[artName] = (tracker.bankArtefacts[artName] or 0) + diff
                 DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
-            elseif tracker.lastAction == "workbench_storage" then
+            elseif tracker.lastAction == "workbench_storage" and not tracker.workbenchSyncedLive then
                 tracker.workbenchArtefacts[artName] = (tracker.workbenchArtefacts[artName] or 0) + diff
                 DB.set("arch_workbench_artefacts", DB.serializeCountMap(tracker.workbenchArtefacts))
             end
@@ -783,8 +783,8 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
             return false
         end
         local isStorageAction = (tracker.lastAction == "storage") or ((tracker.storageActionTicks or 0) > 0) or tracker.pendingJournalStorageScan or isMaterialStorageUiOpen()
-        if archKinds >= 1 or isStorageAction then
-            local currentStorCount = InventoryScanner.countMapEntries(tracker.storageMaterials)
+        local currentStorCount = InventoryScanner.countMapEntries(tracker.storageMaterials)
+        if archKinds >= 1 or (isStorageAction and currentStorCount == 0 and type(candidateId) == "number" and candidateId == tracker.storageInvId) then
             if isStorageAction or archKinds >= math.min(5, currentStorCount) then
                 tracker.storageMaterials = mats
                 tracker.storageSyncedLive = true
