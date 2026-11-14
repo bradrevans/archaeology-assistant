@@ -493,8 +493,8 @@ function Tooltip.buildArtefactRowTooltip(tracker, item)
     local totalRestored = bagRestored + bankRestored
     local statusStr = item.statusText or (item.excluded and "Excluded" or "Ready")
 
-    local damagedStr = string.format("Damaged: %d (Bag: %d, Bank: %d, Bench: %d)",
-        ownedDamaged, item.inBag or 0, item.inBank or 0, item.inBench or 0)
+    local damagedStr = string.format("Damaged: %d (Bag: %d, Bench: %d, Bank: %d)",
+        ownedDamaged, item.inBag or 0, item.inBench or 0, item.inBank or 0)
     local ownedBreakdown
     if totalRestored > 0 and ownedDamaged > 0 then
         ownedBreakdown = string.format(

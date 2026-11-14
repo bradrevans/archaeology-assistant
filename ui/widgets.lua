@@ -867,16 +867,7 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
 
     local plusBg, plusTxt = makeStepBtn(106, sliderSprites and sliderSprites.increase, "+", 1)
 
-    local doneTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 126, rowY + 2, 66, rowH - 2, "0")
-    if ui.AlignMode then
-        pcall(function()
-            doneTxt.alignHorizontal = ui.AlignMode.CENTRE
-            doneTxt.alignVertical = ui.AlignMode.CENTRE
-        end)
-    end
-    doneTxt.hidden = isHidden
-
-    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 196, rowY + 2, 28, rowH - 2)
+    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 128, rowY + 2, 28, rowH - 2)
     if ui.AlignMode then
         pcall(function()
             lvlTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -885,7 +876,7 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     end
     lvlTxt.hidden = isHidden
 
-    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 228, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
+    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 160, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
     nameTxt.hidden = isHidden
 
     local rewardTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -156, rowY + 2, 88, rowH - 2, nil, 1.0, 0, 0, 0)
@@ -899,7 +890,6 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
         accentBar = accentBar,
         trackCheckbox = trackCheckbox,
         trackFallbackBtn = trackFallbackBtn,
-        doneTxt = doneTxt,
         lvlTxt = lvlTxt,
         nameTxt = nameTxt,
         rewardTxt = rewardTxt,
@@ -922,19 +912,6 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
                 trackFallbackBtn.setLabel(isTrackSelected and "On" or "Off")
             end
         end,
-        setDoneState = function(isCompleted, completionCount)
-            local count = tonumber(completionCount)
-            if not count then
-                count = (isCompleted == true) and 1 or 0
-            end
-            if count > 0 then
-                doneTxt.colour = Theme.COL_GREEN
-                doneTxt.content = tostring(count)
-            else
-                doneTxt.colour = Theme.COL_MUTED
-                doneTxt.content = "0"
-            end
-        end,
         setRowHidden = function(hidden)
             local h = (hidden == true)
             bg.hidden = h
@@ -944,7 +921,6 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
             elseif trackFallbackBtn then
                 trackFallbackBtn.setHidden(h)
             end
-            doneTxt.hidden = h
             lvlTxt.hidden = h
             nameTxt.hidden = h
             rewardTxt.hidden = h

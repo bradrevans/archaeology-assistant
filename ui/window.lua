@@ -138,6 +138,25 @@ function Window:handleScrollWheel(comp, delta)
 end
 
 function Window:onLogicTick()
+    if self.tooltip and self.tooltip.root and not self.tooltip.root.hidden then
+        if not self.isVisible or self._isResizing then
+            self:hideRowTooltip()
+            self._pendingHeaderTip = nil
+            return
+        end
+        if self.root and Theme.getScaledMousePos then
+            local mx, my = Theme.getScaledMousePos()
+            local wx, wy, ww, wh = self.root.x, self.root.y, self.root.width, self.root.height
+            if mx and my and wx and wy and ww and wh and ww > 0 and wh > 0 then
+                if mx < wx or mx > (wx + ww) or my < wy or my > (wy + wh) then
+                    self:hideRowTooltip()
+                    self._pendingHeaderTip = nil
+                    return
+                end
+            end
+        end
+    end
+
     local tip = self._pendingHeaderTip
     if not tip then return end
     if not self.isVisible or self._isResizing then
@@ -736,19 +755,13 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
             self.colHTarget.alignHorizontal = ui.AlignMode.CENTRE
         end)
     end
-    self.colHDone    = Widgets.createText(colLayer, Theme.COL_GOLD, 126, 2, 66,  20, "Turn-ins")
-    if ui.AlignMode then
-        pcall(function()
-            self.colHDone.alignHorizontal = ui.AlignMode.CENTRE
-        end)
-    end
-    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 196, 2, 28,  20, "Lvl")
+    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 128, 2, 28,  20, "Lvl")
     if ui.AlignMode then
         pcall(function()
             self.colHLvl.alignHorizontal = ui.AlignMode.CENTRE
         end)
     end
-    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 228, 2, 60,  20, "Collection", 0, 0, 0, 0)
+    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 160, 2, 60,  20, "Collection", 0, 0, 0, 0)
     self.colHReward  = Widgets.createText(colLayer, Theme.COL_GOLD, -156, 2, 88,   20, "Reward",     1.0, 0, 0, 0)
     self.colHReady   = Widgets.createText(colLayer, Theme.COL_GOLD, -62,  2, 54,   20, "Ready",      1.0, 0, 0, 0)
 
@@ -788,7 +801,7 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     self.colArtName   = Widgets.createText(artLayer, Theme.COL_GOLD, 36,  2, 132, 20, "Artefact")
     self.colArtLvl    = Widgets.createText(artLayer, Theme.COL_GOLD, 170, 2, 30,  20, "Lvl")
     self.colArtLoc    = Widgets.createText(artLayer, Theme.COL_GOLD, 202, 2, 100, 20, "Location", 0, 0, 0, 0)
-    self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -330, 2, 82,   20, "Owned",    1.0, 0, 0, 0)
+    self.colArtOwned  = Widgets.createText(artLayer, Theme.COL_GOLD, -330, 2, 82,   20, "Dmg / Rst", 1.0, 0, 0, 0)
     self.colArtQty    = Widgets.createText(artLayer, Theme.COL_GOLD, -242, 2, 64,   20, "Include",  1.0, 0, 0, 0)
     if ui.AlignMode then
         pcall(function()
@@ -1214,20 +1227,23 @@ function Window:reflowDynamicContent(availW, forceReflow)
     local locW = 88
     if self.colArtStatus and self.colArtQty and self.colArtOwned and self.colArtLoc then
         local wAvail = availW or 480
-        local statusW = math.min(185, math.max(86, math.floor(105 + (wAvail - 500) * 0.18)))
-        local ownedW = math.min(95, math.max(54, math.floor(68 + (wAvail - 500) * 0.12)))
-        local nameW = math.min(132, math.max(98, math.floor(125 + math.min(0, wAvail - 520) * 0.18)))
+        local statusW = math.min(175, math.max(82, math.floor(100 + (wAvail - 500) * 0.15)))
+        local ownedW = math.min(115, math.max(82, math.floor(88 + (wAvail - 500) * 0.10)))
         local lvlW = 26
-        local lvlX = 36 + nameW + 2
-        local locX = lvlX + lvlW + 4
 
         local statusOffset = statusW + 6
         local qtyGap = 14
         local qtyOffset = statusOffset + 64 + qtyGap
         local ownedOffset = qtyOffset + ownedW + 6
+
+        -- Share remaining flexible width proportionally so both Artefact and Location shrink & grow together
+        local flexW = math.max(100, (wAvail - ownedOffset - 6) - (36 + 2 + lvlW + 4))
+        local nameW = math.max(60, math.floor(flexW * 0.55))
+        local lvlX = 36 + nameW + 2
+        local locX = lvlX + lvlW + 4
         local availableLocW = (wAvail - ownedOffset - 6) - locX
-        local locVisible = availableLocW >= 28
-        locW = locVisible and math.floor(availableLocW) or 88
+        local locVisible = availableLocW >= 24
+        locW = locVisible and math.floor(availableLocW) or 40
         self._artLocVisible = locVisible
 
         if forceReflow or self._lastArtAvailW ~= wAvail then
@@ -1288,16 +1304,16 @@ function Window:reflowDynamicContent(availW, forceReflow)
 
     if self.colHReward and self.colHTarget and self.colHReady and self.colHColName then
         local wAvail = availW or 480
-        local maxRewW = 220
-        local rewW = math.min(maxRewW, math.max(40, locW))
+        local flexColW = math.max(120, (wAvail - 74) - 160)
+        local rewW = math.min(260, math.max(75, math.floor(flexColW * 0.45)))
         local rewNegOffset = 68 + rewW
-        local nameW = math.max(40, (wAvail - rewNegOffset - 6) - 228)
+        local nameW = math.max(60, (wAvail - rewNegOffset - 6) - 160)
 
         if forceReflow or self._lastColAvailW ~= wAvail then
             self._lastColAvailW = wAvail
             self.colHReward:SetPos(-rewNegOffset, 2, 1.0, 0)
             self.colHReward:SetSize(rewW, 20, 0, 0)
-            self.colHColName:SetPos(228, 2, 0, 0)
+            self.colHColName:SetPos(160, 2, 0, 0)
             self.colHColName:SetSize(nameW, 20, 0, 0)
 
             if self.collectionRows then
@@ -1307,7 +1323,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         local rY = 24 + (i - 1) * Theme.ROW_HEIGHT
                         row.rewardTxt:SetPos(-rewNegOffset, rY + 2, 1.0, 0)
                         row.rewardTxt:SetSize(rewW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.nameTxt:SetPos(228, rY + 2, 0, 0)
+                        row.nameTxt:SetPos(160, rY + 2, 0, 0)
                         row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
                     end
                 end
@@ -1793,7 +1809,6 @@ function Window:populateCollectionRows(colList)
 
                 rowUI.setRowHidden(false)
                 rowUI.setTargetState(prog.isTargeted)
-                rowUI.setDoneState(prog.isCompleted, prog.completedCount)
 
                 if prog.isTargeted then
                     rowUI.bg.colour = Theme.COL_BG_TRACKED
@@ -1918,37 +1933,38 @@ function Window:populateArtefactRows(artList)
             rowUI.locTxt.content = item.artefact.location or "Archaeology"
             rowUI.locTxt.colour = Theme.COL_MUTED
 
+            local inBag = item.inBag or 0
+            local inBank = item.inBank or 0
             local inBench = item.inBench or 0
-            local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0) + inBench)
+            local ownedDamaged = item.ownedDamaged or (inBag + inBank + inBench)
             local bagRestored = item.bagRestored or 0
             local bankRestored = item.bankRestored or 0
             local totalRestored = bagRestored + bankRestored
-            if inBench > 0 and (item.inBag > 0 or item.inBank > 0) then
-                rowUI.ownedTxt.content = string.format("%d (Multi)", ownedDamaged)
-                rowUI.ownedTxt.colour = Theme.COL_WHITE
-            elseif inBench > 0 then
-                rowUI.ownedTxt.content = string.format("%d (Bench)", inBench)
-                rowUI.ownedTxt.colour = Theme.COL_WHITE
-            elseif item.inBag > 0 and item.inBank > 0 then
-                rowUI.ownedTxt.content = string.format("%d (%d/%d)", ownedDamaged, item.inBag, item.inBank)
-                rowUI.ownedTxt.colour = Theme.COL_WHITE
-            elseif item.inBag > 0 then
-                rowUI.ownedTxt.content = string.format("%d (Bag)", item.inBag)
-                rowUI.ownedTxt.colour = Theme.COL_WHITE
-            elseif item.inBank > 0 then
-                rowUI.ownedTxt.content = string.format("%d (Bank)", item.inBank)
-                rowUI.ownedTxt.colour = Theme.COL_WHITE
-            elseif totalRestored > 0 then
-                if bagRestored > 0 and bankRestored > 0 then
-                    rowUI.ownedTxt.content = string.format("%d (%d/%d)", totalRestored, bagRestored, bankRestored)
-                elseif bagRestored > 0 then
-                    rowUI.ownedTxt.content = string.format("%d (Bag)", bagRestored)
-                else
-                    rowUI.ownedTxt.content = string.format("%d (Bank)", bankRestored)
+            local locTag = ""
+            if totalRestored > 0 then
+                if bagRestored > 0 then
+                    locTag = " (Bag)"
+                elseif bankRestored > 0 then
+                    locTag = " (Bank)"
                 end
+            elseif ownedDamaged > 0 then
+                local locs = (inBag > 0 and 1 or 0) + (inBench > 0 and 1 or 0) + (inBank > 0 and 1 or 0)
+                if locs > 1 then
+                    locTag = " (Multi)"
+                elseif inBag > 0 then
+                    locTag = " (Bag)"
+                elseif inBench > 0 then
+                    locTag = " (Bench)"
+                elseif inBank > 0 then
+                    locTag = " (Bank)"
+                end
+            end
+            rowUI.ownedTxt.content = string.format("%d / %d%s", ownedDamaged, totalRestored, locTag)
+            if totalRestored > 0 then
                 rowUI.ownedTxt.colour = Theme.COL_GREEN
+            elseif ownedDamaged > 0 then
+                rowUI.ownedTxt.colour = Theme.COL_WHITE
             else
-                rowUI.ownedTxt.content = "0"
                 rowUI.ownedTxt.colour = Theme.COL_MUTED
             end
             rowUI.qtyTxt.content = tostring(item.effectiveCount)
