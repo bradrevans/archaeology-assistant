@@ -369,10 +369,7 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
         end
         statusStr = string.format("%d/%d possessed (%s)", prog.haveCount or 0, prog.totalCount or 0, table.concat(parts, ", "))
     end
-    local compCount = tonumber(prog.completedCount) or (prog.isCompleted and 1 or 0)
-    if compCount > 0 then
-        statusStr = statusStr .. string.format(" [%d Turn-in%s]", compCount, compCount == 1 and "" or "s")
-    elseif prog.isCompleted then
+    if prog.isCompleted then
         statusStr = statusStr .. " [Completed]"
     end
 
@@ -381,7 +378,6 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
     local details = {}
     local colLoc = col.location or (Collections and Collections.getCollectorLocation and Collections.getCollectorLocation(col.collector)) or "Archaeology Guild"
     table.insert(details, string.format("Hand-In Location: %s", colLoc))
-    table.insert(details, string.format("Total Turn-ins: %d%s", compCount, (compCount > 0) and " (Completed)" or " (Incomplete)"))
     table.insert(details, string.format("Collection Status: %s", statusStr))
 
     if isMultiTarget then
