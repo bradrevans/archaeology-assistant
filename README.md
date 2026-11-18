@@ -9,7 +9,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 
 ## Plugin Features
 - **Dynamic Client `DBTable` Data + Minimal Wiki Extras**:
-  - At startup, [`core/db_extractor.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/db_extractor.lua) dynamically extracts all 69 materials, 250 artefacts, 79 permanent collections (filtering out seasonal event collections), and 102 excavation hotspots directly from RS3's `DBTable` / `DBRow` APIs so new dig sites and collections stay current automatically.
+  - At startup, [`core/db_extractor.lua`](core/db_extractor.lua) dynamically extracts all 69 materials, 250 artefacts, 79 permanent collections (filtering out seasonal event collections), and 102 excavation hotspots directly from RS3's `DBTable` / `DBRow` APIs so new dig sites and collections stay current automatically.
   - Only fields not exposed on `DBRow`s (artefact chronote values in `Artefacts.CHRONOTES` and collection reward/repeatability metadata in `Collections.EXTRAS`) are maintained in `data/*.lua` via `scripts/update_wiki_data.py`.
 - **Three Dedicated Views (Tabs) with Sticky Header**:
   - Navigation tabs, search/level filters, and sync status badges (`Collectors`, `Workbench`, `Storage`, `Bank`) remain pinned above the scroll area while scrolling.
@@ -75,36 +75,36 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
 The codebase follows **SOLID** and **DRY** principles with small, single-responsibility modules organized into `core/`, `data/`, and `ui/`.
 
 ### Runtime Plugin Files (Bundled into `dist/archaeology-assistant`)
-- [`plugin.json`](file:///c:/Users/bradr/code/archaeology-assistant/plugin.json) — RS3 plugin manifest (declares `prettyui: 6398181` dependency, `chatAccess` permission, and ribbon bar icon)
-- [`main.lua`](file:///c:/Users/bradr/code/archaeology-assistant/main.lua) — Plugin entrypoint, event subscriptions, and `PluginShutdown()` persistence hook
-- [`tracker.lua`](file:///c:/Users/bradr/code/archaeology-assistant/tracker.lua) — State coordinator for source modes, filters, collection progress, and material/artefact deficit calculations
+- [`plugin.json`](plugin.json) — RS3 plugin manifest (declares `prettyui: 6398181` dependency, `chatAccess` permission, and ribbon bar icon)
+- [`main.lua`](main.lua) — Plugin entrypoint, event subscriptions, and `PluginShutdown()` persistence hook
+- [`tracker.lua`](tracker.lua) — State coordinator for source modes, filters, collection progress, and material/artefact deficit calculations
 - **`core/` — Single-Responsibility Domain & Infrastructure Modules**:
-  - [`core/utils.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/utils.lua) — Shared string normalization, HTML/colour tag stripping, number formatting, and table helpers
-  - [`core/db.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/db.lua) — Safe `PersistentDB` wrapper and deterministic map/set/submission serializers
-  - [`core/db_extractor.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/db_extractor.lua) — Runtime `DBTable` / `DBRow` extractor populating materials, artefacts, collections, and hotspots directly from the RS3 client
-  - [`core/inventory_scanner.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/inventory_scanner.lua) — Backpack, Workbench Storage, Bank, and Material Storage scanner with Area Loot and recipe preview isolation
-  - [`core/noticeboard_scanner.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/noticeboard_scanner.lua) — `VarPlayer.COLLECTION_*` and `config.Achievement` collector sync engine (gated on Archaeology Journal or Guild noticeboard proximity)
-  - [`core/chat_parser.lua`](file:///c:/Users/bradr/code/archaeology-assistant/core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, collector hand-in, and excavation discovery chat parser
+  - [`core/utils.lua`](core/utils.lua) — Shared string normalization, HTML/colour tag stripping, number formatting, and table helpers
+  - [`core/db.lua`](core/db.lua) — Safe `PersistentDB` wrapper and deterministic map/set/submission serializers
+  - [`core/db_extractor.lua`](core/db_extractor.lua) — Runtime `DBTable` / `DBRow` extractor populating materials, artefacts, collections, and hotspots directly from the RS3 client
+  - [`core/inventory_scanner.lua`](core/inventory_scanner.lua) — Backpack, Workbench Storage, Bank, and Material Storage scanner with Area Loot and recipe preview isolation
+  - [`core/noticeboard_scanner.lua`](core/noticeboard_scanner.lua) — `VarPlayer.COLLECTION_*` and `config.Achievement` collector sync engine (gated on Archaeology Journal or Guild noticeboard proximity)
+  - [`core/chat_parser.lua`](core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, collector hand-in, and excavation discovery chat parser
 - **`data/` — Slimmed Runtime Shells & Wiki Extras**:
-  - [`data/materials.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/materials.lua) — Runtime shell populated by `DBExtractor.syncAll()`
-  - [`data/artefacts.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/artefacts.lua) — Runtime shell + `Artefacts.CHRONOTES` lookup (45 entries not exposed on `DBRow`s)
-  - [`data/hotspots.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/hotspots.lua) — Runtime shell populated by `DBExtractor.syncAll()`
-  - [`data/collections.lua`](file:///c:/Users/bradr/code/archaeology-assistant/data/collections.lua) — Runtime shell + `Collections.EXTRAS` metadata (79 entries for rewards/repeatability)
+  - [`data/materials.lua`](data/materials.lua) — Runtime shell populated by `DBExtractor.syncAll()`
+  - [`data/artefacts.lua`](data/artefacts.lua) — Runtime shell + `Artefacts.CHRONOTES` lookup (45 entries not exposed on `DBRow`s)
+  - [`data/hotspots.lua`](data/hotspots.lua) — Runtime shell populated by `DBExtractor.syncAll()`
+  - [`data/collections.lua`](data/collections.lua) — Runtime shell + `Collections.EXTRAS` metadata (79 entries for rewards/repeatability)
 - **`ui/` — Modular PrettyUI Components**:
-  - [`ui/theme.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/theme.lua) — Shared colour palette, layout constants, font resolution, and text wrapping height measurement
-  - [`ui/tooltip.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/tooltip.lua) — Floating tooltip component and tooltip content builders for collections, artefacts, materials, and sync badges
-  - [`ui/widgets.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/widgets.lua) — Reusable UI component factories (toolbar buttons, sync badges, collector sync pill, table rows, resize handles)
-  - [`ui/window.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/window.lua) — Main `PrettyUI` movable, resizable, scrollable 3-tab window and Ribbon Bar hub
-  - [`ui/overlay.lua`](file:///c:/Users/bradr/code/archaeology-assistant/ui/overlay.lua) — In-game 3D world spot highlighter and overhead deficit indicator badges
+  - [`ui/theme.lua`](ui/theme.lua) — Shared colour palette, layout constants, font resolution, and text wrapping height measurement
+  - [`ui/tooltip.lua`](ui/tooltip.lua) — Floating tooltip component and tooltip content builders for collections, artefacts, materials, and sync badges
+  - [`ui/widgets.lua`](ui/widgets.lua) — Reusable UI component factories (toolbar buttons, sync badges, collector sync pill, table rows, resize handles)
+  - [`ui/window.lua`](ui/window.lua) — Main `PrettyUI` movable, resizable, scrollable 3-tab window and Ribbon Bar hub
+  - [`ui/overlay.lua`](ui/overlay.lua) — In-game 3D world spot highlighter and overhead deficit indicator badges
 
 ### Cross-Platform Python Toolchain (Excluded from Plugin Bundle)
 All build, Wiki data scraping, validation, deployment, and Mod.io packaging tasks are written in standard-library **Python 3.10+** (`manage.py` and `scripts/*.py`) so they run identically on **Windows, macOS, and Linux** without external pip dependencies:
-- [`manage.py`](file:///c:/Users/bradr/code/archaeology-assistant/manage.py) — Unified cross-platform CLI entrypoint (`update-data`, `build`, `deploy`, `package`, `launch-beta`)
-- [`scripts/update_wiki_data.py`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/update_wiki_data.py) — Scrapes live Archaeology materials, artefacts, excavation hotspots, relic powers, collections, achievement IDs, and collector NPC locations from `https://runescape.wiki` and regenerates `data/*.lua`
-- [`scripts/build_plugin.py`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/build_plugin.py) — Validates `plugin.json`, Lua syntax/brace balance, local `require(...)` graph, and data integrity, then stages the runtime bundle in `dist/archaeology-assistant/` (and optionally deploys to the local RS3 plugin directory)
-- [`scripts/package_submission.py`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/package_submission.py) — Runs the full build validation and packages `dist/archaeology-assistant-v<version>.zip` with root-level `main.lua` and `plugin.json` for Mod.io
-- [`scripts/launch_beta.py`](file:///c:/Users/bradr/code/archaeology-assistant/scripts/launch_beta.py) — Builds, deploys, and opens the `rs-launch://` URI via the OS URL handler
-- [`deploy.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/deploy.cmd), [`package.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/package.cmd), [`launch-beta.cmd`](file:///c:/Users/bradr/code/archaeology-assistant/launch-beta.cmd) — Convenience Windows batch wrappers that invoke `manage.py`
+- [`manage.py`](manage.py) — Unified cross-platform CLI entrypoint (`update-data`, `build`, `deploy`, `package`, `launch-beta`)
+- [`scripts/update_wiki_data.py`](scripts/update_wiki_data.py) — Scrapes live Archaeology materials, artefacts, excavation hotspots, relic powers, collections, achievement IDs, and collector NPC locations from `https://runescape.wiki` and regenerates `data/*.lua`
+- [`scripts/build_plugin.py`](scripts/build_plugin.py) — Validates `plugin.json`, Lua syntax/brace balance, local `require(...)` graph, and data integrity, then stages the runtime bundle in `dist/archaeology-assistant/` (and optionally deploys to the local RS3 plugin directory)
+- [`scripts/package_submission.py`](scripts/package_submission.py) — Runs the full build validation and packages `dist/archaeology-assistant-v<version>.zip` with root-level `main.lua` and `plugin.json` for Mod.io
+- [`scripts/launch_beta.py`](scripts/launch_beta.py) — Builds, deploys, and opens the `rs-launch://` URI via the OS URL handler
+- [`deploy.cmd`](deploy.cmd), [`package.cmd`](package.cmd), [`launch-beta.cmd`](launch-beta.cmd) — Convenience Windows batch wrappers that invoke `manage.py`
 
 ---
 
