@@ -100,7 +100,7 @@ The codebase follows **SOLID** and **DRY** principles with small, single-respons
 ### Cross-Platform Python Toolchain (Excluded from Plugin Bundle)
 All build, Wiki data scraping, validation, deployment, and Mod.io packaging tasks are written in standard-library **Python 3.10+** (`manage.py` and `scripts/*.py`) so they run identically on **Windows, macOS, and Linux** without external pip dependencies:
 - [`manage.py`](manage.py) — Unified cross-platform CLI entrypoint (`update-data`, `build`, `deploy`, `package`, `launch-beta`)
-- [`scripts/update_wiki_data.py`](scripts/update_wiki_data.py) — Scrapes supplemental Wiki metadata not exposed on game `DBRow`s (artefact chronotes, collection rewards/repeatability, and collector hand-in locations) from `https://runescape.wiki` and regenerates the slim `data/*.lua` files
+- [`scripts/update_wiki_data.py`](scripts/update_wiki_data.py) — Scrapes supplemental Wiki metadata not exposed on game `DBRow`s (artefact chronotes and collection rewards/benefits) from `https://runescape.wiki` and regenerates the slim `data/*.lua` files
 - [`scripts/build_plugin.py`](scripts/build_plugin.py) — Validates `plugin.json`, Lua syntax/brace balance, local `require(...)` graph, and data integrity, then stages the runtime bundle in `dist/archaeology-assistant/` (and optionally deploys to the local RS3 plugin directory)
 - [`scripts/package_submission.py`](scripts/package_submission.py) — Runs the full build validation and packages `dist/archaeology-assistant-v<version>.zip` with root-level `main.lua` and `plugin.json` for Mod.io
 - [`scripts/launch_beta.py`](scripts/launch_beta.py) — Builds, deploys, and opens the `rs-launch://` URI via the OS URL handler
@@ -114,7 +114,7 @@ All build, Wiki data scraping, validation, deployment, and Mod.io packaging task
 - **Python 3.10+** (no third-party packages required; uses only Python's standard library).
 
 ### 1. Refresh Supplemental Wiki Metadata (Chronotes & Collection Rewards)
-Core materials, artefacts, collections, and hotspots are loaded dynamically from the RuneScape client's `DBTable`s at runtime. To refresh the supplemental metadata not exposed on `DBRow`s (chronote values, collection rewards/repeatability, and collector hand-in locations), run:
+Core materials, artefacts, collections, collector locations, and hotspots are loaded dynamically from the RuneScape client's `DBTable`s at runtime. To refresh the supplemental metadata not exposed on `DBRow`s (artefact chronote values and collection rewards/benefits), run:
 ```bash
 python manage.py update-data
 ```

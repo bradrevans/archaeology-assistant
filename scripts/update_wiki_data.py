@@ -989,14 +989,10 @@ def generate_collections_lua(
         "",
         "local Collections = {}",
         "",
-        "-- Collector hand-in locations dynamically scraped from Collector NPC Wiki pages",
-        "Collections.COLLECTOR_LOCATIONS = {",
+        "-- Collector hand-in locations (populated at runtime by core/db_extractor.lua from COLLECTOR DBTable)",
+        "Collections.COLLECTOR_LOCATIONS = {}",
     ]
-    for collector_name in sorted(collector_locations.keys()):
-        loc = collector_locations[collector_name]
-        lines.append(f'    ["{escape_lua(collector_name)}"] = "{escape_lua(loc)}",')
     lines.extend([
-        "}",
         "",
         "function Collections.getCollectorLocation(collectorName)",
         '    if not collectorName then return "Archaeology Campus" end',

@@ -6,9 +6,8 @@ local Utils = require("core/utils")
 
 local Collections = {}
 
--- Collector hand-in locations dynamically scraped from Collector NPC Wiki pages
-Collections.COLLECTOR_LOCATIONS = {
-}
+-- Collector hand-in locations (populated at runtime by core/db_extractor.lua from COLLECTOR DBTable)
+Collections.COLLECTOR_LOCATIONS = {}
 
 function Collections.getCollectorLocation(collectorName)
     if not collectorName then return "Archaeology Campus" end
