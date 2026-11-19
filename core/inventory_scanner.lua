@@ -292,10 +292,14 @@ end
 
 local function isInterfaceOpen(ifId)
     if not ifId or not ui or not ui.Interfaces then return false end
+    local okIf, iface = pcall(function() return ui.Interfaces:GetInterface(ifId) end)
+    if not okIf or not iface then return false end
     local ok0, c0 = pcall(function() return ui.Interfaces:GetComponent(ifId, 0) end)
     if ok0 and c0 then
         local okH, isHidden = pcall(function() return c0.hidden end)
         if okH and isHidden == true then return false end
+        local okVg, isVisGlobal = pcall(function() return c0.visibleGlobal end)
+        if okVg and isVisGlobal == false then return false end
         local okV, isVis = pcall(function() return c0.isVisible end)
         if okV and isVis == false then return false end
         return true
@@ -1094,7 +1098,8 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
         if triggerInvType and not benchTriggered then
             gotStor = scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankInv)
         end
-        if not gotStor and (tracker.pendingJournalStorageScan or isMaterialStorageUiOpen()) then
+        local isBagTrigger = (triggerInvType ~= nil and config.Inv.INV and triggerInvType == config.Inv.INV)
+        if not gotStor and (tracker.pendingJournalStorageScan or (not isBagTrigger and isMaterialStorageUiOpen())) then
             scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
         end
     end

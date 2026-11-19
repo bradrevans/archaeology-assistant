@@ -100,21 +100,32 @@ end
 local function onChatMessage(event)
     if not tracker then return end
     xpcall(function()
-        local msg = (type(event) == "table" and (event.chatMessage or event.text or event.message))
-            or (type(event) == "string" and event)
-
-        if not msg and type(event) == "table" then
-            for _, v in pairs(event) do
-                if type(v) == "string" and (string.find(string.lower(v), "transport") or string.find(string.lower(v), "storage")) then
-                    msg = v
-                    break
+        local msg = nil
+        local evType = type(event)
+        if evType == "string" then
+            msg = event
+        elseif evType == "table" or evType == "userdata" then
+            pcall(function()
+                msg = event.chatMessage or event.text or event.message
+            end)
+            if not msg and evType == "table" then
+                for _, v in pairs(event) do
+                    if type(v) == "string" and (string.find(string.lower(v), "transport") or string.find(string.lower(v), "storage")) then
+                        msg = v
+                        break
+                    end
                 end
             end
         end
 
         if msg then
             local lower = string.lower(tostring(msg))
-            if string.find(lower, "transport") or string.find(lower, "storage") or string.find(lower, "porter") or string.find(lower, "grace of the elves") then
+            if string.find(lower, "transport", 1, true)
+                or string.find(lower, "storage", 1, true)
+                or string.find(lower, "porter", 1, true)
+                or string.find(lower, "grace of the elves", 1, true)
+                or string.find(lower, "imp-souled", 1, true)
+                or string.find(lower, "premier artefact", 1, true) then
                 print("[Archaeology Assistant CHAT] " .. tostring(msg))
             end
             if tracker:onChatMessage(msg) then

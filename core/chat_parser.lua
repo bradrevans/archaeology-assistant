@@ -33,24 +33,33 @@ local function parsePorterTransport(clean, lower)
     end
 
     if not mat and (
-        string.find(lower, "material storage")
-        or string.find(lower, "porter")
-        or string.find(lower, "grace of the elves")
-        or string.find(lower, "transport")
+        string.find(lower, "material storage", 1, true)
+        or string.find(lower, "porter", 1, true)
+        or string.find(lower, "grace of the elves", 1, true)
+        or string.find(lower, "transport", 1, true)
+        or string.find(lower, "imp-souled", 1, true)
+        or string.find(lower, "premier artefact", 1, true)
     ) then
+        local bestMat = nil
+        local bestLow = nil
+        local bestLen = 0
         for _, m in ipairs(Materials.LIST or {}) do
             local mLow = string.lower(m.name)
-            if string.find(lower, mLow, 1, true) then
-                local esc = Utils.escapePattern(mLow)
-                local qMatch = string.match(lower, "(%d+)%s*[xX]%s*" .. esc)
-                    or string.match(lower, "(%d+)%s+" .. esc)
-                    or string.match(lower, esc .. "%s*[xX]%s*(%d+)")
-                if qMatch and tonumber(qMatch) and tonumber(qMatch) > 0 and tonumber(qMatch) <= 10000 then
-                    qty = tonumber(qMatch)
-                end
-                mat = m
-                break
+            if #mLow > bestLen and string.find(lower, mLow, 1, true) then
+                bestMat = m
+                bestLow = mLow
+                bestLen = #mLow
             end
+        end
+        if bestMat and bestLow then
+            local esc = Utils.escapePattern(bestLow)
+            local qMatch = string.match(lower, "(%d+)%s*[xX]%s*" .. esc)
+                or string.match(lower, "(%d+)%s+" .. esc)
+                or string.match(lower, esc .. "%s*[xX]%s*(%d+)")
+            if qMatch and tonumber(qMatch) and tonumber(qMatch) > 0 and tonumber(qMatch) <= 10000 then
+                qty = tonumber(qMatch)
+            end
+            mat = bestMat
         end
     end
 
@@ -151,7 +160,7 @@ end
 function ChatParser.onChatMessage(tracker, textOrEvent)
     local text = textOrEvent
     if type(textOrEvent) == "table" or type(textOrEvent) == "userdata" then
-        pcall(function() text = textOrEvent.text or textOrEvent.message end)
+        pcall(function() text = textOrEvent.chatMessage or textOrEvent.text or textOrEvent.message end)
     end
     if type(text) ~= "string" or text == "" then
         return false
@@ -177,8 +186,15 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
     if mat then
         tracker.storageMaterials[mat.name] = (tracker.storageMaterials[mat.name] or 0) + qty
         tracker.storageHasCache = true
+        tracker.pendingJournalStorageScan = false
+        tracker.storageActionTicks = 0
         DB.set("arch_storage_materials", DB.serializeCountMap(tracker.storageMaterials))
-        tracker:recalculate()
+        tracker._skipExternalContainerScan = true
+        local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+        tracker._skipExternalContainerScan = false
+        if not okRecalc then
+            error(errRecalc, 0)
+        end
         print(string.format(
             "[Archaeology Assistant] Transported to Material Storage: +%d %s (Storage total: %d)",
             qty,
