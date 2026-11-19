@@ -27,7 +27,197 @@ local hotspotArtefacts     = nil
 local hotspotArtefactsList = nil
 local rawNameSpotCache     = {}
 local rawNameSpotCacheSize = 0
+local locSigCache          = {}
+local locSigCacheSize      = 0
+local bestTierBySpotKey    = {}
+local seenConfigsBySpotKey = {}
+local loggedSpotConfigPair = {}
 local cachedLocQueryMode   = nil
+
+local NEGATIVE_LOC_NAME_TOKENS = {
+    "DECOR", "SCENERY", "PROP", "DEPLETED", "EMPTY", "INACTIVE",
+    "INSCRIPTION", "EPITAPH", "PLAQUE", "TRANSLAT", "LORE", "MYSTERY", "STATIC",
+}
+
+local NEGATIVE_CURSOR_TOKENS = {
+    "INSPECT", "SEARCH", "INVESTIGATE", "READ", "STUDY",
+    "TALK", "LISTEN", "OPEN", "CLOSE", "ENTER", "EXIT", "CLIMB",
+    "UNLOCK", "LOCK", "PICKLOCK",
+}
+
+local function containsAnyToken(upperStr, tokens)
+    if not upperStr or upperStr == "" then return false end
+    for _, tok in ipairs(tokens) do
+        if string.find(upperStr, tok, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function inspectOp1Cursor(locCfg)
+    if not locCfg then return nil, nil end
+    local okFn, fn = pcall(function() return locCfg.GetOpCursor end)
+    if not okFn or not fn then
+        return nil, nil
+    end
+    local okCur, cur = pcall(locCfg.GetOpCursor, locCfg, 1)
+    if not okCur or not cur then
+        return nil, nil
+    end
+    local cName = nil
+    pcall(function() cName = cur.configName or cur.name end)
+    if not cName or cName == "" then
+        cName = tostring(cur)
+    end
+    return cur, cName and tostring(cName) or nil
+end
+
+local function getLocConfigSignature(loc)
+    if not loc then return { allow = true, tier = 0, op1 = "nil" } end
+
+    local cfg, pCfg, cfgId, pCfgId
+    pcall(function()
+        cfg    = loc.config
+        pCfg   = loc.parentConfig
+        cfgId  = (cfg and cfg.id) or loc.configID
+        pCfgId = pCfg and pCfg.id
+    end)
+
+    local cNum = tonumber(cfgId)
+    local pNum = tonumber(pCfgId)
+    local cacheKey = (cNum or pNum) and ((pNum or 0) * 1048576 + (cNum or 0)) or nil
+    if cacheKey then
+        local cached = locSigCache[cacheKey]
+        if cached ~= nil then
+            return cached
+        end
+    end
+
+    local cfgName, pCfgName, fastPicking, width = nil, nil, nil, nil
+    pcall(function()
+        if cfg then
+            cfgName     = cfg.configName
+            fastPicking = cfg.fastPicking
+            width       = cfg.width
+        end
+    end)
+    pcall(function() pCfgName = pCfg and pCfg.configName end)
+
+    local upperCfg      = cfgName and string.upper(tostring(cfgName)) or ""
+    local upperPCfg     = pCfgName and string.upper(tostring(pCfgName)) or ""
+    local combinedUpper = upperCfg .. " " .. upperPCfg
+
+    local op1Cursor, op1Name = inspectOp1Cursor(cfg)
+    if not op1Cursor and pCfg then
+        local pOp1, pOp1Name = inspectOp1Cursor(pCfg)
+        op1Cursor = pOp1
+        op1Name   = pOp1Name
+    end
+
+    local tier = 0
+    if string.find(combinedUpper, "EXCAVAT", 1, true)
+        or string.find(combinedUpper, "HOTSPOT", 1, true)
+        or string.find(combinedUpper, "CACHE", 1, true) then
+        tier = tier + 16
+    end
+    if containsAnyToken(combinedUpper, NEGATIVE_LOC_NAME_TOKENS) then
+        tier = tier - 16
+    end
+
+    local op1Upper = op1Name and string.upper(op1Name) or ""
+    if op1Cursor ~= nil then
+        if containsAnyToken(op1Upper, NEGATIVE_CURSOR_TOKENS) then
+            tier = tier - 8
+        else
+            tier = tier + 8
+            if string.find(op1Upper, "ARCH", 1, true)
+                or string.find(op1Upper, "EXCAVAT", 1, true)
+                or string.find(op1Upper, "MATTOCK", 1, true)
+                or string.find(op1Upper, "DIG", 1, true) then
+                tier = tier + 4
+            end
+        end
+    end
+
+    if pCfg ~= nil then
+        tier = tier + 2
+    end
+    if string.sub(upperCfg, 1, 5) == "ARCH_" or string.sub(upperPCfg, 1, 5) == "ARCH_" then
+        tier = tier + 1
+    end
+
+    local sig = {
+        allow       = true,
+        tier        = tier,
+        sigKey      = cacheKey,
+        cfgId       = cfgId,
+        cfgName     = cfgName,
+        pCfgId      = pCfgId,
+        pCfgName    = pCfgName,
+        op1         = op1Name or "nil",
+        fastPicking = fastPicking,
+        width       = width,
+    }
+
+    if cacheKey then
+        if locSigCacheSize >= 4096 then
+            locSigCache = {}
+            locSigCacheSize = 0
+        end
+        locSigCache[cacheKey] = sig
+        locSigCacheSize = locSigCacheSize + 1
+    end
+    return sig
+end
+
+local function isExcavatableLoc(loc)
+    local sig = getLocConfigSignature(loc)
+    return sig.allow, sig.tier, sig
+end
+
+local function recordSpotConfigSample(spotKey, loc, sig)
+    if not spotKey or not sig or sig.sigKey == nil then return end
+    local bucket = seenConfigsBySpotKey[spotKey]
+    if not bucket then
+        bucket = { count = 0, items = {} }
+        seenConfigsBySpotKey[spotKey] = bucket
+    end
+    local sk = tostring(sig.sigKey)
+    if not bucket.items[sk] then
+        local shapeVal = nil
+        pcall(function() shapeVal = loc and loc.shapeType end)
+        bucket.items[sk] = {
+            cfgId       = sig.cfgId,
+            cfgName     = sig.cfgName,
+            pCfgId      = sig.pCfgId,
+            pCfgName    = sig.pCfgName,
+            op1         = sig.op1,
+            shapeType   = shapeVal,
+            fastPicking = sig.fastPicking,
+            width       = sig.width,
+            tier        = sig.tier,
+        }
+        bucket.count = bucket.count + 1
+    end
+    if bucket.count >= 2 then
+        for k, info in pairs(bucket.items) do
+            local logKey = spotKey .. "|" .. k
+            if not loggedSpotConfigPair[logKey] then
+                loggedSpotConfigPair[logKey] = true
+                print(string.format(
+                    "[Archaeology Assistant] Multi-config loc [%s]: cfg=%s(%s) parent=%s(%s) op1=%s shape=%s fast=%s w=%s tier=%d",
+                    tostring(spotKey),
+                    tostring(info.cfgId), tostring(info.cfgName),
+                    tostring(info.pCfgId), tostring(info.pCfgName),
+                    tostring(info.op1), tostring(info.shapeType),
+                    tostring(info.fastPicking), tostring(info.width),
+                    info.tier or 0
+                ))
+            end
+        end
+    end
+end
 
 local function getEntityCoordGrid(entity)
     return entity.coordGrid
@@ -443,6 +633,21 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
     if not isEntityAlive(spot.entity) then
         return false
     end
+    local allow, curTier = isExcavatableLoc(spot.entity)
+    if not allow then
+        return false
+    end
+    spot.tier = curTier
+    if spot.spotKey then
+        local best = bestTierBySpotKey[spot.spotKey]
+        if best == nil or curTier > best then
+            bestTierBySpotKey[spot.spotKey] = curTier
+            best = curTier
+        end
+        if curTier < best then
+            return false
+        end
+    end
 
     if spot.isCache then
         local def = deficits[string.lower(spot.displayName)]
@@ -679,9 +884,9 @@ function Overlay:scanWorldSpots(force)
         return
     end
 
-    local px, pz     = pCoord.x, pCoord.z
-    local matched    = {}
-    local seenCoords = {}
+    local px, pz            = pCoord.x, pCoord.z
+    local matched           = {}
+    local seenCoords        = {}
 
     iterateEntities(locs, function(loc)
         if not isEntityAlive(loc) then return end
@@ -702,15 +907,25 @@ function Overlay:scanWorldSpots(force)
         local spotClass = classifyRawSpotName(rawName)
         if not spotClass then return end
 
+        local canExcavate, locTier, locSig = isExcavatableLoc(loc)
+        if not canExcavate then return end
+
         if spotClass.isCache then
             local def = deficits[spotClass.cacheMatLower]
             if def then
                 seenCoords[coordKey] = true
+                local spotKey = "cache:" .. def.name
+                recordSpotConfigSample(spotKey, loc, locSig)
+                if bestTierBySpotKey[spotKey] == nil or locTier > bestTierBySpotKey[spotKey] then
+                    bestTierBySpotKey[spotKey] = locTier
+                end
                 table.insert(matched, {
                     entity        = loc,
                     coordGrid     = cg,
                     distSq        = computeDistSq(cg, pCoord),
                     displayName   = def.name,
+                    spotKey       = spotKey,
+                    tier          = locTier,
                     isCache       = true,
                     hasArtefacts  = false,
                     totalPossible = 1,
@@ -755,11 +970,20 @@ function Overlay:scanWorldSpots(force)
             for _, artItem in ipairs(neededArts) do table.insert(displayItems, artItem) end
             for _, matItem in ipairs(neededMats) do table.insert(displayItems, matItem) end
 
+            local spotDisplayName = matchedName or clean
+            local spotKey = "spot:" .. Hotspots.normalizeKey(spotDisplayName)
+            recordSpotConfigSample(spotKey, loc, locSig)
+            if bestTierBySpotKey[spotKey] == nil or locTier > bestTierBySpotKey[spotKey] then
+                bestTierBySpotKey[spotKey] = locTier
+            end
+
             table.insert(matched, {
                 entity        = loc,
                 coordGrid     = cg,
                 distSq        = computeDistSq(cg, pCoord),
-                displayName   = matchedName or clean,
+                displayName   = spotDisplayName,
+                spotKey       = spotKey,
+                tier          = locTier,
                 isCache       = false,
                 hotspotDef    = hotspotDef,
                 hasArtefacts  = (#neededArts > 0),
@@ -768,6 +992,17 @@ function Overlay:scanWorldSpots(force)
             })
         end
     end)
+
+    if #matched > 0 then
+        local filtered = {}
+        for _, spot in ipairs(matched) do
+            local bestTier = bestTierBySpotKey[spot.spotKey]
+            if bestTier == nil or spot.tier >= bestTier then
+                table.insert(filtered, spot)
+            end
+        end
+        matched = filtered
+    end
 
     updateExcavateStateAndSort(self, matched)
     self.activeSpots = matched
