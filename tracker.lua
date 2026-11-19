@@ -1798,7 +1798,7 @@ function Tracker:recalculate(triggerInvType)
                     if copiesForMat < matPossibleNow then
                         matPossibleNow = copiesForMat
                     end
-                    if ownedMat < req.count then
+                    if ownedMat < (req.count * math.max(1, effectiveCount)) then
                         missingMatTypes = missingMatTypes + 1
                     end
                 end

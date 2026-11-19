@@ -1995,37 +1995,20 @@ function Window:populateArtefactRows(artList)
                 end
             else
                 rowUI.qtyTxt.colour = Theme.COL_WHITE
-                if ownedDamaged == 0 then
-                    if (item.missingMatTypes or 0) == 0 then
-                        rowUI.statusTxt.content = "Need Art"
-                        rowUI.statusTxt.colour = Theme.COL_AMBER
-                    else
-                        rowUI.statusTxt.content = "Short (Art+Mats)"
-                        rowUI.statusTxt.colour = Theme.COL_RED
-                    end
-                    rowUI.nameTxt.colour = Theme.COL_WHITE
-                    rowUI.lvlTxt.colour = Theme.COL_CREAM
-                elseif item.maxPossibleNow >= item.effectiveCount then
-                    rowUI.statusTxt.content = (item.effectiveCount > 1)
-                        and string.format("Ready (%d/%d)", item.effectiveCount, item.effectiveCount)
-                        or "Ready"
+                local readyNow = math.min(item.maxPossibleNow or 0, item.effectiveCount)
+                rowUI.statusTxt.content = string.format("%d/%d Ready", readyNow, item.effectiveCount)
+                if readyNow >= item.effectiveCount then
                     rowUI.nameTxt.colour = Theme.COL_GREEN
                     rowUI.lvlTxt.colour = Theme.COL_GREEN
                     rowUI.statusTxt.colour = Theme.COL_GREEN
-                elseif item.maxPossibleNow > 0 then
-                    rowUI.statusTxt.content = string.format("%d / %d Ready", item.maxPossibleNow, item.effectiveCount)
-                    rowUI.nameTxt.colour = Theme.COL_WHITE
-                    rowUI.lvlTxt.colour = Theme.COL_CREAM
-                    rowUI.statusTxt.colour = Theme.COL_AMBER
-                else
-                    rowUI.statusTxt.content = string.format(
-                        "Short (%d mat%s)",
-                        item.missingMatTypes or 1,
-                        (item.missingMatTypes == 1) and "" or "s"
-                    )
+                elseif ownedDamaged < item.effectiveCount then
                     rowUI.nameTxt.colour = Theme.COL_WHITE
                     rowUI.lvlTxt.colour = Theme.COL_CREAM
                     rowUI.statusTxt.colour = Theme.COL_RED
+                else
+                    rowUI.nameTxt.colour = Theme.COL_WHITE
+                    rowUI.lvlTxt.colour = Theme.COL_CREAM
+                    rowUI.statusTxt.colour = Theme.COL_AMBER
                 end
             end
             item.statusText = rowUI.statusTxt.content
