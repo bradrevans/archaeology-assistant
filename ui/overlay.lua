@@ -374,18 +374,18 @@ local function getPlayerExcavateState()
 end
 
 local function callLocByDistance(pCoord)
-    return LocList.ByDistance(pCoord, 42)
+    return LocList.ByDistance(pCoord, 32)
 end
 
 local function callLocFilter(pCoord)
-    return LocList.Filter({ coordGrid = pCoord, range = 42 })
+    return LocList.Filter({ coordGrid = pCoord, range = 32 })
 end
 
 local function callLocAll()
     return LocList.All()
 end
 
---- Queries nearby world location entities within 42 tiles of `pCoord`.
+--- Queries nearby world location entities within 32 tiles of `pCoord`.
 local function queryNearbyLocations(pCoord)
     if not LocList then return nil end
     if cachedLocQueryMode == "ByDistance" and pCoord and LocList.ByDistance then
@@ -894,7 +894,7 @@ function Overlay:scanWorldSpots(force)
         if not okC or not cg then return end
         local lx, lz = cg.x, cg.z
         if not lx or not lz then return end
-        if px and pz and (math.abs(lx - px) > 42 or math.abs(lz - pz) > 42) then
+        if px and pz and (math.abs(lx - px) > 32 or math.abs(lz - pz) > 32) then
             return
         end
 

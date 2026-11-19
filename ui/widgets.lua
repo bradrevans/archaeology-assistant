@@ -680,7 +680,7 @@ end
 
 --- Builds a single row in the Collections table using `prettyui.Sprites.CHECKBOX_BUTTON` for `Track`
 --- and a read-only `Done` status indicator, plus a left accent bar for tracked/completed rows.
-function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, _bindRowHover, _forwardScrollWheel, _onHoverRow, _onToggleTarget, _onStepDelta, _onSetMax, _onReset)
+function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
     local Sprites = getSprites()
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
@@ -889,7 +889,7 @@ end
 
 --- Builds a single row in the Artefacts table using `prettyui.Sprites.SLIDER.decrease` and `increase`
 --- official RS3 stepper buttons instead of custom rectangles.
-function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, _bindRowHover, _forwardScrollWheel, _onHoverRow, _onStepDelta)
+function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
     local Sprites = getSprites()
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
@@ -1007,7 +1007,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, _bindRowHover, _forwar
 end
 
 --- Builds a single row in the Materials table.
-function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY, _bindRowHover, _onHoverRow)
+function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY)
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
 
