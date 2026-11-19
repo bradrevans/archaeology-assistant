@@ -1522,6 +1522,9 @@ function Tracker:onMiniMenuAction(verb, full)
         or string.find(vLower, "take") or string.find(fLower, "take")
         or string.find(vLower, "pick") or string.find(fLower, "pick") then
         self.lastAction = "loot"
+    elseif string.find(fLower, "archaeology journal") and (string.find(vLower, "information") or string.find(vLower, "read")) then
+        self.pendingJournalStorageScan = true
+        self.storageActionTicks = 750
     elseif string.find(vLower, "restore") or string.find(fLower, "restore") or string.find(fLower, "workbench") then
         self.lastAction = "restore"
     end

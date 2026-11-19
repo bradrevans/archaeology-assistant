@@ -307,10 +307,64 @@ local function isInterfaceOpen(ifId)
     return false
 end
 
+local cachedStorageInterfaceIds     = nil
+local cachedStorageUiOpenInterfaceIds = nil
+
+local function discoverStorageInterfaceIds()
+    if cachedStorageInterfaceIds then
+        return cachedStorageInterfaceIds, cachedStorageUiOpenInterfaceIds
+    end
+    local allList = {}
+    local uiOpenList = {}
+    local seenAll = {}
+    local seenOpen = {}
+
+    local function addIf(list, seen, ifId)
+        if ifId and not seen[ifId] then
+            seen[ifId] = true
+            table.insert(list, ifId)
+        end
+    end
+
+    if id and id.Interface then
+        addIf(allList, seenAll, id.Interface.ARCH_MATERIAL_STORAGE)
+        addIf(allList, seenAll, id.Interface.ARCH_MATERIAL_STORAGE_INFO)
+        addIf(allList, seenAll, id.Interface.ARCH_JOURNAL)
+        addIf(uiOpenList, seenOpen, id.Interface.ARCH_MATERIAL_STORAGE)
+        addIf(uiOpenList, seenOpen, id.Interface.ARCH_MATERIAL_STORAGE_INFO)
+
+        pcall(function()
+            for k, v in pairs(id.Interface) do
+                if type(k) == "string" and type(v) == "number" then
+                    local ku = string.upper(k)
+                    if (string.find(ku, "ARCH", 1, true) or string.find(ku, "MATERIAL", 1, true))
+                        and not string.find(ku, "COLLECTOR", 1, true) then
+                        if string.find(ku, "STORAGE", 1, true) or string.find(ku, "INFO", 1, true) then
+                            addIf(allList, seenAll, v)
+                            addIf(uiOpenList, seenOpen, v)
+                        elseif string.find(ku, "JOURNAL", 1, true) then
+                            addIf(allList, seenAll, v)
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    cachedStorageInterfaceIds = allList
+    cachedStorageUiOpenInterfaceIds = uiOpenList
+    return cachedStorageInterfaceIds, cachedStorageUiOpenInterfaceIds
+end
+
 local function isMaterialStorageUiOpen()
     if not id or not id.Interface then return false end
-    return isInterfaceOpen(id.Interface.ARCH_MATERIAL_STORAGE)
-        or isInterfaceOpen(id.Interface.ARCH_MATERIAL_STORAGE_INFO)
+    local _, uiOpenList = discoverStorageInterfaceIds()
+    for _, ifId in ipairs(uiOpenList) do
+        if isInterfaceOpen(ifId) then
+            return true
+        end
+    end
+    return false
 end
 
 local function isWorkbenchStorageUiOpen()
@@ -1020,6 +1074,7 @@ function InventoryScanner.scanMaterialStorageInterface(tracker)
             tracker.storageMaterials = matCounts
             tracker.storageSyncedLive = true
             tracker.storageHasCache = true
+            tracker.storageCacheCleared = false
             tracker.pendingJournalStorageScan = false
             tracker.storageActionTicks = 0
             DB.set("arch_storage_synced", 1)
@@ -1029,11 +1084,7 @@ function InventoryScanner.scanMaterialStorageInterface(tracker)
         return false
     end
 
-    local storageInterfaces = {
-        id.Interface.ARCH_MATERIAL_STORAGE,
-        id.Interface.ARCH_MATERIAL_STORAGE_INFO,
-        id.Interface.ARCH_JOURNAL,
-    }
+    local storageInterfaces = discoverStorageInterfaceIds()
     for _, ifId in ipairs(storageInterfaces) do
         if ifId and scanInterfaceId(ifId) then return true end
     end
