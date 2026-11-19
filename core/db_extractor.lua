@@ -43,7 +43,7 @@ end
 local function extractRecipeMaterials(restoredObj, damagedId)
     local mats = {}
     if not config or not config.Param then return mats end
-    for i = 1, 4 do
+    for i = 1, 10 do
         local pType = config.Param["RECIPE_INGREDIENT_TYPE_" .. i]
         local pNum  = config.Param["RECIPE_INGREDIENT_NUMBER_" .. i]
         if pType and pNum then
