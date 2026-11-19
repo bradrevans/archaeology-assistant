@@ -35,8 +35,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - **Artefacts Tab (Second)**:
     - Scans damaged and restored artefacts across your **Backpack**, **Workbench Storage**, and **Bank**, including uncollected artefacts targeted by collections.
     - **`Dmg / Rst` Column & Location Tags**: Displays `Damaged / Restored` counts with `(Bag)`, `(Bench)`, `(Bank)`, or `(Multi)` tags (prioritising `(Bag)` when restored copies are in your backpack), with full Bag / Bench / Bank breakdowns in the hover tooltip.
-    - **Artefact Ownership Required for Ready Status**: An artefact requires actual damaged artefact ownership to be marked "Ready". If an artefact is required for a tracked collection but not yet excavated (`0 / 0`), its status clearly displays `Need Art` (when materials are satisfied) or `Short (Art+Mats)` (when materials are also missing).
-    - **Wider Status Column (110px)**: Comfortably fits all detailed statuses (`Short (Art+Mats)`, `Need Art`, `Ready (X/Y)`, `0 (Can Repair)`, `Short (N mats)`) without clipping.
+    - **Artefact Ownership & Readiness Status (`X/Y Ready`)**: Displays exact repair readiness (`X/Y Ready`) with colour-coded status text (**Green** when ready, **Orange** when only materials are short, and **Red** when damaged artefacts are short or both artefacts and materials are short), with full material deficits in the hover tooltip.
     - **Uncollected Artefact Display & Recipe Deficits**: When collections are tracked, uncollected artefacts are displayed alongside owned artefacts, and their complete restoration materials are added to the Materials tab deficit calculations.
     - **Proportional Artefact & Location Columns**: Displays the excavation hotspot and dig site for every artefact (e.g. `Venator remains (Kharid-et)`), with **Artefact** and **Location** sharing resize width proportionally.
     - **Artefact Source Filtering**: Dedicated toolbar filter button (`Show: All`, `Show: Tracked`, `Show: Owned`) to instantly isolate artefacts needed for your tracked collections.
@@ -60,7 +59,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - Overhead indicators display each obtainable needed material with its in-game item sprite, live deficit quantity, and percentage likelihood based on the spot's material pool (e.g. `100%` for material caches, `25%` for 4-material hotspots).
   - **Active & Proximity Priority**: Currently excavated hotspots are prioritised on top (`MoveToFront()`), followed by nearest spots (`distSq`), with raised zoom-scaled offsets to keep time sprites clear.
   - **Dynamic Real-Time Dismissal ("until they're gone")**: As you collect materials (via inventory updates or Sign of the Porter cart transfers) or excavate damaged artefacts, required counts decrease in real time; once all needed items from a spot are satisfied, the indicator and highlight vanish automatically.
-  - **Zero-Stutter Performance Architecture**: Fast-path stationary caching bypasses world object searches when standing still excavating, slot text/layout is cached during `Event.Draw`, and projection calls avoid per-frame closure allocations.
+  - **Zero-Stutter Performance Architecture**: Fast-path stationary caching bypasses world object searches when standing still excavating, slot text/layout is cached during `Event.Draw`, projection calls avoid per-frame closure allocations, and `LocType`/cursor config scoring filters out non-excavation decorative scenery sharing a hotspot name.
   - Fully click-through: does not block interaction with the world or the excavation spot.
 - **Porter, Cart & Area Loot Handling**:
   - Automatically retains gathered material progress when depositing via **Material Carts**, Bank Deposit Boxes, or bank chests without requiring a manual Material Storage resync.
@@ -142,7 +141,7 @@ python manage.py package
 This command:
 1. Validates `plugin.json` fields, manifest dependencies, Lua brace balance, `require(...)` resolution, and Wiki data cross-references.
 2. Stages a clean production bundle in `dist/archaeology-assistant/` excluding all build scripts and documentation.
-3. Compresses the bundle into `dist/archaeology-assistant-v1.0.1.zip` with forward-slash relative paths and verifies that `main.lua` and `plugin.json` sit strictly at the root of the ZIP archive.
+3. Compresses the bundle into `dist/archaeology-assistant-v1.0.2.zip` with forward-slash relative paths and verifies that `main.lua` and `plugin.json` sit strictly at the root of the ZIP archive.
 
 ### 5. Enable, Permissions & Reload in the RS3 Client
 1. In the Beta lobby, click **Import Save** to copy your live character into the Beta world, then enter the game.
