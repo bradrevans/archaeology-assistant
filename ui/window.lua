@@ -30,6 +30,7 @@ local COL_FILTER_MODES = {
 local HUB_EVENT_ID = "arch_assistant_hub"
 local MOUNT_EVENT_ID = "arch_assistant_mount"
 local RESIZE_EVENT_ID = "arch_assistant_resize"
+local VIEWPORT_ROW_SLOTS = 18
 
 function Window.new(tracker)
     local self = setmetatable({}, Window)
@@ -125,6 +126,8 @@ function Window:tryMount()
 end
 
 function Window:handleScrollWheel(comp, delta)
+    self._hoveredTableTab = nil
+    self._hoveredTableRow = nil
     self:hideRowTooltip()
     local onWheel = (self.win and self.win._onScrollWheel)
         or (self.win and self.win._scroll and self.win._scroll._onScrollWheel)
@@ -137,18 +140,112 @@ function Window:handleScrollWheel(comp, delta)
     return false
 end
 
+function Window:getScaledMousePosForWindow()
+    if self._calibratedMouseScale and Mouse and Mouse.GetPosition then
+        local okR, raw = pcall(Mouse.GetPosition)
+        if okR and raw and type(raw.x) == "number" and type(raw.y) == "number" then
+            return raw.x / self._calibratedMouseScale, raw.y / self._calibratedMouseScale
+        end
+    end
+    if Theme.getScaledMousePos then
+        return Theme.getScaledMousePos()
+    end
+    return nil, nil
+end
+
+function Window:getTableLayerGeometry(tblLayer)
+    if not tblLayer or not self.root then return nil end
+    local scrollRoot = self.win and self.win._scroll and self.win._scroll.root
+    local scrollY = (self.win and self.win._scroll and self.win._scroll.scrollY) or 0
+    local rx = self.root.x or 0
+    local ry = self.root.y or 0
+    local sx = (scrollRoot and scrollRoot.x) or 0
+    local sy = (scrollRoot and scrollRoot.y) or 0
+    local tblX = rx + sx + (tblLayer.x or 0)
+    local tblY = ry + sy + (tblLayer.y or 0) - scrollY
+    local viewTop = ry + sy
+    local viewBottom = viewTop + ((scrollRoot and scrollRoot.height) or self.root.height or 0)
+    local tblW = (tblLayer.width and tblLayer.width > 0 and tblLayer.width) or self.root.width or 480
+    return tblX, tblY, tblW, viewTop, viewBottom
+end
+
+function Window:updateTableHover()
+    if not self.isVisible or self._isResizing or not self._tableMouseInside or self._tableMouseInside ~= self.activeTab then
+        return
+    end
+    local tblLayer, visibleCount
+    if self.activeTab == "collections" then
+        tblLayer = self.collectionsTableLayer
+        visibleCount = self.visibleColRowCount or 0
+    elseif self.activeTab == "artefacts" then
+        tblLayer = self.artefactTableLayer
+        visibleCount = self.visibleArtRowCount or 0
+    else
+        tblLayer = self.tableLayer
+        visibleCount = self.visibleRowCount or 0
+    end
+    if not tblLayer or tblLayer.hidden or visibleCount <= 0 then
+        if self._hoveredTableRow ~= nil then
+            self._hoveredTableTab = nil
+            self._hoveredTableRow = nil
+            self:hideRowTooltip()
+        end
+        return
+    end
+
+    local mx, my = self:getScaledMousePosForWindow()
+    local tblX, tblY, tblW, viewTop, viewBottom = self:getTableLayerGeometry(tblLayer)
+    if not tblX or not mx or not my then return end
+
+    if my < viewTop or my > viewBottom or mx < (tblX + 8) or mx > (tblX + tblW - 8) then
+        if self._hoveredTableRow ~= nil then
+            self._hoveredTableTab = nil
+            self._hoveredTableRow = nil
+            self:hideRowTooltip()
+        end
+        return
+    end
+
+    local localY = my - tblY
+    local rowIdx = math.floor((localY - 24) / Theme.ROW_HEIGHT) + 1
+    if rowIdx < 1 or rowIdx > visibleCount or localY < 24 then
+        if self._hoveredTableRow ~= nil then
+            self._hoveredTableTab = nil
+            self._hoveredTableRow = nil
+            self:hideRowTooltip()
+        end
+        return
+    end
+
+    if self._hoveredTableTab ~= self.activeTab or self._hoveredTableRow ~= rowIdx then
+        self._hoveredTableTab = self.activeTab
+        self._hoveredTableRow = rowIdx
+        if self.activeTab == "collections" then
+            self:onHoverCollectionRow(rowIdx)
+        elseif self.activeTab == "artefacts" then
+            self:onHoverArtefactRow(rowIdx)
+        else
+            self:onHoverMaterialRow(rowIdx)
+        end
+    end
+end
+
 function Window:onLogicTick()
     if self.tooltip and self.tooltip.root and not self.tooltip.root.hidden then
         if not self.isVisible or self._isResizing then
+            self._hoveredTableTab = nil
+            self._hoveredTableRow = nil
             self:hideRowTooltip()
             self._pendingHeaderTip = nil
             return
         end
-        if self.root and Theme.getScaledMousePos then
-            local mx, my = Theme.getScaledMousePos()
+        if self.root then
+            local mx, my = self:getScaledMousePosForWindow()
             local wx, wy, ww, wh = self.root.x, self.root.y, self.root.width, self.root.height
             if mx and my and wx and wy and ww and wh and ww > 0 and wh > 0 then
                 if mx < wx or mx > (wx + ww) or my < wy or my > (wy + wh) then
+                    self._hoveredTableTab = nil
+                    self._hoveredTableRow = nil
                     self:hideRowTooltip()
                     self._pendingHeaderTip = nil
                     return
@@ -156,6 +253,8 @@ function Window:onLogicTick()
             end
         end
     end
+
+    self:updateTableHover()
 
     local tip = self._pendingHeaderTip
     if not tip then return end
@@ -354,6 +453,14 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
         self:onWindowGeometryChanged()
     end)
 
+    if win._scroll and win._scroll.SetScrollPosition then
+        local origSetScroll = win._scroll.SetScrollPosition
+        win._scroll.SetScrollPosition = function(scrollSelf, position)
+            origSetScroll(scrollSelf, position)
+            self:onScrollPositionChanged()
+        end
+    end
+
     if not self.isVisible then
         win:Close()
     end
@@ -436,9 +543,11 @@ function Window:switchTab(tabName)
     if self.btnTabMaterials   then self.btnTabMaterials.setActive(self.activeTab == "materials") end
 
     if not changed then return end
+    self._tableMouseInside = nil
     if self.win and self.win.SetScrollPosition then
         pcall(function() self.win:SetScrollPosition(0) end)
     end
+    self:ensureActiveTabBuilt()
     self:refresh()
 end
 
@@ -687,10 +796,129 @@ function Window:buildContentComponents(container, tabsContainer)
     -- 6. Empty Table Notice (replaces table rows when 0 items match)
     self.emptyTableNotice = Widgets.createEmptyTableNotice(container, forwardScrollWheel)
 
-    -- 7. Build the three Tab Table Layers & Settings View
-    self:buildCollectionsTable(container, bindRowHover, forwardScrollWheel)
-    self:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
-    self:buildMaterialsTable(container, bindRowHover, forwardScrollWheel)
+    -- 7. Lazily build only the active Tab Table Layer (18-slot virtual pool)
+    self._tableContainer = container
+    self._bindRowHover = bindRowHover
+    self._forwardScrollWheel = forwardScrollWheel
+    self:ensureActiveTabBuilt()
+end
+
+function Window:unloadTabLayer(tabName)
+    if self._tableMouseInside == tabName then
+        self._tableMouseInside = nil
+    end
+    if self._hoveredTableTab == tabName then
+        self:hideRowTooltip()
+    end
+    if tabName == "collections" and self.collectionsTableLayer then
+        pcall(function() self.collectionsTableLayer:Destroy() end)
+        self.collectionsTableLayer = nil
+        self.collectionRows = {}
+        self.colHTrack = nil
+        self.colHTarget = nil
+        self.colHLvl = nil
+        self.colHColName = nil
+        self.colHReward = nil
+        self.colHReady = nil
+        self._prevColSlotCount = 0
+        self._lastColAvailW = nil
+        self._lastColLayerCount = nil
+        self._lastColFirstIdx = nil
+    elseif tabName == "artefacts" and self.artefactTableLayer then
+        pcall(function() self.artefactTableLayer:Destroy() end)
+        self.artefactTableLayer = nil
+        self.artefactRows = {}
+        self.colArtName = nil
+        self.colArtLvl = nil
+        self.colArtLoc = nil
+        self.colArtOwned = nil
+        self.colArtQty = nil
+        self.colArtStatus = nil
+        self._prevArtSlotCount = 0
+        self._lastArtAvailW = nil
+        self._lastArtLayerCount = nil
+        self._lastArtFirstIdx = nil
+    elseif tabName == "materials" and self.tableLayer then
+        pcall(function() self.tableLayer:Destroy() end)
+        self.tableLayer = nil
+        self.materialRows = {}
+        self.colHeaderMat = nil
+        self.colHeaderLvl = nil
+        self.colHeaderLoc = nil
+        self.colHeaderProg = nil
+        self.colHeaderShort = nil
+        self._prevMatSlotCount = 0
+        self._lastMatLayerCount = nil
+        self._lastMatFirstIdx = nil
+    end
+end
+
+function Window:ensureActiveTabBuilt()
+    if not self._tableContainer then return false end
+    local built = false
+    if self.activeTab ~= "collections" then self:unloadTabLayer("collections") end
+    if self.activeTab ~= "artefacts"   then self:unloadTabLayer("artefacts") end
+    if self.activeTab ~= "materials"   then self:unloadTabLayer("materials") end
+
+    if self.activeTab == "collections" and not self.collectionsTableLayer then
+        self:buildCollectionsTable(self._tableContainer, self._bindRowHover, self._forwardScrollWheel)
+        built = true
+    elseif self.activeTab == "artefacts" and not self.artefactTableLayer then
+        self:buildArtefactsTable(self._tableContainer, self._bindRowHover, self._forwardScrollWheel)
+        built = true
+    elseif self.activeTab == "materials" and not self.tableLayer then
+        self:buildMaterialsTable(self._tableContainer, self._bindRowHover, self._forwardScrollWheel)
+        built = true
+    end
+    if built then
+        self._lastReflowAvailW = nil
+        if prettyui and prettyui.RefreshComponentIDs and self.parent then
+            pcall(prettyui.RefreshComponentIDs, self.parent)
+        end
+    end
+    return built
+end
+
+function Window:getViewportRowSlotCount()
+    local viewH = (self.win and self.win._scroll and self.win._scroll.height and self.win._scroll.height > 100 and self.win._scroll.height)
+        or (self.root and self.root.height and self.root.height > 100 and (self.root.height - 100))
+        or 480
+    return math.max(VIEWPORT_ROW_SLOTS, math.ceil(viewH / Theme.ROW_HEIGHT) + 3)
+end
+
+function Window:computeViewportWindow(totalCount)
+    if not totalCount or totalCount <= 0 then
+        return 1, 0
+    end
+    local maxSlots = self:getViewportRowSlotCount()
+    self._lastViewportSlots = maxSlots
+    local scrollY = (self.win and self.win._scroll and self.win._scroll.scrollY) or 0
+    local headerY = self._lastTableHeaderY or 120
+    local rawFirst = math.floor((scrollY - headerY - 24) / Theme.ROW_HEIGHT) + 1
+    local maxFirst = math.max(1, totalCount - maxSlots + 1)
+    local firstIdx = math.max(1, math.min(rawFirst, maxFirst))
+    local slotCount = math.min(maxSlots, totalCount - firstIdx + 1)
+    return firstIdx, slotCount
+end
+
+function Window:onScrollPositionChanged()
+    if self._inVirtualPopulate or not self.mounted then return end
+    if self.activeTab == "collections" and self.collectionsTableLayer and self.currentCollections then
+        local firstIdx = self:computeViewportWindow(#self.currentCollections)
+        if firstIdx ~= self._lastColFirstIdx then
+            self:populateCollectionRows(self.currentCollections)
+        end
+    elseif self.activeTab == "artefacts" and self.artefactTableLayer and self.currentArtefacts then
+        local firstIdx = self:computeViewportWindow(#self.currentArtefacts)
+        if firstIdx ~= self._lastArtFirstIdx then
+            self:populateArtefactRows(self.currentArtefacts)
+        end
+    elseif self.activeTab == "materials" and self.tableLayer and self.currentMaterials then
+        local firstIdx = self:computeViewportWindow(#self.currentMaterials)
+        if firstIdx ~= self._lastMatFirstIdx then
+            self:populateMaterialRows(self.currentMaterials)
+        end
+    end
 end
 
 function Window:buildSearchBar(container, forwardScrollWheel)
@@ -731,14 +959,73 @@ function Window:buildSearchBar(container, forwardScrollWheel)
     end
 end
 
-function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWheel)
+function Window:bindTableInteractions(tblLayer, tabName, onClickFn)
+    if not tblLayer then return end
+    tblLayer.clickthrough = false
+    if tblLayer.Subscribe and ui and ui.Hook then
+        if ui.Hook.ONSCROLLWHEEL then
+            tblLayer:Subscribe(ui.Hook.ONSCROLLWHEEL, function(comp, delta)
+                return self:handleScrollWheel(comp, delta)
+            end)
+        end
+        if ui.Hook.ONMOUSEOVER then
+            tblLayer:Subscribe(ui.Hook.ONMOUSEOVER, function(_, x, y)
+                self._tableMouseInside = tabName
+                if type(x) == "number" and type(y) == "number" and Mouse and Mouse.GetPosition then
+                    local okR, raw = pcall(Mouse.GetPosition)
+                    local tblX, tblY = self:getTableLayerGeometry(tblLayer)
+                    if okR and raw and tblX and tblY and (tblX + x) >= 32 and (tblY + y) >= 32 then
+                        local sx = raw.x / (tblX + x)
+                        local sy = raw.y / (tblY + y)
+                        if sx >= 0.5 and sx <= 4.0 and sy >= 0.5 and sy <= 4.0 and math.abs(sx - sy) <= sx * 0.15 then
+                            self._calibratedMouseScale = (sx + sy) / 2
+                        end
+                    end
+                end
+                return false
+            end)
+        end
+        if ui.Hook.ONMOUSELEAVE then
+            tblLayer:Subscribe(ui.Hook.ONMOUSELEAVE, function()
+                if self._tableMouseInside == tabName then
+                    self._tableMouseInside = nil
+                end
+                if self._hoveredTableTab == tabName then
+                    self._hoveredTableTab = nil
+                    self._hoveredTableRow = nil
+                    self:hideRowTooltip()
+                end
+                return false
+            end)
+        end
+        if onClickFn and ui.Hook.ONCLICK then
+            tblLayer:Subscribe(ui.Hook.ONCLICK, function(comp, x, y)
+                onClickFn(comp, x, y)
+                return false
+            end)
+        end
+    end
+end
+
+function Window:buildCollectionsTable(container, _bindRowHover, forwardScrollWheel)
     local colLayer = ui.Layer.new(container)
-    colLayer.clickthrough = true
+    colLayer.clickthrough = false
     colLayer:SetPos(0, 120)
     colLayer:SetSize(0, 26, 1.0, 0)
     colLayer.hidden = false
     self.collectionsTableLayer = colLayer
-    forwardScrollWheel(colLayer)
+    self:bindTableInteractions(colLayer, "collections", function(_, x, y)
+        if type(x) ~= "number" or type(y) ~= "number" or y < 24 then return end
+        local rowIdx = math.floor((y - 24) / Theme.ROW_HEIGHT) + 1
+        if rowIdx < 1 or rowIdx > (self.visibleColRowCount or 0) then return end
+        if x >= 8 and x <= 46 then
+            self:onToggleCollectionTarget(rowIdx)
+        elseif x >= 54 and x <= 76 then
+            self:onStepCollectionTarget(rowIdx, -1)
+        elseif x >= 102 and x <= 124 then
+            self:onStepCollectionTarget(rowIdx, 1)
+        end
+    end)
 
     local colHeaderBg = ui.Rectangle.new(colLayer)
     colHeaderBg.colour = Theme.COL_BG_HEADER
@@ -765,9 +1052,7 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
     self.colHReward  = Widgets.createText(colLayer, Theme.COL_GOLD, -156, 2, 88,   20, "Reward",     1.0, 0, 0, 0)
     self.colHReady   = Widgets.createText(colLayer, Theme.COL_GOLD, -62,  2, 54,   20, "Ready",      1.0, 0, 0, 0)
 
-    self._colBindRowHover = bindRowHover
-    self._colForwardScrollWheel = forwardScrollWheel
-    self._prevVisibleColRowCount = 0
+    self._prevColSlotCount = 0
 end
 
 function Window:ensureCollectionRow(i)
@@ -779,29 +1064,39 @@ function Window:ensureCollectionRow(i)
     end
     local startY = 24
     local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
-    local row = Widgets.buildCollectionRow(
-        self.collectionsTableLayer,
-        i,
-        rowY,
-        self._colBindRowHover,
-        self._colForwardScrollWheel,
-        function(idx) self:onHoverCollectionRow(idx) end,
-        function(idx) self:onToggleCollectionTarget(idx) end,
-        function(idx, delta) self:onStepCollectionTarget(idx, delta) end
-    )
+    local row = Widgets.buildCollectionRow(self.collectionsTableLayer, i, rowY)
     self.collectionRows[i] = row
-    self.collectionsTableLayer:SetSize(0, 26 + (#self.collectionRows * Theme.ROW_HEIGHT), 1.0, 0)
     self._lastColAvailW = nil
     return row
 end
 
-function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
+function Window:buildArtefactsTable(container, _bindRowHover, forwardScrollWheel)
     local artLayer = ui.Layer.new(container)
-    artLayer.clickthrough = true
+    artLayer.clickthrough = false
     artLayer:SetPos(0, 120)
     artLayer:SetSize(0, 26, 1.0, 0)
     self.artefactTableLayer = artLayer
-    forwardScrollWheel(artLayer)
+    self:bindTableInteractions(artLayer, "artefacts", function(comp, x, y)
+        if type(x) ~= "number" or type(y) ~= "number" or y < 24 then return end
+        local rowIdx = math.floor((y - 24) / Theme.ROW_HEIGHT) + 1
+        if rowIdx < 1 or rowIdx > (self.visibleArtRowCount or 0) then return end
+        local w = (comp and comp.width and comp.width > 0) and comp.width or ((self:getAvailableContentWidth() or 480) + 16)
+        local qtyOffset = self._artQtyOffset or 242
+        local delta = nil
+        if x >= (w - qtyOffset - 2) and x <= (w - qtyOffset + 18) then
+            delta = -1
+        elseif x >= (w - qtyOffset + 46) and x <= (w - qtyOffset + 66) then
+            delta = 1
+        end
+        if delta then
+            local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
+            if item and item.artefact and self.tracker then
+                self.tracker:adjustArtefactCount(item.artefact.damagedName, delta, item.rawCount)
+                self:refresh()
+                self:onHoverArtefactRow(rowIdx)
+            end
+        end
+    end)
 
     local artHeaderBg = ui.Rectangle.new(artLayer)
     artHeaderBg.colour = Theme.COL_BG_HEADER
@@ -823,9 +1118,7 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     end
     self.colArtStatus = Widgets.createText(artLayer, Theme.COL_GOLD, -143, 2, 135,  20, "Status",   1.0, 0, 0, 0)
 
-    self._artBindRowHover = bindRowHover
-    self._artForwardScrollWheel = forwardScrollWheel
-    self._prevVisibleArtRowCount = 0
+    self._prevArtSlotCount = 0
 end
 
 function Window:ensureArtefactRow(i)
@@ -837,36 +1130,20 @@ function Window:ensureArtefactRow(i)
     end
     local startY = 24
     local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
-    local row = Widgets.buildArtefactRow(
-        self.artefactTableLayer,
-        i,
-        rowY,
-        self._artBindRowHover,
-        self._artForwardScrollWheel,
-        function(idx) self:onHoverArtefactRow(idx) end,
-        function(idx, delta)
-            local item = self.currentArtefacts and self.currentArtefacts[idx]
-            if item and item.artefact then
-                self.tracker:adjustArtefactCount(item.artefact.damagedName, delta, item.rawCount)
-                self:refresh()
-                self:onHoverArtefactRow(idx)
-            end
-        end
-    )
+    local row = Widgets.buildArtefactRow(self.artefactTableLayer, i, rowY)
     self.artefactRows[i] = row
-    self.artefactTableLayer:SetSize(0, 26 + (#self.artefactRows * Theme.ROW_HEIGHT), 1.0, 0)
     self._lastArtAvailW = nil
     return row
 end
 
-function Window:buildMaterialsTable(container, bindRowHover, forwardScrollWheel)
+function Window:buildMaterialsTable(container, _bindRowHover, forwardScrollWheel)
     local tableLayer = ui.Layer.new(container)
-    tableLayer.clickthrough = true
+    tableLayer.clickthrough = false
     tableLayer:SetPos(0, 172)
     tableLayer:SetSize(0, 26, 1.0, 0)
     tableLayer.hidden = true
     self.tableLayer = tableLayer
-    forwardScrollWheel(tableLayer)
+    self:bindTableInteractions(tableLayer, "materials", nil)
 
     local tableHeaderBg = ui.Rectangle.new(tableLayer)
     tableHeaderBg.colour = Theme.COL_BG_HEADER
@@ -883,8 +1160,7 @@ function Window:buildMaterialsTable(container, bindRowHover, forwardScrollWheel)
     self.colHeaderProg  = Widgets.createText(tableLayer, Theme.COL_GOLD, -175, 2, 100,  20, "Owned / Req", 1.0, 0, 0, 0)
     self.colHeaderShort = Widgets.createText(tableLayer, Theme.COL_GOLD, -71,  2, 63,   20, "Short",       1.0, 0, 0, 0)
 
-    self._matBindRowHover = bindRowHover
-    self._prevVisibleRowCount = 0
+    self._prevMatSlotCount = 0
 end
 
 function Window:ensureMaterialRow(i)
@@ -896,15 +1172,8 @@ function Window:ensureMaterialRow(i)
     end
     local startY = 24
     local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
-    local row = Widgets.buildMaterialRow(
-        self.tableLayer,
-        i,
-        rowY,
-        self._matBindRowHover,
-        function(idx) self:onHoverMaterialRow(idx) end
-    )
+    local row = Widgets.buildMaterialRow(self.tableLayer, i, rowY)
     self.materialRows[i] = row
-    self.tableLayer:SetSize(0, 26 + (#self.materialRows * Theme.ROW_HEIGHT), 1.0, 0)
     return row
 end
 
@@ -919,6 +1188,8 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
 end
 
 function Window:hideRowTooltip()
+    self._hoveredTableTab = nil
+    self._hoveredTableRow = nil
     if self.tooltip then
         self.tooltip:hide()
     end
@@ -1159,7 +1430,7 @@ function Window:updateToolbarLayout(forceReflow)
 end
 
 function Window:reflowDynamicContent(availW, forceReflow)
-    if not self.pageDescStrip or not self.statTiles or not self.tableLayer or not self.artefactTableLayer then
+    if not self.pageDescStrip or not self.statTiles then
         return
     end
 
@@ -1256,8 +1527,12 @@ function Window:reflowDynamicContent(availW, forceReflow)
         if self.collectionsTableLayer then
             self.collectionsTableLayer:SetPos(0, tableHeaderY)
         end
-        self.artefactTableLayer:SetPos(0, tableHeaderY)
-        self.tableLayer:SetPos(0, tableHeaderY)
+        if self.artefactTableLayer then
+            self.artefactTableLayer:SetPos(0, tableHeaderY)
+        end
+        if self.tableLayer then
+            self.tableLayer:SetPos(0, tableHeaderY)
+        end
     end
 
     local locW = 88
@@ -1271,6 +1546,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
         local qtyGap = 14
         local qtyOffset = statusOffset + 64 + qtyGap
         local ownedOffset = qtyOffset + ownedW + 6
+        self._artQtyOffset = qtyOffset
 
         -- Share remaining flexible width proportionally so both Artefact and Location shrink & grow together
         local flexW = math.max(100, (wAvail - ownedOffset - 6) - (36 + 2 + lvlW + 4))
@@ -1309,7 +1585,13 @@ function Window:reflowDynamicContent(availW, forceReflow)
                 for i = 1, #self.artefactRows do
                     local row = self.artefactRows[i]
                     if row then
-                        local rY = artStartY + (i - 1) * Theme.ROW_HEIGHT
+                        local rY = row.rowY or (artStartY + (i - 1) * Theme.ROW_HEIGHT)
+                        row.lvlX = lvlX
+                        row.locX = locX
+                        row.statusOffset = statusOffset
+                        row.qtyOffset = qtyOffset
+                        row.ownedOffset = ownedOffset
+
                         row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
                         row.lvlTxt:SetPos(lvlX, rY + 2, 0, 0)
 
@@ -1329,7 +1611,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         row.locTxt:SetSize(locW, Theme.ROW_HEIGHT - 2, 0, 0)
                         if not locVisible then
                             row.locTxt.hidden = true
-                        elseif i <= (self.visibleArtRowCount or 0) then
+                        elseif row._hasItem then
                             row.locTxt.hidden = false
                         end
                     end
@@ -1356,7 +1638,8 @@ function Window:reflowDynamicContent(availW, forceReflow)
                 for i = 1, #self.collectionRows do
                     local row = self.collectionRows[i]
                     if row then
-                        local rY = 24 + (i - 1) * Theme.ROW_HEIGHT
+                        local rY = row.rowY or (24 + (i - 1) * Theme.ROW_HEIGHT)
+                        row.rewNegOffset = rewNegOffset
                         row.rewardTxt:SetPos(-rewNegOffset, rY + 2, 1.0, 0)
                         row.rewardTxt:SetSize(rewW, Theme.ROW_HEIGHT - 2, 0, 0)
                         row.nameTxt:SetPos(160, rY + 2, 0, 0)
@@ -1419,6 +1702,28 @@ function Window:onWindowGeometryChanged()
     end
 
     self:updateToolbarLayout(false)
+
+    local prevSlots = self._lastViewportSlots
+    local curSlots = self:getViewportRowSlotCount()
+    if curSlots ~= prevSlots then
+        self._lastViewportSlots = curSlots
+        if self.mounted then
+            local populated = false
+            if self.activeTab == "collections" and self.collectionsTableLayer and self.currentCollections then
+                self:populateCollectionRows(self.currentCollections)
+                populated = true
+            elseif self.activeTab == "artefacts" and self.artefactTableLayer and self.currentArtefacts then
+                self:populateArtefactRows(self.currentArtefacts)
+                populated = true
+            elseif self.activeTab == "materials" and self.tableLayer and self.currentMaterials then
+                self:populateMaterialRows(self.currentMaterials)
+                populated = true
+            end
+            if populated and curSlots > (prevSlots or 0) then
+                self:updateToolbarLayout(false)
+            end
+        end
+    end
 end
 
 function Window:setWindowVisible(visible)
@@ -1830,19 +2135,32 @@ function Window:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, comp
 end
 
 function Window:populateCollectionRows(colList)
-    local visibleColRowCount = #colList
-    local maxTouchColIdx = math.max(visibleColRowCount, self._prevVisibleColRowCount or 0)
-    self._prevVisibleColRowCount = visibleColRowCount
-    self.visibleColRowCount = visibleColRowCount
+    local totalCount = #colList
+    self.visibleColRowCount = totalCount
+    if not self.collectionsTableLayer then return end
 
-    for slotIdx = 1, maxTouchColIdx do
-        local rowUI = self.collectionRows[slotIdx] or (slotIdx <= visibleColRowCount and self:ensureCollectionRow(slotIdx))
+    if self._lastColLayerCount ~= totalCount then
+        self._lastColLayerCount = totalCount
+        self.collectionsTableLayer:SetSize(0, 26 + (totalCount * Theme.ROW_HEIGHT), 1.0, 0)
+    end
+
+    local firstIdx, slotCount = self:computeViewportWindow(totalCount)
+    self._lastColFirstIdx = firstIdx
+    local maxTouchSlot = math.max(slotCount, self._prevColSlotCount or 0)
+    self._prevColSlotCount = slotCount
+
+    self._inVirtualPopulate = true
+    for slotIdx = 1, maxTouchSlot do
+        local dataIdx = firstIdx + slotIdx - 1
+        local rowUI = self.collectionRows[slotIdx] or (slotIdx <= slotCount and self:ensureCollectionRow(slotIdx))
         if rowUI then
-            if slotIdx <= visibleColRowCount then
-                local item = colList[slotIdx]
+            if slotIdx <= slotCount and dataIdx <= totalCount then
+                local item = colList[dataIdx]
                 local col = item.data
                 local prog = item.progress
 
+                rowUI._hasItem = true
+                rowUI.setRowY(24 + (dataIdx - 1) * Theme.ROW_HEIGHT)
                 rowUI.setRowHidden(false)
                 rowUI.setTargetState(prog.isTargeted)
 
@@ -1859,7 +2177,7 @@ function Window:populateCollectionRows(colList)
                     rowUI.nameTxt.colour = Theme.COL_GREEN
                     rowUI.lvlTxt.colour = Theme.COL_CREAM
                 else
-                    rowUI.bg.colour = (slotIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
+                    rowUI.bg.colour = (dataIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
                     rowUI.accentBar.hidden = true
                     rowUI.nameTxt.colour = Theme.COL_WHITE
                     rowUI.lvlTxt.colour = Theme.COL_MUTED
@@ -1933,23 +2251,39 @@ function Window:populateCollectionRows(colList)
                     end
                 end
             else
+                rowUI._hasItem = false
                 rowUI.setRowHidden(true)
             end
         end
     end
+    self._inVirtualPopulate = false
 end
 
 function Window:populateArtefactRows(artList)
-    local visibleArtRowCount = #artList
-    local maxTouchArtIdx = math.max(visibleArtRowCount, self._prevVisibleArtRowCount or 0)
-    self._prevVisibleArtRowCount = visibleArtRowCount
-    self.visibleArtRowCount = visibleArtRowCount
+    local totalCount = #artList
+    self.visibleArtRowCount = totalCount
+    if not self.artefactTableLayer then return end
 
-    for slotIdx = 1, maxTouchArtIdx do
-        local item = artList[slotIdx]
+    if self._lastArtLayerCount ~= totalCount then
+        self._lastArtLayerCount = totalCount
+        self.artefactTableLayer:SetSize(0, 26 + (totalCount * Theme.ROW_HEIGHT), 1.0, 0)
+    end
+
+    local firstIdx, slotCount = self:computeViewportWindow(totalCount)
+    self._lastArtFirstIdx = firstIdx
+    local maxTouchSlot = math.max(slotCount, self._prevArtSlotCount or 0)
+    self._prevArtSlotCount = slotCount
+
+    self._inVirtualPopulate = true
+    for slotIdx = 1, maxTouchSlot do
+        local dataIdx = firstIdx + slotIdx - 1
+        local item = (slotIdx <= slotCount) and artList[dataIdx] or nil
         local rowUI = self.artefactRows[slotIdx] or (item and self:ensureArtefactRow(slotIdx))
 
         if item and rowUI then
+            rowUI._hasItem = true
+            rowUI.setRowY(24 + (dataIdx - 1) * Theme.ROW_HEIGHT)
+            rowUI.bg.colour = (dataIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
             Theme.bindItemSprite(rowUI.icon, item.artefact and (item.artefact.restoredId or item.artefact.id), 1)
 
             rowUI.bg.hidden = false
@@ -2048,6 +2382,7 @@ function Window:populateArtefactRows(artList)
             end
             item.statusText = rowUI.statusTxt.content
         elseif rowUI then
+            rowUI._hasItem = false
             if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
             rowUI.nameTxt.hidden = true
@@ -2062,19 +2397,34 @@ function Window:populateArtefactRows(artList)
             rowUI.statusTxt.hidden = true
         end
     end
+    self._inVirtualPopulate = false
 end
 
 function Window:populateMaterialRows(matList)
-    local visibleRowCount = #matList
-    local maxTouchIdx = math.max(visibleRowCount, self._prevVisibleRowCount or 0)
-    self._prevVisibleRowCount = visibleRowCount
-    self.visibleRowCount = visibleRowCount
+    local totalCount = #matList
+    self.visibleRowCount = totalCount
+    if not self.tableLayer then return end
 
-    for slotIdx = 1, maxTouchIdx do
-        local item = matList[slotIdx]
+    if self._lastMatLayerCount ~= totalCount then
+        self._lastMatLayerCount = totalCount
+        self.tableLayer:SetSize(0, 26 + (totalCount * Theme.ROW_HEIGHT), 1.0, 0)
+    end
+
+    local firstIdx, slotCount = self:computeViewportWindow(totalCount)
+    self._lastMatFirstIdx = firstIdx
+    local maxTouchSlot = math.max(slotCount, self._prevMatSlotCount or 0)
+    self._prevMatSlotCount = slotCount
+
+    self._inVirtualPopulate = true
+    for slotIdx = 1, maxTouchSlot do
+        local dataIdx = firstIdx + slotIdx - 1
+        local item = (slotIdx <= slotCount) and matList[dataIdx] or nil
         local rowUI = self.materialRows[slotIdx] or (item and self:ensureMaterialRow(slotIdx))
 
         if item and rowUI then
+            rowUI._hasItem = true
+            rowUI.setRowY(24 + (dataIdx - 1) * Theme.ROW_HEIGHT)
+            rowUI.bg.colour = (dataIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
             local mat = item.material
             Theme.bindItemSprite(rowUI.icon, mat and mat.id, 1)
 
@@ -2110,6 +2460,7 @@ function Window:populateMaterialRows(matList)
                 rowUI.statusTxt.colour = Theme.COL_GREEN
             end
         elseif rowUI then
+            rowUI._hasItem = false
             if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
             rowUI.nameTxt.hidden = true
@@ -2119,12 +2470,14 @@ function Window:populateMaterialRows(matList)
             rowUI.statusTxt.hidden = true
         end
     end
+    self._inVirtualPopulate = false
 end
 
 function Window:refresh()
     if not self.mounted and not self:tryMount() then
         return
     end
+    self:ensureActiveTabBuilt()
 
     local t = self.tracker
     local res = t.lastResult or t:recalculate()
@@ -2246,9 +2599,15 @@ function Window:refresh()
     local isArtEmpty = (#artList == 0)
     local isMatEmpty = (#matList == 0)
 
-    self.collectionsTableLayer.hidden = (not isColTab) or isColEmpty
-    self.artefactTableLayer.hidden    = (not isArtTab) or isArtEmpty
-    self.tableLayer.hidden            = (not isMatTab) or isMatEmpty
+    if self.collectionsTableLayer then
+        self.collectionsTableLayer.hidden = (not isColTab) or isColEmpty
+    end
+    if self.artefactTableLayer then
+        self.artefactTableLayer.hidden    = (not isArtTab) or isArtEmpty
+    end
+    if self.tableLayer then
+        self.tableLayer.hidden            = (not isMatTab) or isMatEmpty
+    end
 
     local isCurrentEmpty = (isColTab and isColEmpty) or (isArtTab and isArtEmpty) or (isMatTab and isMatEmpty)
     if self.emptyTableNotice then
@@ -2344,9 +2703,16 @@ function Window:refresh()
     end
 
     self:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, completedCols, targetedCols, readyCols, chronoteTotal, syncStatus, syncedCount, totalCount)
-    self:populateCollectionRows(colList)
-    self:populateArtefactRows(artList)
-    self:populateMaterialRows(matList)
+    self.visibleColRowCount = #colList
+    self.visibleArtRowCount = #artList
+    self.visibleRowCount = #matList
+    if isColTab and self.collectionsTableLayer then
+        self:populateCollectionRows(colList)
+    elseif isArtTab and self.artefactTableLayer then
+        self:populateArtefactRows(artList)
+    elseif isMatTab and self.tableLayer then
+        self:populateMaterialRows(matList)
+    end
 
     self:updateToolbarLayout(true)
     self:refreshHub()
@@ -2356,6 +2722,9 @@ function Window:refresh()
 end
 
 function Window:shutdown()
+    self:unloadTabLayer("collections")
+    self:unloadTabLayer("artefacts")
+    self:unloadTabLayer("materials")
     if self.hubScrollView and self.hubScrollView.Destroy then
         pcall(function() self.hubScrollView:Destroy() end)
         self.hubScrollView = nil
@@ -2366,8 +2735,14 @@ function Window:shutdown()
     if Event and Event.Logic and Event.Logic.Unsubscribe then
         pcall(function() Event.Logic.Unsubscribe(MOUNT_EVENT_ID) end)
     end
+    if self.parent and self.parent.Unsubscribe and ui and ui.Hook and ui.Hook.ONRESIZE then
+        pcall(function() self.parent:Unsubscribe(ui.Hook.ONRESIZE, RESIZE_EVENT_ID) end)
+    end
+    if self.hubParent and self.hubParent.Unsubscribe and ui and ui.Hook and ui.Hook.ONRESIZE then
+        pcall(function() self.hubParent:Unsubscribe(ui.Hook.ONRESIZE, "arch_hub_resize") end)
+    end
     if self.tooltip then
-        self.tooltip:destroy()
+        pcall(function() self.tooltip:destroy() end)
         self.tooltip = nil
     end
     if self.overlay and self.overlay.destroy then
@@ -2382,6 +2757,9 @@ function Window:shutdown()
         pcall(function() self:onWindowGeometryChanged() end)
         pcall(function() self.win:Destroy() end)
         self.win = nil
+    end
+    if prettyui and prettyui.RefreshComponentIDs and self.parent then
+        pcall(prettyui.RefreshComponentIDs, self.parent)
     end
 end
 

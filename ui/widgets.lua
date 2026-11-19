@@ -680,7 +680,7 @@ end
 
 --- Builds a single row in the Collections table using `prettyui.Sprites.CHECKBOX_BUTTON` for `Track`
 --- and a read-only `Done` status indicator, plus a left accent bar for tracked/completed rows.
-function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwardScrollWheel, onHoverRow, onToggleTarget, onStepDelta, onSetMax, onReset)
+function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, _bindRowHover, _forwardScrollWheel, _onHoverRow, _onToggleTarget, _onStepDelta, _onSetMax, _onReset)
     local Sprites = getSprites()
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
@@ -688,11 +688,10 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     local bg = ui.Rectangle.new(colLayer)
     bg.colour = (rowIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
     bg.fill = true
-    bg.clickthrough = false
+    bg.clickthrough = true
     bg:SetPos(8, rowY)
     bg:SetSize(-16, rowH - 2, 1.0, 0)
     bg.hidden = isHidden
-    bindRowHover(bg, function() onHoverRow(rowIdx) end)
 
     local accentBar = ui.Rectangle.new(colLayer)
     accentBar.colour = Theme.COL_GOLD
@@ -732,116 +731,45 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     if cbSprites and cbSprites.selected and cbSprites.empty then
         trackCheckbox = ui.Sprite.new(colLayer)
         trackCheckbox.spriteID = cbSprites.empty
-        trackCheckbox.clickthrough = false
+        trackCheckbox.clickthrough = true
         trackCheckbox:SetPos(22, rowY + 4)
         trackCheckbox:SetSize(16, 16)
         trackCheckbox.hidden = isHidden
-
-        local function refreshCheckboxSprite()
-            if isTrackSelected then
-                trackCheckbox.spriteID = isTrackHovered and (cbSprites.selectedHovered or cbSprites.selected) or cbSprites.selected
-            else
-                trackCheckbox.spriteID = isTrackHovered and (cbSprites.emptyHovered or cbSprites.empty) or cbSprites.empty
-            end
-        end
-
-        if ui and ui.Hook then
-            if ui.Hook.ONMOUSEOVER then
-                trackCheckbox:Subscribe(ui.Hook.ONMOUSEOVER, function()
-                    isTrackHovered = true
-                    refreshCheckboxSprite()
-                    onHoverRow(rowIdx)
-                    return false
-                end)
-            end
-            if ui.Hook.ONMOUSELEAVE then
-                trackCheckbox:Subscribe(ui.Hook.ONMOUSELEAVE, function()
-                    isTrackHovered = false
-                    refreshCheckboxSprite()
-                    return false
-                end)
-            end
-            if ui.Hook.ONCLICK then
-                trackCheckbox:Subscribe(ui.Hook.ONCLICK, function()
-                    onToggleTarget(rowIdx)
-                    return false
-                end)
-            end
-        end
-        if forwardScrollWheel then forwardScrollWheel(trackCheckbox) end
     else
         trackFallbackBtn = Widgets.createToolbarButton(
             colLayer,
             "Track",
             nil,
             true,
-            function() onToggleTarget(rowIdx) end,
-            function(comp, delta)
-                if forwardScrollWheel then forwardScrollWheel(comp, delta) end
-            end,
+            function() end,
+            nil,
             40,
             20
         )
         trackFallbackBtn.setBounds(10, rowY + 2, 40, 20)
         trackFallbackBtn.setHidden(isHidden)
-        bindRowHover(trackFallbackBtn.root, function() onHoverRow(rowIdx) end)
+        trackFallbackBtn.root.clickthrough = true
     end
 
     local sliderSprites = Sprites and Sprites.SLIDER
-    local function makeStepBtn(xOffset, spriteSet, symbol, delta)
+    local function makeStepBtn(xOffset, spriteSet, symbol)
         if spriteSet and spriteSet.normal then
             local btnSprite = ui.Sprite.new(colLayer)
             btnSprite.spriteID = spriteSet.normal
-            btnSprite.clickthrough = false
+            btnSprite.clickthrough = true
             btnSprite:SetPos(xOffset, rowY + 4, 0, 0)
             btnSprite:SetSize(16, 16, 0, 0)
             btnSprite.hidden = isHidden
-
-            if ui and ui.Hook then
-                if ui.Hook.ONMOUSEOVER then
-                    btnSprite:Subscribe(ui.Hook.ONMOUSEOVER, function()
-                        btnSprite.spriteID = spriteSet.hovered or spriteSet.normal
-                        onHoverRow(rowIdx)
-                        return false
-                    end)
-                end
-                if ui.Hook.ONMOUSELEAVE then
-                    btnSprite:Subscribe(ui.Hook.ONMOUSELEAVE, function()
-                        btnSprite.spriteID = spriteSet.normal
-                        return false
-                    end)
-                end
-                if ui.Hook.ONCLICK then
-                    btnSprite:Subscribe(ui.Hook.ONCLICK, function()
-                        btnSprite.spriteID = spriteSet.pressed or spriteSet.normal
-                        if onStepDelta then onStepDelta(rowIdx, delta) end
-                        return false
-                    end)
-                end
-                if ui.Hook.ONRELEASE then
-                    btnSprite:Subscribe(ui.Hook.ONRELEASE, function()
-                        btnSprite.spriteID = spriteSet.hovered or spriteSet.normal
-                        return false
-                    end)
-                end
-            end
-            if forwardScrollWheel then forwardScrollWheel(btnSprite) end
             return btnSprite, nil
         end
 
         local btnBg = ui.Rectangle.new(colLayer)
         btnBg.colour = Theme.COL_BTN_STEP
         btnBg.fill = true
-        btnBg.clickthrough = false
+        btnBg.clickthrough = true
         btnBg:SetPos(xOffset, rowY + 2, 0, 0)
         btnBg:SetSize(16, rowH - 4, 0, 0)
         btnBg.hidden = isHidden
-        btnBg:Subscribe(ui.Hook.ONCLICK, function()
-            if onStepDelta then onStepDelta(rowIdx, delta) end
-            return false
-        end)
-        bindRowHover(btnBg, function() onHoverRow(rowIdx) end)
-        if forwardScrollWheel then forwardScrollWheel(btnBg) end
 
         local btnTxt = Widgets.createText(colLayer, Theme.COL_GOLD, xOffset, rowY + 2, 16, rowH - 4, symbol, 0, 0, 0, 0)
         if ui.AlignMode then
@@ -854,7 +782,7 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
         return btnBg, btnTxt
     end
 
-    local minusBg, minusTxt = makeStepBtn(58, sliderSprites and sliderSprites.decrease, "-", -1)
+    local minusBg, minusTxt = makeStepBtn(58, sliderSprites and sliderSprites.decrease, "-")
 
     local targetTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 78, rowY + 2, 24, rowH - 2, "1", 0, 0, 0, 0)
     if ui.AlignMode then
@@ -865,7 +793,7 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     end
     targetTxt.hidden = isHidden
 
-    local plusBg, plusTxt = makeStepBtn(106, sliderSprites and sliderSprites.increase, "+", 1)
+    local plusBg, plusTxt = makeStepBtn(106, sliderSprites and sliderSprites.increase, "+")
 
     local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 128, rowY + 2, 28, rowH - 2)
     if ui.AlignMode then
@@ -885,7 +813,9 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
     local readyTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -62, rowY + 2, 54, rowH - 2, nil, 1.0, 0, 0, 0)
     readyTxt.hidden = isHidden
 
-    return {
+    local rowTbl
+    rowTbl = {
+        rowY = rowY,
         bg = bg,
         accentBar = accentBar,
         trackCheckbox = trackCheckbox,
@@ -899,6 +829,28 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
         plusBg = plusBg,
         plusTxt = plusTxt,
         readyTxt = readyTxt,
+        setRowY = function(newY)
+            if rowTbl.rowY == newY then return end
+            rowTbl.rowY = newY
+            bg:SetPos(8, newY)
+            accentBar:SetPos(8, newY)
+            if trackCheckbox then
+                trackCheckbox:SetPos(22, newY + 4)
+            elseif trackFallbackBtn then
+                trackFallbackBtn.setBounds(10, newY + 2, 40, 20)
+            end
+            local stepY = (minusTxt == nil) and (newY + 4) or (newY + 2)
+            minusBg:SetPos(58, stepY, 0, 0)
+            if minusTxt then minusTxt:SetPos(58, newY + 2, 0, 0) end
+            targetTxt:SetPos(78, newY + 2, 0, 0)
+            local plusY = (plusTxt == nil) and (newY + 4) or (newY + 2)
+            plusBg:SetPos(106, plusY, 0, 0)
+            if plusTxt then plusTxt:SetPos(106, newY + 2, 0, 0) end
+            lvlTxt:SetPos(128, newY + 2)
+            nameTxt:SetPos(160, newY + 2, 0, 0)
+            rewardTxt:SetPos(-(rowTbl.rewNegOffset or 156), newY + 2, 1.0, 0)
+            readyTxt:SetPos(-62, newY + 2, 1.0, 0)
+        end,
         setTargetState = function(isTargeted)
             isTrackSelected = (isTargeted == true)
             if trackCheckbox and cbSprites then
@@ -932,11 +884,12 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY, bindRowHover, forwar
             readyTxt.hidden = h
         end
     }
+    return rowTbl
 end
 
 --- Builds a single row in the Artefacts table using `prettyui.Sprites.SLIDER.decrease` and `increase`
 --- official RS3 stepper buttons instead of custom rectangles.
-function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardScrollWheel, onHoverRow, onStepDelta)
+function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, _bindRowHover, _forwardScrollWheel, _onHoverRow, _onStepDelta)
     local Sprites = getSprites()
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
@@ -944,11 +897,10 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
     local bg = ui.Rectangle.new(artLayer)
     bg.colour = (rowIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
     bg.fill = true
-    bg.clickthrough = false
+    bg.clickthrough = true
     bg:SetPos(8, rowY)
     bg:SetSize(-16, rowH - 2, 1.0, 0)
     bg.hidden = isHidden
-    bindRowHover(bg, function() onHoverRow(rowIdx) end)
 
     local icon = ui.Sprite.new(artLayer)
     icon.clickthrough = true
@@ -969,60 +921,24 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
     ownedTxt.hidden = isHidden
 
     local sliderSprites = Sprites and Sprites.SLIDER
-    local function makeStepBtn(xOffset, spriteSet, symbol, delta)
+    local function makeStepBtn(xOffset, spriteSet, symbol)
         if spriteSet and spriteSet.normal then
             local btnSprite = ui.Sprite.new(artLayer)
             btnSprite.spriteID = spriteSet.normal
-            btnSprite.clickthrough = false
+            btnSprite.clickthrough = true
             btnSprite:SetPos(xOffset, rowY + 4, 1.0, 0)
             btnSprite:SetSize(16, 16, 0, 0)
             btnSprite.hidden = true
-
-            if ui and ui.Hook then
-                if ui.Hook.ONMOUSEOVER then
-                    btnSprite:Subscribe(ui.Hook.ONMOUSEOVER, function()
-                        btnSprite.spriteID = spriteSet.hovered or spriteSet.normal
-                        onHoverRow(rowIdx)
-                        return false
-                    end)
-                end
-                if ui.Hook.ONMOUSELEAVE then
-                    btnSprite:Subscribe(ui.Hook.ONMOUSELEAVE, function()
-                        btnSprite.spriteID = spriteSet.normal
-                        return false
-                    end)
-                end
-                if ui.Hook.ONCLICK then
-                    btnSprite:Subscribe(ui.Hook.ONCLICK, function()
-                        btnSprite.spriteID = spriteSet.pressed or spriteSet.normal
-                        onStepDelta(rowIdx, delta)
-                        return false
-                    end)
-                end
-                if ui.Hook.ONRELEASE then
-                    btnSprite:Subscribe(ui.Hook.ONRELEASE, function()
-                        btnSprite.spriteID = spriteSet.hovered or spriteSet.normal
-                        return false
-                    end)
-                end
-            end
-            if forwardScrollWheel then forwardScrollWheel(btnSprite) end
             return btnSprite, nil
         end
 
         local btnBg = ui.Rectangle.new(artLayer)
         btnBg.colour = Theme.COL_BTN_STEP
         btnBg.fill = true
-        btnBg.clickthrough = false
+        btnBg.clickthrough = true
         btnBg:SetPos(xOffset, rowY + 2, 1.0, 0)
         btnBg:SetSize(16, rowH - 4, 0, 0)
         btnBg.hidden = true
-        btnBg:Subscribe(ui.Hook.ONCLICK, function()
-            onStepDelta(rowIdx, delta)
-            return false
-        end)
-        bindRowHover(btnBg, function() onHoverRow(rowIdx) end)
-        if forwardScrollWheel then forwardScrollWheel(btnBg) end
 
         local btnTxt = Widgets.createText(artLayer, Theme.COL_GOLD, xOffset, rowY + 2, 16, rowH - 4, symbol, 1.0, 0, 0, 0)
         if ui.AlignMode then
@@ -1035,7 +951,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
         return btnBg, btnTxt
     end
 
-    local minusBg, minusTxt = makeStepBtn(-242, sliderSprites and sliderSprites.decrease, "-", -1)
+    local minusBg, minusTxt = makeStepBtn(-242, sliderSprites and sliderSprites.decrease, "-")
 
     local qtyTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -222, rowY + 2, 24, rowH - 2, nil, 1.0, 0, 0, 0)
     if ui.AlignMode then
@@ -1046,12 +962,14 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
     end
     qtyTxt.hidden = isHidden
 
-    local plusBg, plusTxt = makeStepBtn(-194, sliderSprites and sliderSprites.increase, "+", 1)
+    local plusBg, plusTxt = makeStepBtn(-194, sliderSprites and sliderSprites.increase, "+")
 
     local statusTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -143, rowY + 2, 135, rowH - 2, nil, 1.0, 0, 0, 0)
     statusTxt.hidden = isHidden
 
-    return {
+    local rowTbl
+    rowTbl = {
+        rowY = rowY,
         bg = bg,
         icon = icon,
         nameTxt = nameTxt,
@@ -1063,23 +981,43 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY, bindRowHover, forwardS
         qtyTxt = qtyTxt,
         plusBg = plusBg,
         plusTxt = plusTxt,
-        statusTxt = statusTxt
+        statusTxt = statusTxt,
+        setRowY = function(newY)
+            if rowTbl.rowY == newY then return end
+            rowTbl.rowY = newY
+            bg:SetPos(8, newY)
+            icon:SetPos(14, newY + 2, 0, 0)
+            nameTxt:SetPos(36, newY + 2)
+            lvlTxt:SetPos(rowTbl.lvlX or 170, newY + 2, 0, 0)
+            locTxt:SetPos(rowTbl.locX or 202, newY + 2, 0, 0)
+            local ownedOff = rowTbl.ownedOffset or 316
+            ownedTxt:SetPos(-ownedOff, newY + 2, 1.0, 0)
+            local qtyOff = rowTbl.qtyOffset or 242
+            local mY = (minusTxt == nil) and (newY + 4) or (newY + 2)
+            minusBg:SetPos(-qtyOff, mY, 1.0, 0)
+            if minusTxt then minusTxt:SetPos(-qtyOff, newY + 2, 1.0, 0) end
+            qtyTxt:SetPos(-qtyOff + 20, newY + 2, 1.0, 0)
+            local pY = (plusTxt == nil) and (newY + 4) or (newY + 2)
+            plusBg:SetPos(-qtyOff + 48, pY, 1.0, 0)
+            if plusTxt then plusTxt:SetPos(-qtyOff + 48, newY + 2, 1.0, 0) end
+            statusTxt:SetPos(-(rowTbl.statusOffset or 143), newY + 2, 1.0, 0)
+        end,
     }
+    return rowTbl
 end
 
 --- Builds a single row in the Materials table.
-function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY, bindRowHover, onHoverRow)
+function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY, _bindRowHover, _onHoverRow)
     local rowH = Theme.ROW_HEIGHT
     local isHidden = (rowIdx > 1)
 
     local bg = ui.Rectangle.new(tableLayer)
     bg.colour = (rowIdx % 2 == 1) and Theme.COL_BG_ROW or Theme.COL_BG_ALT
     bg.fill = true
-    bg.clickthrough = false
+    bg.clickthrough = true
     bg:SetPos(8, rowY)
     bg:SetSize(-16, rowH - 2, 1.0, 0)
     bg.hidden = isHidden
-    bindRowHover(bg, function() onHoverRow(rowIdx) end)
 
     local icon = ui.Sprite.new(tableLayer)
     icon.clickthrough = true
@@ -1102,15 +1040,29 @@ function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY, bindRowHover, onHove
     local statusTxt = Widgets.createText(tableLayer, Theme.COL_WHITE, -71, rowY + 2, 63, rowH - 2, nil, 1.0, 0, 0, 0)
     statusTxt.hidden = isHidden
 
-    return {
+    local rowTbl
+    rowTbl = {
+        rowY = rowY,
         bg = bg,
         icon = icon,
         nameTxt = nameTxt,
         lvlTxt = lvlTxt,
         locTxt = locTxt,
         progTxt = progTxt,
-        statusTxt = statusTxt
+        statusTxt = statusTxt,
+        setRowY = function(newY)
+            if rowTbl.rowY == newY then return end
+            rowTbl.rowY = newY
+            bg:SetPos(8, newY)
+            icon:SetPos(14, newY + 2, 0, 0)
+            nameTxt:SetPos(38, newY + 2)
+            lvlTxt:SetPos(173, newY + 2)
+            locTxt:SetPos(209, newY + 2, 0, 0)
+            progTxt:SetPos(-175, newY + 2, 1.0, 0)
+            statusTxt:SetPos(-71, newY + 2, 1.0, 0)
+        end,
     }
+    return rowTbl
 end
 
 --- Creates a styled empty-state container that replaces table rows when no results match.

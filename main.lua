@@ -234,9 +234,6 @@ function PluginShutdown()
     if window and window.shutdown then
         pcall(function() window:shutdown() end)
     end
-    if tracker then
-        pcall(function() tracker:savePersistentState() end)
-    end
 end
 
 print("Archaeology Assistant v1.0.1 loaded.")

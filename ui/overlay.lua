@@ -12,8 +12,8 @@ local Theme     = require("ui/theme")
 local Overlay = {}
 Overlay.__index = Overlay
 
-local MAX_INDICATORS          = 16
-local MAX_SLOTS_PER_INDICATOR = 6
+local MAX_INDICATORS          = 8
+local MAX_SLOTS_PER_INDICATOR = 5
 local SCAN_INTERVAL_TICKS     = 30 -- ~1.2s between background spot checks
 local DEFAULT_PILL_W          = 110
 local ROW_H                   = 22
@@ -409,11 +409,7 @@ function Overlay:tryMount()
         return false
     end
     self.overlayRoot = root
-
-    local fontQ = (id and id.Font and (id.Font.MUSEO_SANS_13PT_BOLD or id.Font.MUSEO_SANS_15PT_REGULAR))
-    for i = 1, MAX_INDICATORS do
-        self.widgets[i] = createIndicatorWidget(root, fontQ)
-    end
+    self.fontQ = (id and id.Font and (id.Font.MUSEO_SANS_13PT_BOLD or id.Font.MUSEO_SANS_15PT_REGULAR))
 
     self.mounted = true
     return true
@@ -792,7 +788,7 @@ function Overlay:onDraw()
     local parentH = (self.parent and self.parent.height and self.parent.height > 0) and self.parent.height or 2160
 
     local drawCount = math.min(MAX_INDICATORS, #self.activeSpots)
-    for i = drawCount + 1, MAX_INDICATORS do
+    for i = drawCount + 1, #self.widgets do
         if self.widgets[i] and self.widgets[i].root then
             self.widgets[i].root.hidden = true
         end
@@ -807,6 +803,10 @@ function Overlay:onDraw()
             if overheadPos and overheadPos.x and overheadPos.y then
                 local sx, sy = overheadPos.x, overheadPos.y
                 if sx >= -100 and sx <= parentW + 100 and sy >= -50 and sy <= parentH + 100 then
+                    if not widget then
+                        widget = createIndicatorWidget(self.overlayRoot, self.fontQ)
+                        self.widgets[i] = widget
+                    end
                     local totalPossible = spot.totalPossible or 1
                     local numItems      = math.min(#spot.materials, MAX_SLOTS_PER_INDICATOR)
                     local hasArts       = (spot.hasArtefacts == true)
@@ -911,13 +911,13 @@ function Overlay:onDraw()
                         pcall(function() widget.root:MoveToFront() end)
                     end
                     widget.lastFront = shouldFront
-                else
+                elseif widget and widget.root then
                     widget.root.hidden = true
                 end
-            else
+            elseif widget and widget.root then
                 widget.root.hidden = true
             end
-        else
+        elseif widget and widget.root then
             widget.root.hidden = true
         end
     end
@@ -952,8 +952,17 @@ function Overlay:destroy()
     end
     self:hideAllWidgets()
     if self.overlayRoot then
-        pcall(function() self.overlayRoot.hidden = true end)
+        pcall(function()
+            if self.overlayRoot.Destroy then
+                self.overlayRoot:Destroy()
+            else
+                self.overlayRoot.hidden = true
+            end
+        end)
+        self.overlayRoot = nil
     end
+    self.widgets = {}
+    self.mounted = false
 end
 
 return Overlay
