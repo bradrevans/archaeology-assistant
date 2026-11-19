@@ -61,9 +61,6 @@ Theme.DEFAULT_H = 470
 Theme.MIN_W     = 540
 Theme.MIN_H     = 300
 
-Theme.MAX_MATERIAL_ROWS   = 52
-Theme.MAX_ARTEFACT_ROWS   = 45
-Theme.MAX_COLLECTION_ROWS = 80
 Theme.ROW_HEIGHT          = 24
 Theme.BADGE_W             = 42
 

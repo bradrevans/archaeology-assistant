@@ -732,11 +732,10 @@ function Window:buildSearchBar(container, forwardScrollWheel)
 end
 
 function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWheel)
-    local colLayerH = 26 + (Theme.MAX_COLLECTION_ROWS * Theme.ROW_HEIGHT)
     local colLayer = ui.Layer.new(container)
     colLayer.clickthrough = true
     colLayer:SetPos(0, 120)
-    colLayer:SetSize(0, colLayerH, 1.0, 0)
+    colLayer:SetSize(0, 26, 1.0, 0)
     colLayer.hidden = false
     self.collectionsTableLayer = colLayer
     forwardScrollWheel(colLayer)
@@ -766,28 +765,41 @@ function Window:buildCollectionsTable(container, bindRowHover, forwardScrollWhee
     self.colHReward  = Widgets.createText(colLayer, Theme.COL_GOLD, -156, 2, 88,   20, "Reward",     1.0, 0, 0, 0)
     self.colHReady   = Widgets.createText(colLayer, Theme.COL_GOLD, -62,  2, 54,   20, "Ready",      1.0, 0, 0, 0)
 
-    local startY = 24
-    for i = 1, Theme.MAX_COLLECTION_ROWS do
-        local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
-        self.collectionRows[i] = Widgets.buildCollectionRow(
-            colLayer,
-            i,
-            rowY,
-            bindRowHover,
-            forwardScrollWheel,
-            function(idx) self:onHoverCollectionRow(idx) end,
-            function(idx) self:onToggleCollectionTarget(idx) end,
-            function(idx, delta) self:onStepCollectionTarget(idx, delta) end
-        )
+    self._colBindRowHover = bindRowHover
+    self._colForwardScrollWheel = forwardScrollWheel
+    self._prevVisibleColRowCount = 0
+end
+
+function Window:ensureCollectionRow(i)
+    if self.collectionRows[i] then
+        return self.collectionRows[i]
     end
+    if not self.collectionsTableLayer then
+        return nil
+    end
+    local startY = 24
+    local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
+    local row = Widgets.buildCollectionRow(
+        self.collectionsTableLayer,
+        i,
+        rowY,
+        self._colBindRowHover,
+        self._colForwardScrollWheel,
+        function(idx) self:onHoverCollectionRow(idx) end,
+        function(idx) self:onToggleCollectionTarget(idx) end,
+        function(idx, delta) self:onStepCollectionTarget(idx, delta) end
+    )
+    self.collectionRows[i] = row
+    self.collectionsTableLayer:SetSize(0, 26 + (#self.collectionRows * Theme.ROW_HEIGHT), 1.0, 0)
+    self._lastColAvailW = nil
+    return row
 end
 
 function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
-    local artLayerH = 26 + (Theme.MAX_ARTEFACT_ROWS * Theme.ROW_HEIGHT)
     local artLayer = ui.Layer.new(container)
     artLayer.clickthrough = true
     artLayer:SetPos(0, 120)
-    artLayer:SetSize(0, artLayerH, 1.0, 0)
+    artLayer:SetSize(0, 26, 1.0, 0)
     self.artefactTableLayer = artLayer
     forwardScrollWheel(artLayer)
 
@@ -811,35 +823,47 @@ function Window:buildArtefactsTable(container, bindRowHover, forwardScrollWheel)
     end
     self.colArtStatus = Widgets.createText(artLayer, Theme.COL_GOLD, -143, 2, 135,  20, "Status",   1.0, 0, 0, 0)
 
-    local startY = 24
-    for i = 1, Theme.MAX_ARTEFACT_ROWS do
-        local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
-        self.artefactRows[i] = Widgets.buildArtefactRow(
-            artLayer,
-            i,
-            rowY,
-            bindRowHover,
-            forwardScrollWheel,
-            function(idx) self:onHoverArtefactRow(idx) end,
-            function(idx, delta)
-                local item = self.currentArtefacts and self.currentArtefacts[idx]
-                if item and item.artefact then
-                    self.tracker:adjustArtefactCount(item.artefact.damagedName, delta, item.rawCount)
-                    self:refresh()
-                    self:onHoverArtefactRow(idx)
-                end
-            end
-        )
+    self._artBindRowHover = bindRowHover
+    self._artForwardScrollWheel = forwardScrollWheel
+    self._prevVisibleArtRowCount = 0
+end
+
+function Window:ensureArtefactRow(i)
+    if self.artefactRows[i] then
+        return self.artefactRows[i]
     end
-    self._prevVisibleArtRowCount = 1
+    if not self.artefactTableLayer then
+        return nil
+    end
+    local startY = 24
+    local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
+    local row = Widgets.buildArtefactRow(
+        self.artefactTableLayer,
+        i,
+        rowY,
+        self._artBindRowHover,
+        self._artForwardScrollWheel,
+        function(idx) self:onHoverArtefactRow(idx) end,
+        function(idx, delta)
+            local item = self.currentArtefacts and self.currentArtefacts[idx]
+            if item and item.artefact then
+                self.tracker:adjustArtefactCount(item.artefact.damagedName, delta, item.rawCount)
+                self:refresh()
+                self:onHoverArtefactRow(idx)
+            end
+        end
+    )
+    self.artefactRows[i] = row
+    self.artefactTableLayer:SetSize(0, 26 + (#self.artefactRows * Theme.ROW_HEIGHT), 1.0, 0)
+    self._lastArtAvailW = nil
+    return row
 end
 
 function Window:buildMaterialsTable(container, bindRowHover, forwardScrollWheel)
-    local tableLayerH = 26 + (Theme.MAX_MATERIAL_ROWS * Theme.ROW_HEIGHT)
     local tableLayer = ui.Layer.new(container)
     tableLayer.clickthrough = true
     tableLayer:SetPos(0, 172)
-    tableLayer:SetSize(0, tableLayerH, 1.0, 0)
+    tableLayer:SetSize(0, 26, 1.0, 0)
     tableLayer.hidden = true
     self.tableLayer = tableLayer
     forwardScrollWheel(tableLayer)
@@ -859,18 +883,29 @@ function Window:buildMaterialsTable(container, bindRowHover, forwardScrollWheel)
     self.colHeaderProg  = Widgets.createText(tableLayer, Theme.COL_GOLD, -175, 2, 100,  20, "Owned / Req", 1.0, 0, 0, 0)
     self.colHeaderShort = Widgets.createText(tableLayer, Theme.COL_GOLD, -71,  2, 63,   20, "Short",       1.0, 0, 0, 0)
 
-    local startY = 24
-    for i = 1, Theme.MAX_MATERIAL_ROWS do
-        local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
-        self.materialRows[i] = Widgets.buildMaterialRow(
-            tableLayer,
-            i,
-            rowY,
-            bindRowHover,
-            function(idx) self:onHoverMaterialRow(idx) end
-        )
+    self._matBindRowHover = bindRowHover
+    self._prevVisibleRowCount = 0
+end
+
+function Window:ensureMaterialRow(i)
+    if self.materialRows[i] then
+        return self.materialRows[i]
     end
-    self._prevVisibleRowCount = 1
+    if not self.tableLayer then
+        return nil
+    end
+    local startY = 24
+    local rowY = startY + (i - 1) * Theme.ROW_HEIGHT
+    local row = Widgets.buildMaterialRow(
+        self.tableLayer,
+        i,
+        rowY,
+        self._matBindRowHover,
+        function(idx) self:onHoverMaterialRow(idx) end
+    )
+    self.materialRows[i] = row
+    self.tableLayer:SetSize(0, 26 + (#self.materialRows * Theme.ROW_HEIGHT), 1.0, 0)
+    return row
 end
 
 -- ============================================================================
@@ -1271,7 +1306,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
 
             if self.artefactRows then
                 local artStartY = 24
-                for i = 1, Theme.MAX_ARTEFACT_ROWS do
+                for i = 1, #self.artefactRows do
                     local row = self.artefactRows[i]
                     if row then
                         local rY = artStartY + (i - 1) * Theme.ROW_HEIGHT
@@ -1318,7 +1353,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
             self.colHColName:SetSize(nameW, 20, 0, 0)
 
             if self.collectionRows then
-                for i = 1, Theme.MAX_COLLECTION_ROWS do
+                for i = 1, #self.collectionRows do
                     local row = self.collectionRows[i]
                     if row then
                         local rY = 24 + (i - 1) * Theme.ROW_HEIGHT
@@ -1795,13 +1830,13 @@ function Window:updateSummaryCard(isColTab, isArtTab, res, mode, totalCols, comp
 end
 
 function Window:populateCollectionRows(colList)
-    local visibleColRowCount = math.min(Theme.MAX_COLLECTION_ROWS, #colList)
-    local maxTouchColIdx = math.max(visibleColRowCount, self._prevVisibleColRowCount or 1)
+    local visibleColRowCount = #colList
+    local maxTouchColIdx = math.max(visibleColRowCount, self._prevVisibleColRowCount or 0)
     self._prevVisibleColRowCount = visibleColRowCount
     self.visibleColRowCount = visibleColRowCount
 
     for slotIdx = 1, maxTouchColIdx do
-        local rowUI = self.collectionRows[slotIdx]
+        local rowUI = self.collectionRows[slotIdx] or (slotIdx <= visibleColRowCount and self:ensureCollectionRow(slotIdx))
         if rowUI then
             if slotIdx <= visibleColRowCount then
                 local item = colList[slotIdx]
@@ -1905,16 +1940,16 @@ function Window:populateCollectionRows(colList)
 end
 
 function Window:populateArtefactRows(artList)
-    local visibleArtRowCount = math.min(Theme.MAX_ARTEFACT_ROWS, #artList)
-    local maxTouchArtIdx = math.max(visibleArtRowCount, self._prevVisibleArtRowCount or 1)
+    local visibleArtRowCount = #artList
+    local maxTouchArtIdx = math.max(visibleArtRowCount, self._prevVisibleArtRowCount or 0)
     self._prevVisibleArtRowCount = visibleArtRowCount
     self.visibleArtRowCount = visibleArtRowCount
 
     for slotIdx = 1, maxTouchArtIdx do
-        local rowUI = self.artefactRows[slotIdx]
         local item = artList[slotIdx]
+        local rowUI = self.artefactRows[slotIdx] or (item and self:ensureArtefactRow(slotIdx))
 
-        if item then
+        if item and rowUI then
             Theme.bindItemSprite(rowUI.icon, item.artefact and (item.artefact.restoredId or item.artefact.id), 1)
 
             rowUI.bg.hidden = false
@@ -2012,7 +2047,7 @@ function Window:populateArtefactRows(artList)
                 end
             end
             item.statusText = rowUI.statusTxt.content
-        else
+        elseif rowUI then
             if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
             rowUI.nameTxt.hidden = true
@@ -2030,16 +2065,16 @@ function Window:populateArtefactRows(artList)
 end
 
 function Window:populateMaterialRows(matList)
-    local visibleRowCount = math.min(Theme.MAX_MATERIAL_ROWS, #matList)
-    local maxTouchIdx = math.max(visibleRowCount, self._prevVisibleRowCount or 1)
+    local visibleRowCount = #matList
+    local maxTouchIdx = math.max(visibleRowCount, self._prevVisibleRowCount or 0)
     self._prevVisibleRowCount = visibleRowCount
     self.visibleRowCount = visibleRowCount
 
     for slotIdx = 1, maxTouchIdx do
-        local rowUI = self.materialRows[slotIdx]
         local item = matList[slotIdx]
+        local rowUI = self.materialRows[slotIdx] or (item and self:ensureMaterialRow(slotIdx))
 
-        if item then
+        if item and rowUI then
             local mat = item.material
             Theme.bindItemSprite(rowUI.icon, mat and mat.id, 1)
 
@@ -2074,7 +2109,7 @@ function Window:populateMaterialRows(matList)
                 rowUI.progTxt.colour = Theme.COL_GREEN
                 rowUI.statusTxt.colour = Theme.COL_GREEN
             end
-        else
+        elseif rowUI then
             if rowUI.icon then rowUI.icon.hidden = true end
             rowUI.bg.hidden = true
             rowUI.nameTxt.hidden = true
