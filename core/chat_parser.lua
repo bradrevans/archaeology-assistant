@@ -195,12 +195,6 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
         if not okRecalc then
             error(errRecalc, 0)
         end
-        print(string.format(
-            "[Archaeology Assistant] Transported to Material Storage: +%d %s (Storage total: %d)",
-            qty,
-            mat.name,
-            tracker.storageMaterials[mat.name]
-        ))
         return true
     end
 

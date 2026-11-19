@@ -119,15 +119,6 @@ local function onChatMessage(event)
         end
 
         if msg then
-            local lower = string.lower(tostring(msg))
-            if string.find(lower, "transport", 1, true)
-                or string.find(lower, "storage", 1, true)
-                or string.find(lower, "porter", 1, true)
-                or string.find(lower, "grace of the elves", 1, true)
-                or string.find(lower, "imp-souled", 1, true)
-                or string.find(lower, "premier artefact", 1, true) then
-                print("[Archaeology Assistant CHAT] " .. tostring(msg))
-            end
             if tracker:onChatMessage(msg) then
                 if window then
                     window:refresh()
