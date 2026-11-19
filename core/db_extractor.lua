@@ -182,6 +182,14 @@ local function rebuildHotspotIndices(Hotspots)
     for name, data in pairs(Hotspots.BY_NAME) do
         Hotspots.BY_LOWER[Utils.normalizeName(name)] = data
     end
+    if Hotspots.normalizeKey then
+        for name, data in pairs(Hotspots.BY_NAME) do
+            local normKey = Hotspots.normalizeKey(name)
+            if not Hotspots.BY_LOWER[normKey] then
+                Hotspots.BY_LOWER[normKey] = data
+            end
+        end
+    end
 end
 
 function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)

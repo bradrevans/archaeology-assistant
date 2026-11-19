@@ -38,6 +38,11 @@ local function getHotspotArtefactsMap()
                 local lowerKey = string.lower(baseName)
                 map[lowerKey] = map[lowerKey] or {}
                 table.insert(map[lowerKey], art)
+                local normKey = Hotspots.normalizeKey(baseName)
+                if normKey ~= "" and normKey ~= lowerKey then
+                    map[normKey] = map[normKey] or {}
+                    table.insert(map[normKey], art)
+                end
             end
         end
     end
@@ -364,9 +369,9 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
 
     local neededArts = {}
     local hKey = string.lower(spot.displayName)
-    local spotArts = spotArtsMap[hKey]
+    local spotArts = spotArtsMap[hKey] or spotArtsMap[Hotspots.normalizeKey(spot.displayName)]
     if (not spotArts) and hotspotDef and hotspotDef.name then
-        spotArts = spotArtsMap[string.lower(hotspotDef.name)]
+        spotArts = spotArtsMap[string.lower(hotspotDef.name)] or spotArtsMap[Hotspots.normalizeKey(hotspotDef.name)]
     end
     if spotArts and tracker and tracker.getArtefactNeededCount then
         for _, art in ipairs(spotArts) do
@@ -545,7 +550,9 @@ function Overlay:scanWorldSpots(force)
 
         local neededArts = {}
         local hKey       = string.lower(matchedName or clean)
-        local spotArts   = spotArtsMap[hKey] or (hotspotDef.name and spotArtsMap[string.lower(hotspotDef.name)])
+        local spotArts   = spotArtsMap[hKey]
+            or spotArtsMap[Hotspots.normalizeKey(matchedName or clean)]
+            or (hotspotDef.name and (spotArtsMap[string.lower(hotspotDef.name)] or spotArtsMap[Hotspots.normalizeKey(hotspotDef.name)]))
         if spotArts and self.tracker and self.tracker.getArtefactNeededCount then
             for _, art in ipairs(spotArts) do
                 local neededQty = self.tracker:getArtefactNeededCount(art.damagedName, art.name)
@@ -604,7 +611,11 @@ function Overlay:scanWorldSpots(force)
             local d = spot.distSq or 999999
             if not spot.isCache and lastExcavateTarget and lastExcavateTarget ~= "" and d <= 9 then
                 local spotNameLower = string.lower(spot.displayName or "")
-                if spotNameLower == lastExcavateTarget or string.find(lastExcavateTarget, spotNameLower, 1, true) then
+                local spotNameNorm  = Hotspots.normalizeKey(spot.displayName or "")
+                local targetNorm    = Hotspots.normalizeKey(lastExcavateTarget)
+                if spotNameLower == lastExcavateTarget
+                    or string.find(lastExcavateTarget, spotNameLower, 1, true)
+                    or (spotNameNorm ~= "" and (spotNameNorm == targetNorm or string.find(targetNorm, spotNameNorm, 1, true))) then
                     if not bestTargetSpot or d < (bestTargetSpot.distSq or 999999) then
                         bestTargetSpot = spot
                     end
