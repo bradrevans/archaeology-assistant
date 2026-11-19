@@ -179,6 +179,7 @@ end
 
 local function rebuildHotspotIndices(Hotspots)
     Hotspots.BY_LOWER = {}
+    Hotspots._matchCache = {}
     for name, data in pairs(Hotspots.BY_NAME) do
         Hotspots.BY_LOWER[Utils.normalizeName(name)] = data
     end

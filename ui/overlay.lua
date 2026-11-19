@@ -23,18 +23,81 @@ local COL_GOLD    = Theme.COL_GOLD
 local COL_CYAN    = Theme.COL_CYAN
 local COL_BG_PILL = Theme.makeColour(0.06, 0.09, 0.14, 0.90)
 
-local hotspotArtefacts = nil
+local hotspotArtefacts     = nil
+local hotspotArtefactsList = nil
+local rawNameSpotCache     = {}
+local rawNameSpotCacheSize = 0
+local cachedLocQueryMode   = nil
 
---- Builds and caches a lowercase hotspot name -> yielded artefacts lookup map.
+local function getEntityCoordGrid(entity)
+    return entity.coordGrid
+end
+
+local function getEntityDisplayName(entity)
+    return entity.displayName
+end
+
+local function classifyRawSpotName(rawName)
+    local cached = rawNameSpotCache[rawName]
+    if cached ~= nil then
+        return cached
+    end
+    local clean = Utils.cleanText(rawName)
+    if clean == "" then
+        if rawNameSpotCacheSize >= 4096 then
+            rawNameSpotCache = {}
+            rawNameSpotCacheSize = 0
+        end
+        rawNameSpotCache[rawName] = false
+        rawNameSpotCacheSize = rawNameSpotCacheSize + 1
+        return false
+    end
+
+    local cacheMat = string.match(clean, "^[Mm]aterial [Cc]ache %((.+)%)")
+        or string.match(clean, "^[Mm]aterial [Cc]ache%s*[:%-]%s*(.+)")
+        or string.match(clean, "^(.+)%s+[Cc]ache$")
+    local entry
+    if cacheMat then
+        entry = {
+            isCache       = true,
+            cacheMatLower = string.lower(cacheMat),
+            clean         = clean,
+        }
+    else
+        local hotspotDef, matchedName = Hotspots.findMatch(clean)
+        if not hotspotDef then
+            entry = false
+        else
+            entry = {
+                isCache     = false,
+                hotspotDef  = hotspotDef,
+                matchedName = matchedName,
+                clean       = clean,
+            }
+        end
+    end
+
+    if rawNameSpotCacheSize >= 4096 then
+        rawNameSpotCache = {}
+        rawNameSpotCacheSize = 0
+    end
+    rawNameSpotCache[rawName] = entry
+    rawNameSpotCacheSize = rawNameSpotCacheSize + 1
+    return entry
+end
+
+--- Builds and caches a lowercase hotspot name -> yielded artefacts lookup map and flat deduplicated list.
 local function getHotspotArtefactsMap()
-    if hotspotArtefacts then return hotspotArtefacts end
-    local map = {}
+    if hotspotArtefacts then return hotspotArtefacts, hotspotArtefactsList end
+    local map  = {}
+    local list = {}
     for _, art in ipairs((Artefacts and Artefacts.LIST) or {}) do
         if art.location and art.location ~= "" then
             local locClean = Utils.cleanText(art.location)
             local _, matchedName = Hotspots.findMatch(locClean)
             local baseName = matchedName or Utils.trim(string.match(locClean, "^(.-)%s*%b()") or locClean)
             if baseName and baseName ~= "" then
+                table.insert(list, art)
                 local lowerKey = string.lower(baseName)
                 map[lowerKey] = map[lowerKey] or {}
                 table.insert(map[lowerKey], art)
@@ -46,21 +109,24 @@ local function getHotspotArtefactsMap()
             end
         end
     end
-    hotspotArtefacts = map
-    return map
+    hotspotArtefacts     = map
+    hotspotArtefactsList = list
+    return map, list
+end
+
+local function checkEntityValid(entity)
+    if type(entity.isValid) == "function" then
+        return entity:isValid()
+    elseif entity.isValid ~= nil then
+        return entity.isValid
+    end
+    return true
 end
 
 --- Checks if an RS3 world entity handle is still valid/alive.
 local function isEntityAlive(entity)
     if not entity then return false end
-    local ok, valid = pcall(function()
-        if type(entity.isValid) == "function" then
-            return entity:isValid()
-        elseif entity.isValid ~= nil then
-            return entity.isValid
-        end
-        return true
-    end)
+    local ok, valid = pcall(checkEntityValid, entity)
     return ok and (valid == true or valid ~= false)
 end
 
@@ -117,19 +183,54 @@ local function getPlayerExcavateState()
     return pEntity, isAnimating, interacting
 end
 
---- Queries nearby world location entities within 32 tiles of `pCoord`.
+local function callLocByDistance(pCoord)
+    return LocList.ByDistance(pCoord, 42)
+end
+
+local function callLocFilter(pCoord)
+    return LocList.Filter({ coordGrid = pCoord, range = 42 })
+end
+
+local function callLocAll()
+    return LocList.All()
+end
+
+--- Queries nearby world location entities within 42 tiles of `pCoord`.
 local function queryNearbyLocations(pCoord)
-    local locs = nil
-    if pCoord and LocList and LocList.ByDistance then
-        pcall(function() locs = LocList.ByDistance(pCoord, 32) end)
+    if not LocList then return nil end
+    if cachedLocQueryMode == "ByDistance" and pCoord and LocList.ByDistance then
+        local ok, locs = pcall(callLocByDistance, pCoord)
+        if ok and locs then return locs end
+    elseif cachedLocQueryMode == "Filter" and pCoord and LocList.Filter then
+        local ok, locs = pcall(callLocFilter, pCoord)
+        if ok and locs then return locs end
+    elseif cachedLocQueryMode == "All" and LocList.All then
+        local ok, locs = pcall(callLocAll)
+        if ok and locs then return locs end
     end
-    if not locs and pCoord and LocList and LocList.Filter then
-        pcall(function() locs = LocList.Filter({ coordGrid = pCoord, range = 32 }) end)
+
+    if pCoord and LocList.ByDistance then
+        local ok, locs = pcall(callLocByDistance, pCoord)
+        if ok and locs then
+            cachedLocQueryMode = "ByDistance"
+            return locs
+        end
     end
-    if not locs and LocList and LocList.All then
-        pcall(function() locs = LocList.All() end)
+    if pCoord and LocList.Filter then
+        local ok, locs = pcall(callLocFilter, pCoord)
+        if ok and locs then
+            cachedLocQueryMode = "Filter"
+            return locs
+        end
     end
-    return locs
+    if LocList.All then
+        local ok, locs = pcall(callLocAll)
+        if ok and locs then
+            cachedLocQueryMode = "All"
+            return locs
+        end
+    end
+    return nil
 end
 
 --- Iterates an RS3 entity list safely whether indexed numerically or via `pairs`.
@@ -410,39 +511,117 @@ local function computeDistSq(coordA, coordB)
     return 999999
 end
 
-function Overlay:scanWorldSpots(force)
-    local deficits     = {}
-    local anyShort     = false
-    local deficitCount = 0
+local function compareSpots(a, b)
+    if (a.isExcavating == true) ~= (b.isExcavating == true) then
+        return a.isExcavating == true
+    end
+    if (a.distSq or 999999) ~= (b.distSq or 999999) then
+        return (a.distSq or 999999) < (b.distSq or 999999)
+    end
+    local ax = (a.coordGrid and a.coordGrid.x) or 0
+    local bx = (b.coordGrid and b.coordGrid.x) or 0
+    if ax ~= bx then return ax < bx end
+    return ((a.coordGrid and a.coordGrid.z) or 0) < ((b.coordGrid and b.coordGrid.z) or 0)
+end
 
-    if self.tracker and self.tracker.lastResult and self.tracker.lastResult.materials then
-        for _, row in ipairs(self.tracker.lastResult.materials) do
-            if row.short and row.short > 0 then
-                deficits[string.lower(row.name)] = {
-                    name       = row.name,
-                    short      = row.short,
-                    id         = row.material and row.material.id,
-                    isArtefact = false,
-                }
-                anyShort     = true
-                deficitCount = deficitCount + row.short
+local function updateExcavateStateAndSort(self, spots)
+    if not spots or #spots == 0 then return end
+    local _, isAnimating, interacting = getPlayerExcavateState()
+    local lastExcavateTarget = self.tracker and self.tracker.lastExcavateTarget and string.lower(self.tracker.lastExcavateTarget) or nil
+    local targetNorm = lastExcavateTarget and Hotspots.normalizeKey(lastExcavateTarget) or ""
+    local hasDirectExcavate = false
+    for _, spot in ipairs(spots) do
+        spot.isExcavating = false
+        if interacting and spot.entity then
+            local sameEntity = (spot.entity == interacting)
+            if not sameEntity and interacting.coordGrid and spot.coordGrid then
+                sameEntity = (interacting.coordGrid.x == spot.coordGrid.x and interacting.coordGrid.z == spot.coordGrid.z)
+            end
+            if sameEntity then
+                spot.isExcavating = true
+                hasDirectExcavate = true
             end
         end
     end
 
-    local spotArtsMap    = getHotspotArtefactsMap()
-    local neededArtCount = 0
-    if self.tracker and self.tracker.getArtefactNeededCount then
-        for _, artList in pairs(spotArtsMap or {}) do
-            for _, art in ipairs(artList) do
+    if not hasDirectExcavate then
+        local bestTargetSpot = nil
+        local bestAnimSpot = nil
+        for _, spot in ipairs(spots) do
+            local d = spot.distSq or 999999
+            if not spot.isCache and lastExcavateTarget and lastExcavateTarget ~= "" and d <= 9 then
+                local spotNameLower = string.lower(spot.displayName or "")
+                local spotNameNorm  = Hotspots.normalizeKey(spot.displayName or "")
+                if spotNameLower == lastExcavateTarget
+                    or string.find(lastExcavateTarget, spotNameLower, 1, true)
+                    or (spotNameNorm ~= "" and (spotNameNorm == targetNorm or string.find(targetNorm, spotNameNorm, 1, true))) then
+                    if not bestTargetSpot or d < (bestTargetSpot.distSq or 999999) then
+                        bestTargetSpot = spot
+                    end
+                end
+            end
+            if not spot.isCache and isAnimating and d <= 6 then
+                if not bestAnimSpot or d < (bestAnimSpot.distSq or 999999) then
+                    bestAnimSpot = spot
+                end
+            end
+        end
+        local chosen = bestTargetSpot or bestAnimSpot
+        if chosen then
+            chosen.isExcavating = true
+        end
+    end
+
+    table.sort(spots, compareSpots)
+end
+
+function Overlay:scanWorldSpots(force)
+    local spotArtsMap, spotArtsList = getHotspotArtefactsMap()
+    local trackerSeq = self.tracker and self.tracker._recalcSeq
+
+    if (not trackerSeq) or self._lastRecalcSeq ~= trackerSeq or not self._cachedDeficits then
+        local deficits     = {}
+        local anyShort     = false
+        local deficitCount = 0
+
+        if self.tracker and self.tracker.lastResult and self.tracker.lastResult.materials then
+            for _, row in ipairs(self.tracker.lastResult.materials) do
+                if row.short and row.short > 0 then
+                    deficits[string.lower(row.name)] = {
+                        name       = row.name,
+                        short      = row.short,
+                        id         = row.material and row.material.id,
+                        isArtefact = false,
+                    }
+                    anyShort     = true
+                    deficitCount = deficitCount + row.short
+                end
+            end
+        end
+
+        local neededArtCount = 0
+        if self.tracker and self.tracker.getArtefactNeededCount then
+            for _, art in ipairs(spotArtsList or {}) do
                 local n = self.tracker:getArtefactNeededCount(art.damagedName, art.name)
                 if n > 0 then
                     neededArtCount = neededArtCount + n
                 end
             end
         end
+
+        self._cachedDeficits       = deficits
+        self._cachedAnyShort       = anyShort
+        self._cachedDeficitCount   = deficitCount
+        self._cachedNeededArtCount = neededArtCount
+        self._cachedAnyArts        = (neededArtCount > 0)
+        self._lastRecalcSeq        = trackerSeq
     end
-    local anyArts = (neededArtCount > 0)
+
+    local deficits       = self._cachedDeficits
+    local anyShort       = self._cachedAnyShort
+    local deficitCount   = self._cachedDeficitCount
+    local neededArtCount = self._cachedNeededArtCount
+    local anyArts        = self._cachedAnyArts
 
     if not anyShort and not anyArts then
         self.activeSpots    = {}
@@ -451,46 +630,52 @@ function Overlay:scanWorldSpots(force)
     end
 
     local pCoord = getPlayerCoordGrid()
-
-    if #self.activeSpots > 0 then
-        local kept = {}
-        for _, spot in ipairs(self.activeSpots) do
-            if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
-                spot.distSq = computeDistSq(spot.coordGrid, pCoord)
-                table.insert(kept, spot)
+    if not pCoord then
+        if #self.activeSpots > 0 then
+            local kept = {}
+            for _, spot in ipairs(self.activeSpots) do
+                if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+                    table.insert(kept, spot)
+                end
             end
+            updateExcavateStateAndSort(self, kept)
+            self.activeSpots = kept
         end
-        table.sort(kept, function(a, b)
-            if (a.isExcavating == true) ~= (b.isExcavating == true) then
-                return a.isExcavating == true
-            end
-            if (a.distSq or 999999) ~= (b.distSq or 999999) then
-                return (a.distSq or 999999) < (b.distSq or 999999)
-            end
-            local ax = (a.coordGrid and a.coordGrid.x) or 0
-            local bx = (b.coordGrid and b.coordGrid.x) or 0
-            if ax ~= bx then return ax < bx end
-            return ((a.coordGrid and a.coordGrid.z) or 0) < ((b.coordGrid and b.coordGrid.z) or 0)
-        end)
-        self.activeSpots = kept
+        return
     end
 
-    if not pCoord then return end
-
-    local isStationary = (not force)
+    local withinScanRadius = (not force)
         and self._lastScanCoord
-        and pCoord.x == self._lastScanCoord.x
-        and pCoord.z == self._lastScanCoord.z
+        and (pCoord.level == nil or pCoord.level == self._lastScanCoord.level)
+        and computeDistSq(pCoord, self._lastScanCoord) < 64
         and self._lastDeficitCount == deficitCount
         and self._lastNeededArtCount == neededArtCount
+        and (trackerSeq == nil or self._lastScanRecalcSeq == trackerSeq)
 
-    if isStationary and #self.activeSpots > 0 then
-        return
+    if withinScanRadius then
+        local spotDespawned = false
+        if #self.activeSpots > 0 then
+            local kept = {}
+            for _, spot in ipairs(self.activeSpots) do
+                if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+                    spot.distSq = computeDistSq(spot.coordGrid, pCoord)
+                    table.insert(kept, spot)
+                else
+                    spotDespawned = true
+                end
+            end
+            updateExcavateStateAndSort(self, kept)
+            self.activeSpots = kept
+        end
+        if not spotDespawned then
+            return
+        end
     end
 
     self._lastScanCoord      = { x = pCoord.x, z = pCoord.z, level = pCoord.level }
     self._lastDeficitCount   = deficitCount
     self._lastNeededArtCount = neededArtCount
+    self._lastScanRecalcSeq  = trackerSeq
 
     local locs = queryNearbyLocations(pCoord)
     if not locs then
@@ -498,37 +683,37 @@ function Overlay:scanWorldSpots(force)
         return
     end
 
+    local px, pz     = pCoord.x, pCoord.z
     local matched    = {}
     local seenCoords = {}
 
     iterateEntities(locs, function(loc)
-        if not isEntityAlive(loc) or not loc.coordGrid then return end
-        local rawName = nil
-        pcall(function() rawName = loc.displayName end)
-        if not rawName or rawName == "" then return end
-
-        local clean    = Utils.cleanText(rawName)
-        local coordKey = string.format("%d_%d", loc.coordGrid.x or 0, loc.coordGrid.z or 0)
-        if seenCoords[coordKey] then return end
-
-        if loc.coordGrid.x and pCoord.x and loc.coordGrid.z and pCoord.z then
-            if math.abs(loc.coordGrid.x - pCoord.x) > 35 or math.abs(loc.coordGrid.z - pCoord.z) > 35 then
-                return
-            end
+        if not isEntityAlive(loc) then return end
+        local okC, cg = pcall(getEntityCoordGrid, loc)
+        if not okC or not cg then return end
+        local lx, lz = cg.x, cg.z
+        if not lx or not lz then return end
+        if px and pz and (math.abs(lx - px) > 42 or math.abs(lz - pz) > 42) then
+            return
         end
 
-        local cacheMat = string.match(clean, "^[Mm]aterial [Cc]ache %((.+)%)")
-            or string.match(clean, "^[Mm]aterial [Cc]ache%s*[:%-]%s*(.+)")
-            or string.match(clean, "^(.+)%s+[Cc]ache$")
+        local coordKey = lx * 65536 + lz
+        if seenCoords[coordKey] then return end
 
-        if cacheMat then
-            local def = deficits[string.lower(cacheMat)]
+        local okN, rawName = pcall(getEntityDisplayName, loc)
+        if not okN or not rawName or rawName == "" then return end
+
+        local spotClass = classifyRawSpotName(rawName)
+        if not spotClass then return end
+
+        if spotClass.isCache then
+            local def = deficits[spotClass.cacheMatLower]
             if def then
                 seenCoords[coordKey] = true
                 table.insert(matched, {
                     entity        = loc,
-                    coordGrid     = loc.coordGrid,
-                    distSq        = computeDistSq(loc.coordGrid, pCoord),
+                    coordGrid     = cg,
+                    distSq        = computeDistSq(cg, pCoord),
                     displayName   = def.name,
                     isCache       = true,
                     hasArtefacts  = false,
@@ -539,8 +724,9 @@ function Overlay:scanWorldSpots(force)
             return
         end
 
-        local hotspotDef, matchedName = Hotspots.findMatch(clean)
-        if not hotspotDef then return end
+        local hotspotDef  = spotClass.hotspotDef
+        local matchedName = spotClass.matchedName
+        local clean       = spotClass.clean
 
         local neededMats = {}
         for _, matName in ipairs(hotspotDef.materials or {}) do
@@ -575,8 +761,8 @@ function Overlay:scanWorldSpots(force)
 
             table.insert(matched, {
                 entity        = loc,
-                coordGrid     = loc.coordGrid,
-                distSq        = computeDistSq(loc.coordGrid, pCoord),
+                coordGrid     = cg,
+                distSq        = computeDistSq(cg, pCoord),
                 displayName   = matchedName or clean,
                 isCache       = false,
                 hotspotDef    = hotspotDef,
@@ -587,64 +773,7 @@ function Overlay:scanWorldSpots(force)
         end
     end)
 
-    local _, isAnimating, interacting = getPlayerExcavateState()
-    local lastExcavateTarget = self.tracker and self.tracker.lastExcavateTarget and string.lower(self.tracker.lastExcavateTarget) or nil
-    local hasDirectExcavate = false
-    for _, spot in ipairs(matched) do
-        spot.isExcavating = false
-        if interacting and spot.entity then
-            local sameEntity = (spot.entity == interacting)
-            if not sameEntity and interacting.coordGrid and spot.coordGrid then
-                sameEntity = (interacting.coordGrid.x == spot.coordGrid.x and interacting.coordGrid.z == spot.coordGrid.z)
-            end
-            if sameEntity then
-                spot.isExcavating = true
-                hasDirectExcavate = true
-            end
-        end
-    end
-
-    if not hasDirectExcavate then
-        local bestTargetSpot = nil
-        local bestAnimSpot = nil
-        for _, spot in ipairs(matched) do
-            local d = spot.distSq or 999999
-            if not spot.isCache and lastExcavateTarget and lastExcavateTarget ~= "" and d <= 9 then
-                local spotNameLower = string.lower(spot.displayName or "")
-                local spotNameNorm  = Hotspots.normalizeKey(spot.displayName or "")
-                local targetNorm    = Hotspots.normalizeKey(lastExcavateTarget)
-                if spotNameLower == lastExcavateTarget
-                    or string.find(lastExcavateTarget, spotNameLower, 1, true)
-                    or (spotNameNorm ~= "" and (spotNameNorm == targetNorm or string.find(targetNorm, spotNameNorm, 1, true))) then
-                    if not bestTargetSpot or d < (bestTargetSpot.distSq or 999999) then
-                        bestTargetSpot = spot
-                    end
-                end
-            end
-            if not spot.isCache and isAnimating and d <= 6 then
-                if not bestAnimSpot or d < (bestAnimSpot.distSq or 999999) then
-                    bestAnimSpot = spot
-                end
-            end
-        end
-        local chosen = bestTargetSpot or bestAnimSpot
-        if chosen then
-            chosen.isExcavating = true
-        end
-    end
-
-    table.sort(matched, function(a, b)
-        if (a.isExcavating == true) ~= (b.isExcavating == true) then
-            return a.isExcavating == true
-        end
-        if (a.distSq or 999999) ~= (b.distSq or 999999) then
-            return (a.distSq or 999999) < (b.distSq or 999999)
-        end
-        local ax = (a.coordGrid and a.coordGrid.x) or 0
-        local bx = (b.coordGrid and b.coordGrid.x) or 0
-        if ax ~= bx then return ax < bx end
-        return ((a.coordGrid and a.coordGrid.z) or 0) < ((b.coordGrid and b.coordGrid.z) or 0)
-    end)
+    updateExcavateStateAndSort(self, matched)
     self.activeSpots = matched
 end
 

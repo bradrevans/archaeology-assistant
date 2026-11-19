@@ -8,6 +8,7 @@ local Hotspots = {}
 Hotspots.BY_NAME = {}
 
 Hotspots.BY_LOWER = {}
+Hotspots._matchCache = {}
 
 function Hotspots.normalizeKey(str)
     if not str then return "" end
@@ -26,18 +27,26 @@ end
 
 function Hotspots.findMatch(rawName)
     if not rawName then return nil end
+    local cached = Hotspots._matchCache[rawName]
+    if cached ~= nil then
+        return cached.data or nil, cached.name
+    end
+    local function finish(data, matchedName)
+        Hotspots._matchCache[rawName] = { data = data or false, name = matchedName }
+        return data, matchedName
+    end
     local direct = Hotspots.BY_NAME[rawName]
-    if direct then return direct, rawName end
+    if direct then return finish(direct, rawName) end
     local cleaned = Utils.cleanText(rawName)
     if cleaned ~= rawName and Hotspots.BY_NAME[cleaned] then
-        return Hotspots.BY_NAME[cleaned], cleaned
+        return finish(Hotspots.BY_NAME[cleaned], cleaned)
     end
     local lowerClean = Utils.normalizeName(cleaned)
     local normClean = Hotspots.normalizeKey(cleaned)
     for name, data in pairs(Hotspots.BY_NAME) do
         local lowerKey = string.lower(name)
         if lowerClean == lowerKey or normClean == Hotspots.normalizeKey(name) then
-            return data, name
+            return finish(data, name)
         end
     end
     local bestData, bestName, bestLen = nil, nil, 0
@@ -54,9 +63,9 @@ function Hotspots.findMatch(rawName)
         end
     end
     if bestData then
-        return bestData, bestName
+        return finish(bestData, bestName)
     end
-    return nil, cleaned
+    return finish(nil, cleaned)
 end
 
 function Hotspots.get(name)

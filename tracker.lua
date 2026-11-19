@@ -1002,8 +1002,12 @@ function Tracker:getCollectionProgress(col)
 end
 
 function Tracker:getTargetedArtefactRequirements()
+    if self._cachedColTargets then
+        return self._cachedColTargets
+    end
     local requirements = {}
     if not Collections or not Collections.BY_NAME then
+        self._cachedColTargets = requirements
         return requirements
     end
 
@@ -1048,14 +1052,19 @@ function Tracker:getTargetedArtefactRequirements()
         req.neededToRestore = (not req.isSubmitted) and math.max(0, req.count - totalRestored) or 0
     end
 
+    self._cachedColTargets = requirements
     return requirements
 end
 
 function Tracker:getArtefactNeededCount(damagedName, artName)
     if not damagedName then return 0 end
+    if self._cachedNeededCounts and self._cachedNeededCounts[damagedName] ~= nil then
+        return self._cachedNeededCounts[damagedName]
+    end
     artName = artName or string.gsub(damagedName, "%s*%(damaged%)", "")
 
     if self.excludedArtefacts and self.excludedArtefacts[damagedName] then
+        if self._cachedNeededCounts then self._cachedNeededCounts[damagedName] = 0 end
         return 0
     end
 
@@ -1076,19 +1085,27 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
             targetQty = targetInfo.count
         end
     end
-    if (not targetQty) and self.lastResult and self.lastResult.artefacts then
-        for _, item in ipairs(self.lastResult.artefacts) do
-            if item.artefact and item.artefact.damagedName == damagedName then
-                if not item.excluded and (item.effectiveCount or 0) > 0 then
-                    targetQty = item.effectiveCount
+    if not targetQty then
+        if self._cachedArtByDamaged then
+            local item = self._cachedArtByDamaged[damagedName]
+            if item and not item.excluded and (item.effectiveCount or 0) > 0 then
+                targetQty = item.effectiveCount
+            end
+        elseif self.lastResult and self.lastResult.artefacts then
+            for _, item in ipairs(self.lastResult.artefacts) do
+                if item.artefact and item.artefact.damagedName == damagedName then
+                    if not item.excluded and (item.effectiveCount or 0) > 0 then
+                        targetQty = item.effectiveCount
+                    end
+                    break
                 end
-                break
             end
         end
     end
 
     targetQty = targetQty or 0
     if targetQty <= 0 then
+        if self._cachedNeededCounts then self._cachedNeededCounts[damagedName] = 0 end
         return 0
     end
 
@@ -1099,7 +1116,11 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
     local inBankRestored = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[artName]) or 0) or 0
     local totalOwned     = inBagDamaged + inBankDamaged + inBenchDamaged + inBagRestored + inBankRestored
 
-    return math.max(0, targetQty - totalOwned)
+    local needed = math.max(0, targetQty - totalOwned)
+    if self._cachedNeededCounts then
+        self._cachedNeededCounts[damagedName] = needed
+    end
+    return needed
 end
 
 function Tracker:hasAnyNeededArtefacts()
@@ -1413,6 +1434,8 @@ end
 
 function Tracker:onRestoredArtefactSubmitted(artName, _countHandedIn)
     if not artName or not Collections or not Collections.LIST then return end
+    self._cachedColTargets = nil
+    self._cachedNeededCounts = nil
     local lowerTarget = string.lower(artName)
 
     for _, col in ipairs(Collections.LIST) do
@@ -1719,6 +1742,11 @@ end
 function Tracker:recalculate(triggerInvType)
     self:scanAllInventories(triggerInvType)
 
+    self._recalcSeq = (self._recalcSeq or 0) + 1
+    self._cachedColTargets = nil
+    self._cachedNeededCounts = {}
+    self._cachedArtByDamaged = {}
+
     local mode         = self:getSourceMode()
     local combinedArts = buildCombinedArtefactsMap(self)
     local hasTargeted  = self:hasAnyTargetedCollections()
@@ -1781,7 +1809,7 @@ function Tracker:recalculate(triggerInvType)
                 local bankRestored  = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[art.name]) or 0) or 0
                 local ownedRestored = bagRestored + bankRestored
 
-                table.insert(artefactsList, {
+                local itemEntry = {
                     artefact        = art,
                     inBag           = info.inBag or 0,
                     inBank          = info.inBank or 0,
@@ -1802,7 +1830,9 @@ function Tracker:recalculate(triggerInvType)
                     neededToRestore = info.neededToRestore or 0,
                     isSubmitted     = info.isSubmitted or false,
                     isTargetedCol   = info.isTargetedCol or false,
-                })
+                }
+                self._cachedArtByDamaged[art.damagedName] = itemEntry
+                table.insert(artefactsList, itemEntry)
             end
         end
     end
