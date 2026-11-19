@@ -257,6 +257,7 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
         resizable = true,
         scrollable = true,
         scrollStep = 28,
+        respectInterfaceLock = false,
         onClose = function()
             self.isVisible = false
             self:hideRowTooltip()
