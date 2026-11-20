@@ -1420,12 +1420,14 @@ function Tracker:onLogicTick()
         return updated
     end
 
-    self._achCheckTicks = (self._achCheckTicks or 0) + 1
-    if self._achCheckTicks >= 5 then
-        self._achCheckTicks = 0
-        local synced = self:syncCollectionsDoneStatus(false)
-        if synced > 0 then
-            updated = true
+    if not self.boardSyncedLive then
+        self._achCheckTicks = (self._achCheckTicks or 0) + 1
+        if self._achCheckTicks >= 5 then
+            self._achCheckTicks = 0
+            local synced = self:syncCollectionsDoneStatus()
+            if synced > 0 or self.boardSyncedLive then
+                updated = true
+            end
         end
     end
 

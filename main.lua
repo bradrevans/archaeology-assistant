@@ -81,7 +81,9 @@ local function onInventoryEvent(event)
     xpcall(function()
         local triggerInv = event and event.inv or nil
         tracker:recalculate(triggerInv)
-        tracker:syncCollectionsDoneStatus(false)
+        if not tracker.boardSyncedLive then
+            tracker:syncCollectionsDoneStatus()
+        end
         window:refresh()
     end, function(e)
         recordError("onInventoryEvent", e)

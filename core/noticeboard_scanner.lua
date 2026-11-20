@@ -67,106 +67,90 @@ function NoticeboardScanner.canSyncCollectorVarps()
     return hasArchaeologyJournal() or isNearGuildNoticeboard()
 end
 
-function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
-    local syncedCount = 0
-    if not Collections or not Collections.LIST or not tracker then return 0 end
-
-    local submittedChanged = false
-    local completedChanged = false
-    local scannedChanged = false
-
-    -- Sync via VarPlayer.COLLECTION_* when carrying the Archaeology journal or within 32 tiles of the Guild noticeboard
-    if var and var.VarPlayer and NoticeboardScanner.canSyncCollectorVarps() then
-        if var.VarPlayer.ARCH_TUTORIAL then
-            local okTut, tutVal = pcall(function() return var.VarPlayer.ARCH_TUTORIAL.value end)
-            if okTut and type(tutVal) == "number" and tutVal >= 100 then
-                if not tracker.completedCollections["Museum - Training Weapons"] then
-                    tracker.completedCollections["Museum - Training Weapons"] = 1
-                    completedChanged = true
-                    syncedCount = syncedCount + 1
-                end
+local function syncSingleCollection(tracker, col, varpSynced, allowAchReqs, state)
+    if varpSynced and col.configName then
+        if col._vpComp == nil then
+            col._vpComp = var.VarPlayer[col.configName .. "_COMPLETE"] or false
+        end
+        local vpComp = col._vpComp
+        local compVal = vpComp and vpComp.value
+        if type(compVal) == "number" and compVal > 0 then
+            local prev = tracker.completedCollections[col.name] or 0
+            if compVal > prev then
+                tracker.completedCollections[col.name] = compVal
+                state.completedChanged = true
+                state.syncedCount = state.syncedCount + 1
+            end
+            if not col.isRepeatable and tracker.submittedArtefacts and tracker.submittedArtefacts[col.name] then
+                tracker.submittedArtefacts[col.name] = nil
+                state.submittedChanged = true
             end
         end
 
-        for _, col in ipairs(Collections.LIST) do
-            if col.configName then
-                local vpComp = var.VarPlayer[col.configName .. "_COMPLETE"]
-                local compVal = vpComp and vpComp.value
-                if type(compVal) == "number" and compVal > 0 then
-                    local prev = tracker.completedCollections[col.name] or 0
-                    if compVal > prev then
-                        tracker.completedCollections[col.name] = compVal
-                        completedChanged = true
-                        syncedCount = syncedCount + 1
-                    end
-                    if not col.isRepeatable and tracker.submittedArtefacts and tracker.submittedArtefacts[col.name] then
-                        tracker.submittedArtefacts[col.name] = nil
-                        submittedChanged = true
-                    end
+        if col.artObjConfigs then
+            if col._vpArts == nil then
+                local vpMap = {}
+                for artName, artCfg in pairs(col.artObjConfigs) do
+                    vpMap[artName] = var.VarPlayer[col.configName .. "_" .. artCfg] or false
                 end
-
-                if col.artObjConfigs then
-                    for artName, artCfg in pairs(col.artObjConfigs) do
-                        local vpArt = var.VarPlayer[col.configName .. "_" .. artCfg]
-                        local artVal = vpArt and vpArt.value
-                        if type(artVal) == "number" then
-                            if artVal > 0 then
-                                tracker.submittedArtefacts[col.name] = tracker.submittedArtefacts[col.name] or {}
-                                if not tracker.submittedArtefacts[col.name][artName] then
-                                    tracker.submittedArtefacts[col.name][artName] = true
-                                    submittedChanged = true
-                                    syncedCount = syncedCount + 1
-                                end
-                            elseif tracker.submittedArtefacts[col.name] and tracker.submittedArtefacts[col.name][artName] then
-                                tracker.submittedArtefacts[col.name][artName] = nil
-                                submittedChanged = true
-                                syncedCount = syncedCount + 1
-                            end
+                col._vpArts = vpMap
+            end
+            for artName, vpArt in pairs(col._vpArts) do
+                local artVal = vpArt and vpArt.value
+                if type(artVal) == "number" then
+                    if artVal > 0 then
+                        tracker.submittedArtefacts[col.name] = tracker.submittedArtefacts[col.name] or {}
+                        if not tracker.submittedArtefacts[col.name][artName] then
+                            tracker.submittedArtefacts[col.name][artName] = true
+                            state.submittedChanged = true
+                            state.syncedCount = state.syncedCount + 1
                         end
-                    end
-                end
-
-                if col.collector and col.collector ~= "" and col.collector ~= "Unknown" then
-                    if (tracker.scannedCollectors[col.collector] or 0) == 0 then
-                        tracker.scannedCollectors[col.collector] = 1
-                        scannedChanged = true
-                    end
-                    tracker.liveScannedCollectors = tracker.liveScannedCollectors or {}
-                    tracker.liveScannedCollectors[col.collector] = 1
-                    tracker.boardSyncedLive = true
-                    if not tracker.boardHasCache then
-                        tracker.boardHasCache = true
-                        DB.set("arch_board_has_cache", 1)
+                    elseif tracker.submittedArtefacts[col.name] and tracker.submittedArtefacts[col.name][artName] then
+                        tracker.submittedArtefacts[col.name][artName] = nil
+                        state.submittedChanged = true
+                        state.syncedCount = state.syncedCount + 1
                     end
                 end
             end
         end
+
+        if col.collector and col.collector ~= "" and col.collector ~= "Unknown" then
+            if (tracker.scannedCollectors[col.collector] or 0) == 0 then
+                tracker.scannedCollectors[col.collector] = 1
+                state.scannedChanged = true
+            end
+            tracker.liveScannedCollectors = tracker.liveScannedCollectors or {}
+            tracker.liveScannedCollectors[col.collector] = 1
+            tracker.boardSyncedLive = true
+            if not tracker.boardHasCache then
+                tracker.boardHasCache = true
+                DB.set("arch_board_has_cache", 1)
+            end
+        end
     end
 
-    if scannedChanged then
-        DB.set("arch_scanned_collectors", DB.serializeCountMap(tracker.scannedCollectors))
-    end
-
-    if tracker.scannedCollectors and next(tracker.scannedCollectors) ~= nil
-        and config and config.Achievement and config.Achievement.FromID then
-
-    for _, col in ipairs(Collections.LIST) do
+    if state.hasAchApi then
         local isCollectorScanned = (tracker.scannedCollectors[col.collector] or 0) > 0
-            or (col.collector == "Giles" and next(tracker.scannedCollectors) ~= nil)
-        local achId = isCollectorScanned and col.achievementId or nil
+            or (col.collector == "Giles" and state.hasAnyScanned)
+        local alreadyDoneNonRepeat = (not col.isRepeatable) and tracker.completedCollections[col.name]
+        local achId = (isCollectorScanned and not alreadyDoneNonRepeat) and col.achievementId or nil
         if achId and achId > 0 then
-            local ok, ach = pcall(config.Achievement.FromID, achId)
-            if ok and ach and type(ach.progress) == "number" then
+            if col._achObj == nil then
+                local ok, achRes = pcall(config.Achievement.FromID, achId)
+                col._achObj = (ok and achRes) or false
+            end
+            local ach = col._achObj
+            if ach and type(ach.progress) == "number" then
                 if ach.progress == -2 or ach.progress == 1 then
                     if not tracker.completedCollections[col.name] then
                         tracker.completedCollections[col.name] = 1
-                        syncedCount = syncedCount + 1
+                        state.syncedCount = state.syncedCount + 1
                     end
                     if not col.isRepeatable and tracker.submittedArtefacts and tracker.submittedArtefacts[col.name] then
                         tracker.submittedArtefacts[col.name] = nil
-                        submittedChanged = true
+                        state.submittedChanged = true
                     end
-                else
+                elseif allowAchReqs and not (varpSynced and col.configName and col.artObjConfigs) then
                     local reqs = nil
                     pcall(function() reqs = ach.requirements end)
                     if not reqs and type(ach.GetRequirements) == "function" then
@@ -208,7 +192,7 @@ function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
                                         end
                                         if matchedName and not tracker.submittedArtefacts[col.name][matchedName] then
                                             tracker.submittedArtefacts[col.name][matchedName] = true
-                                            submittedChanged = true
+                                            state.submittedChanged = true
                                         end
                                     end
                                 end
@@ -219,18 +203,58 @@ function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
             end
         end
     end
+end
+
+function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
+    if not Collections or not Collections.LIST or not tracker then return 0 end
+
+    local totalCols = #Collections.LIST
+    if totalCols == 0 then return 0 end
+
+    local varpSynced = (var and var.VarPlayer and NoticeboardScanner.canSyncCollectorVarps()) == true
+    local noticeOpen = NoticeboardScanner.isNoticeboardOpen()
+    if not varpSynced and not noticeOpen then
+        return 0
     end
 
-    if submittedChanged then
+    local state = {
+        syncedCount      = 0,
+        completedChanged = false,
+        submittedChanged = false,
+        scannedChanged   = false,
+        hasAnyScanned    = (tracker.scannedCollectors and next(tracker.scannedCollectors) ~= nil) == true,
+        hasAchApi        = (tracker.scannedCollectors and next(tracker.scannedCollectors) ~= nil
+            and config and config.Achievement and config.Achievement.FromID) ~= nil,
+    }
+
+    if varpSynced and var.VarPlayer.ARCH_TUTORIAL then
+        local okTut, tutVal = pcall(function() return var.VarPlayer.ARCH_TUTORIAL.value end)
+        if okTut and type(tutVal) == "number" and tutVal >= 100 then
+            if not tracker.completedCollections["Museum - Training Weapons"] then
+                tracker.completedCollections["Museum - Training Weapons"] = 1
+                state.completedChanged = true
+                state.syncedCount = state.syncedCount + 1
+            end
+        end
+    end
+
+    for _, col in ipairs(Collections.LIST) do
+        syncSingleCollection(tracker, col, varpSynced, true, state)
+    end
+
+    if state.scannedChanged then
+        DB.set("arch_scanned_collectors", DB.serializeCountMap(tracker.scannedCollectors))
+    end
+    if state.submittedChanged then
         DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(tracker.submittedArtefacts))
     end
-    if syncedCount > 0 or completedChanged or submittedChanged then
-        if completedChanged or syncedCount > 0 then
+    if state.syncedCount > 0 or state.completedChanged or state.submittedChanged then
+        if state.completedChanged or state.syncedCount > 0 then
             DB.set("arch_completed_collections", DB.serializeCountMap(tracker.completedCollections))
         end
         tracker:recalculate()
     end
-    return syncedCount
+    return state.syncedCount
 end
 
 return NoticeboardScanner
