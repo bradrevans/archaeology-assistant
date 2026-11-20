@@ -278,6 +278,7 @@ end
 
 function Tracker:detectPlayerArchLevel()
     local detected = nil
+    local saved = tonumber(DB.get("arch_player_level", 0)) or 0
 
     -- 1. Direct RS3 Engine native player skill level API
     pcall(function()
@@ -287,7 +288,12 @@ function Tracker:detectPlayerArchLevel()
                 or 27
             local lvl = Player.GetLevelGameplay(archSkill)
             if type(lvl) == "number" and lvl >= 1 and lvl <= 120 then
-                detected = lvl
+                if lvl > 1 or saved <= 1 then
+                    detected = lvl
+                else
+                    -- Ignore transient level 1 during lobby/login when a higher level is already saved
+                    detected = saved
+                end
             end
         end
     end)
@@ -295,7 +301,9 @@ function Tracker:detectPlayerArchLevel()
     if detected and detected >= 1 and detected <= 120 then
         if self.playerArchLevel ~= detected then
             self.playerArchLevel = detected
-            DB.set("arch_player_level", detected)
+            if detected > 1 or saved <= 1 then
+                DB.set("arch_player_level", detected)
+            end
             print(string.format("[Archaeology Assistant] Synced player Archaeology level: %d", detected))
         end
         return detected
@@ -1467,6 +1475,13 @@ function Tracker:onLogicTick()
 
     if (self._logicTicks % 20) ~= 0 then
         return updated
+    end
+
+    local prevLvl = self.playerArchLevel
+    local curLvl = self:detectPlayerArchLevel()
+    if curLvl ~= prevLvl then
+        self:recalculate()
+        updated = true
     end
 
     if not self.boardSyncedLive then
