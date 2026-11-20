@@ -14,7 +14,7 @@ Overlay.__index = Overlay
 
 local MAX_INDICATORS          = 8
 local MAX_SLOTS_PER_INDICATOR = 9
-local SCAN_INTERVAL_TICKS     = 30 -- ~1.2s between background spot checks
+local SCAN_INTERVAL_TICKS     = 15 -- ~0.3-0.6s between background spot checks
 local DEFAULT_PILL_W          = 110
 local ROW_H                   = 22
 local PILL_H                  = 30
@@ -606,13 +606,17 @@ function Overlay:tryMount()
     return true
 end
 
-function Overlay:onLogic()
-    self.scanCooldown = (self.scanCooldown or 0) + 1
-    if self.scanCooldown < SCAN_INTERVAL_TICKS then
-        return
+--- Computes squared tile distance between two coordinate grids.
+local function computeDistSq(coordA, coordB)
+    if coordA and coordB and coordA.x and coordA.z and coordB.x and coordB.z then
+        local dx = coordA.x - coordB.x
+        local dz = coordA.z - coordB.z
+        return (dx * dx) + (dz * dz)
     end
-    self.scanCooldown = 0
+    return 999999
+end
 
+function Overlay:onLogic()
     if not self.enabled then
         if #self.activeSpots > 0 then
             self.activeSpots = {}
@@ -620,7 +624,22 @@ function Overlay:onLogic()
         return
     end
 
-    self:scanWorldSpots()
+    self.scanCooldown = (self.scanCooldown or 0) + 1
+    local movedFar = false
+    if self.scanCooldown < SCAN_INTERVAL_TICKS then
+        local pCoord = getPlayerCoordGrid()
+        if pCoord and ((not self._lastScanCoord)
+            or (pCoord.level ~= nil and pCoord.level ~= self._lastScanCoord.level)
+            or computeDistSq(pCoord, self._lastScanCoord) >= 36) then
+            movedFar = true
+        end
+        if not movedFar then
+            return
+        end
+    end
+    self.scanCooldown = 0
+
+    self:scanWorldSpots(movedFar)
 end
 
 function Overlay:triggerScan()
@@ -701,16 +720,6 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
     spot.materials    = displayItems
     spot.hasArtefacts = (#neededArts > 0)
     return true
-end
-
---- Computes squared tile distance between two coordinate grids.
-local function computeDistSq(coordA, coordB)
-    if coordA and coordB and coordA.x and coordA.z and coordB.x and coordB.z then
-        local dx = coordA.x - coordB.x
-        local dz = coordA.z - coordB.z
-        return (dx * dx) + (dz * dz)
-    end
-    return 999999
 end
 
 local function compareSpots(a, b)
@@ -849,12 +858,14 @@ function Overlay:scanWorldSpots(force)
     local withinScanRadius = (not force)
         and self._lastScanCoord
         and (pCoord.level == nil or pCoord.level == self._lastScanCoord.level)
-        and computeDistSq(pCoord, self._lastScanCoord) < 64
+        and computeDistSq(pCoord, self._lastScanCoord) < 36
+        and (self._fullScanSkipCount or 0) < 8
         and self._lastDeficitCount == deficitCount
         and self._lastNeededArtCount == neededArtCount
         and (trackerSeq == nil or self._lastScanRecalcSeq == trackerSeq)
 
     if withinScanRadius then
+        self._fullScanSkipCount = (self._fullScanSkipCount or 0) + 1
         local spotDespawned = false
         if #self.activeSpots > 0 then
             local kept = {}
@@ -874,6 +885,7 @@ function Overlay:scanWorldSpots(force)
         end
     end
 
+    self._fullScanSkipCount  = 0
     self._lastScanCoord      = { x = pCoord.x, z = pCoord.z, level = pCoord.level }
     self._lastDeficitCount   = deficitCount
     self._lastNeededArtCount = neededArtCount
