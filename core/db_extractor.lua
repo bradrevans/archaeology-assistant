@@ -288,24 +288,33 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
 
     -- 2. Map ARCH_SITE -> section rows -> hotspots & caches
     local excSiteName = {}
+    local function mapSiteSubRow(sub, sName, depth)
+        if (type(sub) ~= "table" and type(sub) ~= "userdata") or not sub.id then return end
+        if not excSiteName[sub.id] then
+            excSiteName[sub.id] = sName
+        end
+        if depth >= 2 then return end
+        for _, child in ipairs(getCol(sub, 17)) do
+            mapSiteSubRow(child, sName, depth + 1)
+        end
+        for _, child in ipairs(getCol(sub, 18)) do
+            mapSiteSubRow(child, sName, depth + 1)
+        end
+    end
     for _, sRow in ipairs(siteRows) do
         local sName = getFirst(sRow, 3)
         if sName and sName ~= "" then
-            local subRows = getCol(sRow, 17)
-            for _, sub in ipairs(subRows) do
-                if sub and sub.id then
-                    excSiteName[sub.id] = sName
-                    for _, child in ipairs(getCol(sub, 18)) do
-                        if child and child.id and not excSiteName[child.id] then
-                            excSiteName[child.id] = sName
-                        end
-                    end
-                end
+            for _, sub in ipairs(getCol(sRow, 17)) do
+                mapSiteSubRow(sub, sName, 1)
+            end
+            for _, sub in ipairs(getCol(sRow, 18)) do
+                mapSiteSubRow(sub, sName, 1)
             end
         end
     end
 
     -- 3. Extract / update Material Caches & Hotspots from ARCH_EXCAVATION
+    local hotspotSitesByMat = {}
     for rowId, row in pairs(excRowsById) do
         local kind  = tonumber(getFirst(row, 2))
         local hName = getFirst(row, 3)
@@ -332,6 +341,7 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
             end
         elseif kind == 1 and hName and hName ~= "" then
             -- Excavation Hotspot
+            local sName = excSiteName[rowId]
             local spotMats = {}
             for _, entry in ipairs(c16) do
                 if type(entry) ~= "number" then
@@ -339,6 +349,10 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                     if mName and mName ~= "" then
                         ensureMaterial(Materials, mId, mName, nil, true)
                         addUniqueString(spotMats, mName)
+                        if sName then
+                            hotspotSitesByMat[mName] = hotspotSitesByMat[mName] or {}
+                            addUniqueString(hotspotSitesByMat[mName], sName)
+                        end
                     end
                 end
             end
@@ -351,7 +365,6 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                 stats.spots = stats.spots + 1
             end
 
-            local sName = excSiteName[rowId]
             for _, item in ipairs(c18) do
                 if type(item) ~= "number" and item.id and artByRestRowId[item.id] then
                     local art = artByRestRowId[item.id]
@@ -360,6 +373,21 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                     end
                 end
             end
+        end
+    end
+
+    for _, matEntry in ipairs(Materials.LIST) do
+        if matEntry.isArchMaterial then
+            local hotspotSites = hotspotSitesByMat[matEntry.name]
+            if hotspotSites and #hotspotSites > 0 then
+                matEntry.caches = matEntry.caches or {}
+                for _, sName in ipairs(hotspotSites) do
+                    addUniqueString(matEntry.caches, sName)
+                end
+            end
+        end
+        if matEntry.caches and #matEntry.caches > 1 then
+            table.sort(matEntry.caches)
         end
     end
     rebuildMaterialIndices(Materials)
