@@ -50,6 +50,10 @@ function Utils.extractDamagedBaseName(rawName)
     if base then
         return Utils.trim(base), true
     end
+    local commaBase = string.match(norm, "^(.-),%s*damaged%)$")
+    if commaBase then
+        return Utils.trim(commaBase) .. ")", true
+    end
     local unpowered = string.match(norm, "^(.-)%s*%(unpowered%)$")
     if unpowered then
         return Utils.trim(unpowered), true

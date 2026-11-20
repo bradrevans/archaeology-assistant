@@ -24,6 +24,13 @@ Tracker.SOURCE_MODES = {
 
 local countMapEntries = InventoryScanner.countMapEntries
 
+--- Resolves the canonical damaged item name for a restored artefact name.
+local function resolveDamagedKey(artName)
+    if not artName then return "" end
+    local art = Artefacts and Artefacts.findByName and Artefacts.findByName(artName)
+    return (art and art.damagedName) or (artName .. " (damaged)")
+end
+
 function Tracker.new()
     local self = setmetatable({}, Tracker)
 
@@ -759,7 +766,7 @@ function Tracker:getCollectionMaxOwned(colName)
     if not col or not col.artefacts then return 1 end
     local maxOwned = 0
     for _, artName in ipairs(col.artefacts) do
-        local damagedName = artName .. " (damaged)"
+        local damagedName = resolveDamagedKey(artName)
         local bagDamaged = (self.srcBag ~= false) and ((self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0) or 0
         local bankDamaged = (self.srcBank ~= false) and ((self.bankArtefacts and self.bankArtefacts[damagedName]) or 0) or 0
         local benchDamaged = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
@@ -953,7 +960,7 @@ function Tracker:getCollectionProgress(col)
         local bankRestored  = (self.srcBank ~= false) and (self.bankRestored[artName] or 0) or 0
         local totalRestored = bagRestored + bankRestored
 
-        local damagedName   = artName .. " (damaged)"
+        local damagedName   = resolveDamagedKey(artName)
         local bagDamaged    = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0
         local bankDamaged   = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0
         local benchDamaged  = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
@@ -1044,7 +1051,7 @@ function Tracker:getTargetedArtefactRequirements()
             if col and col.artefacts then
                 for _, artName in ipairs(col.artefacts) do
                     local isSubmitted = self:isArtefactSubmitted(col.name, artName)
-                    local damagedName = artName .. " (damaged)"
+                    local damagedName = resolveDamagedKey(artName)
                     local neededForThisCol = isSubmitted and math.max(0, multiplier - 1) or multiplier
                     local isFullySubmitted = (isSubmitted and multiplier == 1)
 
