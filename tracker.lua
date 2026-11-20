@@ -38,6 +38,7 @@ function Tracker.new()
     self.srcStorage   = DB.getBool("arch_src_storage", true)
     self.srcBank      = DB.getBool("arch_src_bank", true)
     self.srcWorkbench = DB.getBool("arch_src_workbench", true)
+    self.srcBob       = DB.getBool("arch_src_bob", true)
 
     -- Level requirement filtering (defaults to Level Met)
     if DB.get("arch_filter_by_level_init", nil) == nil then
@@ -79,6 +80,10 @@ function Tracker.new()
     self.backpackMaterials = {}
     self.storageMaterials  = DB.deserializeCountMap(DB.get("arch_storage_materials", ""))
     self.bankMaterials     = DB.deserializeCountMap(DB.get("arch_bank_materials", ""))
+    self.bobMaterials      = DB.deserializeCountMap(DB.get("arch_bob_materials", ""))
+    self.bobArtefacts      = DB.deserializeCountMap(DB.get("arch_bob_artefacts", ""))
+    self.bobInvId          = tonumber(DB.get("arch_bob_inv_id", -1)) or -1
+    self.bobInvLive        = false
 
     local storEntries = countMapEntries(self.storageMaterials)
     local bankEntries = countMapEntries(self.bankMaterials) + countMapEntries(self.bankArtefacts)
@@ -248,6 +253,9 @@ function Tracker:toggleSource(sourceName)
     elseif s == "workbench" or s == "bench" then
         self.srcWorkbench = not self.srcWorkbench
         DB.setBool("arch_src_workbench", self.srcWorkbench)
+    elseif s == "bob" or s == "familiar" then
+        self.srcBob = not self.srcBob
+        DB.setBool("arch_src_bob", self.srcBob)
     end
     return self:recalculate()
 end
@@ -258,6 +266,7 @@ function Tracker:isSourceEnabled(sourceName)
     if s == "storage" or s == "material_storage" then return self.srcStorage ~= false end
     if s == "bank" then return self.srcBank ~= false end
     if s == "workbench" or s == "bench" then return self.srcWorkbench ~= false end
+    if s == "bob" or s == "familiar" then return self.srcBob ~= false end
     return true
 end
 
@@ -576,6 +585,10 @@ function Tracker:clearAllCache()
     self.bankMaterials            = {}
     self.bankArtefacts            = {}
     self.bankRestored             = {}
+    self.bobMaterials             = {}
+    self.bobArtefacts             = {}
+    self.bobInvId                 = -1
+    self.bobInvLive               = false
     self.workbenchArtefacts       = {}
     self.workbenchSyncedLive      = false
     self.workbenchHasCache        = false
@@ -618,6 +631,9 @@ function Tracker:clearAllCache()
     DB.set("arch_bank_artefacts", "")
     DB.set("arch_bank_restored", "")
     DB.set("arch_bank_inv_id", -1)
+    DB.set("arch_bob_materials", "")
+    DB.set("arch_bob_artefacts", "")
+    DB.set("arch_bob_inv_id", -1)
     DB.set("arch_workbench_artefacts", "")
     DB.set("arch_workbench_synced", 0)
     DB.set("arch_workbench_inv_id", -1)
@@ -933,7 +949,8 @@ function Tracker:getCollectionProgress(col)
         local bagDamaged    = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0
         local bankDamaged   = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0
         local benchDamaged  = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
-        local totalDamaged  = bagDamaged + bankDamaged + benchDamaged
+        local bobDamaged    = (self.srcBob ~= false) and ((self.bobArtefacts and self.bobArtefacts[damagedName]) or 0) or 0
+        local totalDamaged  = bagDamaged + bankDamaged + benchDamaged + bobDamaged
 
         local isReady = isSubmitted or (totalRestored > 0)
         if isReady then
@@ -962,6 +979,7 @@ function Tracker:getCollectionProgress(col)
             bagDamaged    = bagDamaged,
             bankDamaged   = bankDamaged,
             benchDamaged  = benchDamaged,
+            bobDamaged    = bobDamaged,
             isReady       = isReady,
         })
     end
@@ -1112,9 +1130,10 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
     local inBagDamaged   = (self.srcBag ~= false) and ((self.backpackArtefacts and self.backpackArtefacts[damagedName]) or 0) or 0
     local inBankDamaged  = (self.srcBank ~= false) and ((self.bankArtefacts and self.bankArtefacts[damagedName]) or 0) or 0
     local inBenchDamaged = (self.srcWorkbench ~= false) and ((self.workbenchArtefacts and self.workbenchArtefacts[damagedName]) or 0) or 0
+    local inBobDamaged   = (self.srcBob ~= false) and ((self.bobArtefacts and self.bobArtefacts[damagedName]) or 0) or 0
     local inBagRestored  = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[artName]) or 0) or 0
     local inBankRestored = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[artName]) or 0) or 0
-    local totalOwned     = inBagDamaged + inBankDamaged + inBenchDamaged + inBagRestored + inBankRestored
+    local totalOwned     = inBagDamaged + inBankDamaged + inBenchDamaged + inBobDamaged + inBagRestored + inBankRestored
 
     local needed = math.max(0, targetQty - totalOwned)
     if self._cachedNeededCounts then
@@ -1348,6 +1367,36 @@ function Tracker:savePersistentState()
     if self.bankInvId and self.bankInvId >= 0 then
         DB.set("arch_bank_inv_id", self.bankInvId)
     end
+    DB.set("arch_bob_materials", DB.serializeCountMap(self.bobMaterials))
+    DB.set("arch_bob_artefacts", DB.serializeCountMap(self.bobArtefacts))
+    if self.bobInvId and self.bobInvId >= 0 then
+        DB.set("arch_bob_inv_id", self.bobInvId)
+    end
+end
+
+function Tracker:transferBobToBank()
+    local moved = false
+    for matName, count in pairs(self.bobMaterials or {}) do
+        if count and count > 0 then
+            self.bankMaterials[matName] = (self.bankMaterials[matName] or 0) + count
+            moved = true
+        end
+    end
+    for artName, count in pairs(self.bobArtefacts or {}) do
+        if count and count > 0 then
+            self.bankArtefacts[artName] = (self.bankArtefacts[artName] or 0) + count
+            moved = true
+        end
+    end
+    if moved then
+        self.bobMaterials = {}
+        self.bobArtefacts = {}
+        DB.set("arch_bob_materials", "")
+        DB.set("arch_bob_artefacts", "")
+        DB.set("arch_bank_materials", DB.serializeCountMap(self.bankMaterials))
+        DB.set("arch_bank_artefacts", DB.serializeCountMap(self.bankArtefacts))
+    end
+    return moved
 end
 
 -- =========================================================================
@@ -1478,11 +1527,17 @@ function Tracker:onMiniMenuAction(verb, full)
         or string.find(fLower, "deposit carried") or string.find(fLower, "deposit worn") or string.find(fLower, "deposit beast") or string.find(fLower, "deposit familiar")
         or (string.find(fLower, "deposit") and config and config.Inv and config.Inv.BANK and InventoryScanner.findInventory(config.Inv.BANK) ~= nil) then
         self.lastAction = "bank"
+        if string.find(fLower, "deposit familiar") or string.find(fLower, "deposit beast") or string.find(fLower, "deposit bob") then
+            self._pendingBankFamiliarDeposit = true
+        end
         self.bankCacheCleared = false
         self.storageActionTicks = 0
         self.pendingJournalStorageScan = false
         self.workbenchActionTicks = 0
         self.pendingWorkbenchScan = false
+    elseif string.find(fLower, "straight flush") or string.find(vLower, "straight flush")
+        or string.find(fLower, "waterfiend scroll") then
+        self.lastAction = "bob_bank"
     elseif string.find(fLower, "material storage") or string.find(vLower, "material storage") then
         self.lastAction = "storage"
         self.storageActionTicks = 750
@@ -1514,7 +1569,13 @@ function Tracker:onMiniMenuAction(verb, full)
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
     elseif string.find(vLower, "excavate", 1, true) then
+        self.lastAction = "excavate"
         self.lastExcavateTarget = Utils.cleanText(string.gsub(full or "", "^[Ee]xcavate%s*", ""))
+    elseif string.find(fLower, "withdraw") or string.find(vLower, "withdraw")
+        or string.find(fLower, "take bob") or string.find(fLower, "take beast") or string.find(fLower, "take familiar")
+        or string.find(fLower, "beast of burden") or string.find(fLower, "familiar") or string.find(fLower, "waterfiend") or string.find(fLower, "bob")
+        or (InventoryScanner.isBobUiOpen and InventoryScanner.isBobUiOpen() and (string.find(vLower, "take") or string.find(vLower, "store") or string.find(vLower, "give"))) then
+        self.lastAction = "bob"
     elseif string.find(fLower, "cart") or string.find(fLower, "deposit") or string.find(vLower, "store") then
         self.lastAction = "storage"
         self.storageActionTicks = 750
@@ -1545,13 +1606,15 @@ function Tracker:getOwnedMaterialCount(matName, mode)
     if self.srcBag ~= false then owned = owned + (self.backpackMaterials[matName] or 0) end
     if self.srcStorage ~= false then owned = owned + (self.storageMaterials[matName] or 0) end
     if self.srcBank ~= false then owned = owned + (self.bankMaterials[matName] or 0) end
+    if self.srcBob ~= false then owned = owned + ((self.bobMaterials and self.bobMaterials[matName]) or 0) end
     return owned
 end
 
---- Builds the combined damaged artefact map across Backpack, Bank, Workbench storage, Pins, and Targeted Collections.
+--- Builds the combined damaged artefact map across Backpack, Bank, Workbench storage, BoB, Pins, and Targeted Collections.
 local function buildCombinedArtefactsMap(self)
     local combinedArts = {}
     local benchArts = self.workbenchArtefacts or {}
+    local bobArts = self.bobArtefacts or {}
     if self.isPinned then
         for damagedName, pinnedCount in pairs(self.pinnedArtefactCounts or {}) do
             if pinnedCount and pinnedCount > 0 then
@@ -1559,6 +1622,7 @@ local function buildCombinedArtefactsMap(self)
                     inBag    = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0,
                     inBank   = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0,
                     inBench  = (self.srcWorkbench ~= false) and (benchArts[damagedName] or 0) or 0,
+                    inBob    = (self.srcBob ~= false) and (bobArts[damagedName] or 0) or 0,
                     rawCount = pinnedCount,
                 }
             end
@@ -1569,7 +1633,7 @@ local function buildCombinedArtefactsMap(self)
                 if count and count > 0 then
                     local entry = combinedArts[damagedName]
                     if not entry then
-                        entry = { inBag = 0, inBank = 0, inBench = 0, rawCount = 0 }
+                        entry = { inBag = 0, inBank = 0, inBench = 0, inBob = 0, rawCount = 0 }
                         combinedArts[damagedName] = entry
                     end
                     entry[field]   = count
@@ -1580,6 +1644,7 @@ local function buildCombinedArtefactsMap(self)
         if self.srcBag ~= false then addOwned(self.backpackArtefacts, "inBag") end
         if self.srcBank ~= false then addOwned(self.bankArtefacts, "inBank") end
         if self.srcWorkbench ~= false then addOwned(benchArts, "inBench") end
+        if self.srcBob ~= false then addOwned(bobArts, "inBob") end
     end
 
     local colTargets = self:getTargetedArtefactRequirements()
@@ -1600,6 +1665,7 @@ local function buildCombinedArtefactsMap(self)
                 inBag           = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0,
                 inBank          = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0,
                 inBench         = (self.srcWorkbench ~= false) and (benchArts[damagedName] or 0) or 0,
+                inBob           = (self.srcBob ~= false) and (bobArts[damagedName] or 0) or 0,
                 rawCount        = targetInfo.neededToRestore or 0,
                 colTarget       = targetInfo.count or 0,
                 colNames        = targetInfo.collections,
@@ -1660,6 +1726,7 @@ local function buildMaterialRows(self, requiredByMat, mode)
                 local inBag     = (self.srcBag ~= false) and (self.backpackMaterials[matName] or 0) or 0
                 local inStorage = (self.srcStorage ~= false) and (self.storageMaterials[matName] or 0) or 0
                 local inBank    = (self.srcBank ~= false) and (self.bankMaterials[matName] or 0) or 0
+                local inBob     = (self.srcBob ~= false) and ((self.bobMaterials and self.bobMaterials[matName]) or 0) or 0
                 local owned     = self:getOwnedMaterialCount(matName, mode)
 
                 local short   = math.max(0, reqCount - owned)
@@ -1677,6 +1744,7 @@ local function buildMaterialRows(self, requiredByMat, mode)
                     ownedBag     = inBag,
                     ownedStorage = inStorage,
                     ownedBank    = inBank,
+                    ownedBob     = inBob,
                     short        = short,
                     surplus      = surplus,
                     isReady      = (short == 0),
@@ -1768,7 +1836,7 @@ function Tracker:recalculate(triggerInvType)
         local rawCount  = info.rawCount or 0
         local minTarget = (info.neededToRestore and info.neededToRestore > 0) and info.neededToRestore or 0
 
-        local ownedDamagedInfo = (info.inBag or 0) + (info.inBank or 0) + (info.inBench or 0)
+        local ownedDamagedInfo = (info.inBag or 0) + (info.inBank or 0) + (info.inBench or 0) + (info.inBob or 0)
         local keep = true
         if self.artefactFilter == "TARGETED" then
             keep = info.isTargetedCol or (info.colTarget and info.colTarget > 0)
@@ -1819,6 +1887,7 @@ function Tracker:recalculate(triggerInvType)
                     inBag           = info.inBag or 0,
                     inBank          = info.inBank or 0,
                     inBench         = info.inBench or 0,
+                    inBob           = info.inBob or 0,
                     ownedDamaged    = ownedDamaged,
                     bagRestored     = bagRestored,
                     bankRestored    = bankRestored,

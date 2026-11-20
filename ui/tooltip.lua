@@ -424,6 +424,7 @@ function Tooltip.buildCollectionRowTooltip(tracker, item)
         if (a.bagRestored or 0) > 0 then table.insert(locParts, string.format("%d restored bag", a.bagRestored)) end
         if (a.bankRestored or 0) > 0 then table.insert(locParts, string.format("%d restored bank", a.bankRestored)) end
         if (a.bagDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bag", a.bagDamaged)) end
+        if (a.bobDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bob", a.bobDamaged)) end
         if (a.bankDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bank", a.bankDamaged)) end
         if (a.benchDamaged or 0) > 0 then table.insert(locParts, string.format("%d dmg bench", a.benchDamaged)) end
 
@@ -483,14 +484,17 @@ function Tooltip.buildArtefactRowTooltip(tracker, item)
     local title = string.format("%s (Lv %d) | %s XP | %s Chronotes",
         art.name, art.level or 1, Utils.formatInt(art.xp), Utils.formatInt(art.chronotes))
     local locStr = art.location or "Archaeology"
-    local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBank or 0) + (item.inBench or 0))
+    local ownedDamaged = item.ownedDamaged or ((item.inBag or 0) + (item.inBob or 0) + (item.inBank or 0) + (item.inBench or 0))
     local bagRestored = item.bagRestored or (tracker and tracker.backpackRestored and tracker.backpackRestored[art.name]) or 0
     local bankRestored = item.bankRestored or (tracker and tracker.bankRestored and tracker.bankRestored[art.name]) or 0
     local totalRestored = bagRestored + bankRestored
     local statusStr = item.statusText or (item.excluded and "Excluded" or "Ready")
 
-    local damagedStr = string.format("Damaged: %d (Bag: %d, Bench: %d, Bank: %d)",
-        ownedDamaged, item.inBag or 0, item.inBench or 0, item.inBank or 0)
+    local damagedStr = (item.inBob or 0) > 0
+        and string.format("Damaged: %d (Bag: %d, BoB: %d, Bench: %d, Bank: %d)",
+            ownedDamaged, item.inBag or 0, item.inBob or 0, item.inBench or 0, item.inBank or 0)
+        or string.format("Damaged: %d (Bag: %d, Bench: %d, Bank: %d)",
+            ownedDamaged, item.inBag or 0, item.inBench or 0, item.inBank or 0)
     local ownedBreakdown
     if totalRestored > 0 and ownedDamaged > 0 then
         ownedBreakdown = string.format(
@@ -533,9 +537,10 @@ function Tooltip.buildMaterialRowTooltip(item)
     local title = string.format("%s (%s)", item.name, lvlStr)
     local locStr = (mat and mat._cachedLoc and mat._cachedLoc ~= "-") and mat._cachedLoc or "None / Secondary"
     local sub = string.format(
-        "Owned: %s (Bag: %s, Storage: %s, Bank: %s) | Req: %s | Remaining: %s",
+        "Owned: %s (Bag: %s, BoB: %s, Storage: %s, Bank: %s) | Req: %s | Remaining: %s",
         Utils.formatInt(item.owned),
         Utils.formatInt(item.ownedBag or 0),
+        Utils.formatInt(item.ownedBob or 0),
         Utils.formatInt(item.ownedStorage or 0),
         Utils.formatInt(item.ownedBank or 0),
         Utils.formatInt(item.required),

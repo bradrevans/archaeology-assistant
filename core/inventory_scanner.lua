@@ -506,7 +506,7 @@ local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
     if tracker.pendingWorkbenchScan or (tracker.workbenchActionTicks and tracker.workbenchActionTicks > 0) then
         for invId = 1, 1100 do
             if invId ~= bagId and invId ~= wornId and invId ~= bankId
-                and invId ~= tracker.bankInvId and invId ~= tracker.storageInvId then
+                and invId ~= tracker.bankInvId and invId ~= tracker.storageInvId and invId ~= tracker.bobInvId then
                 local inv = InventoryScanner.findInventory(invId)
                 if inv then
                     local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(inv)
@@ -559,6 +559,17 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
             elseif tracker.lastAction == "workbench_storage" and not tracker.workbenchSyncedLive then
                 tracker.workbenchArtefacts[artName] = (tracker.workbenchArtefacts[artName] or 0) + diff
                 DB.set("arch_workbench_artefacts", DB.serializeCountMap(tracker.workbenchArtefacts))
+            elseif tracker.lastAction == "bob" and not tracker.bobInvLive then
+                tracker.bobArtefacts[artName] = (tracker.bobArtefacts[artName] or 0) + diff
+                DB.set("arch_bob_artefacts", DB.serializeCountMap(tracker.bobArtefacts))
+            end
+        elseif diff < 0 and (tracker.lastAction == "bob" or InventoryScanner.isBobUiOpen()) and not tracker.bobInvLive and not checkedBank then
+            local withdrawn = -diff
+            local curBob = (tracker.bobArtefacts and tracker.bobArtefacts[artName]) or 0
+            if curBob > 0 then
+                local nextBob = curBob - withdrawn
+                tracker.bobArtefacts[artName] = (nextBob > 0) and nextBob or nil
+                DB.set("arch_bob_artefacts", DB.serializeCountMap(tracker.bobArtefacts))
             end
         end
     end
@@ -635,6 +646,7 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
 
     local storageChanged = false
     local bankChanged = false
+    local bobChanged = false
 
     -- Deduct materials consumed by restoring an artefact from Material Storage
     for matName, consumedCount in pairs(consumedMats) do
@@ -682,6 +694,19 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
                     tracker.storageMaterials[matName] = (tracker.storageMaterials[matName] or 0) + depositedCount
                     storageChanged = true
                 end
+            elseif tracker.lastAction == "bob" and not tracker.bobInvLive then
+                if depositedCount > 0 then
+                    tracker.bobMaterials[matName] = (tracker.bobMaterials[matName] or 0) + depositedCount
+                    bobChanged = true
+                end
+            end
+        elseif delta > 0 and (tracker.lastAction == "bob" or InventoryScanner.isBobUiOpen()) and not tracker.bobInvLive and not checkedBank then
+            hadBackpackDelta = true
+            local curBob = (tracker.bobMaterials and tracker.bobMaterials[matName]) or 0
+            if curBob > 0 then
+                local nextBob = curBob - delta
+                tracker.bobMaterials[matName] = (nextBob > 0) and nextBob or nil
+                bobChanged = true
             end
         end
     end
@@ -691,6 +716,9 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
     end
     if bankChanged then
         DB.set("arch_bank_materials", DB.serializeCountMap(tracker.bankMaterials))
+    end
+    if bobChanged then
+        DB.set("arch_bob_materials", DB.serializeCountMap(tracker.bobMaterials))
     end
 
     if hadBackpackDelta then
@@ -786,6 +814,10 @@ local function scanMaterialStorageTrigger(tracker, triggerInvType, bagInv, bankI
 
     local customInv = InventoryScanner.findInventory(triggerInvType)
     if not customInv or customInv == bagInv or customInv == bankInv then
+        return false
+    end
+    local okTrigId, trigId = pcall(function() return triggerInvType.id end)
+    if okTrigId and type(trigId) == "number" and tracker.bobInvId and tracker.bobInvId >= 0 and trigId == tracker.bobInvId then
         return false
     end
 
@@ -907,7 +939,7 @@ local function scanKnownOrMemoryStorageContainer(tracker, bagInv, bankInv)
         local wornId = safeId(okWorn and wornRef)
         local bankId = safeId(okBank and bankRef)
         for invId = 1, 1500 do
-            if invId ~= bagId and invId ~= wornId and invId ~= bankId and invId ~= tracker.bankInvId then
+            if invId ~= bagId and invId ~= wornId and invId ~= bankId and invId ~= tracker.bankInvId and invId ~= tracker.bobInvId then
                 local inv = InventoryScanner.findInventory(invId)
                 if inv and tryApplyStorageInv(inv, invId) then
                     return true
@@ -1091,6 +1123,132 @@ function InventoryScanner.scanMaterialStorageInterface(tracker)
     return false
 end
 
+local cachedBobInvRef = nil
+local bobInvRefChecked = false
+local cachedBobInterfaceIds = nil
+
+function InventoryScanner.isBobUiOpen()
+    if not ui or not ui.Interfaces or not id or not id.Interface then return false end
+    if not cachedBobInterfaceIds then
+        local list = {}
+        local seen = {}
+        pcall(function()
+            for k, v in pairs(id.Interface) do
+                if type(k) == "string" and type(v) == "number" and not seen[v] then
+                    local ku = string.upper(k)
+                    if (string.find(ku, "BOB", 1, true)
+                        or string.find(ku, "BEAST_OF_BURDEN", 1, true)
+                        or string.find(ku, "FAMILIAR", 1, true)
+                        or string.find(ku, "SUMMONING_BOB", 1, true))
+                        and not string.find(ku, "BANK", 1, true) then
+                        seen[v] = true
+                        table.insert(list, v)
+                    end
+                end
+            end
+        end)
+        cachedBobInterfaceIds = list
+    end
+    for _, ifId in ipairs(cachedBobInterfaceIds) do
+        if isInterfaceOpen(ifId) then
+            return true
+        end
+    end
+    return false
+end
+
+local function getBobInvRef()
+    if bobInvRefChecked then return cachedBobInvRef end
+    bobInvRefChecked = true
+    if not config or not config.Inv then return nil end
+    local candidateKeys = {
+        "BOB", "BEAST_OF_BURDEN", "FAMILIAR", "SUMMONING_BOB", "FAMILIAR_BOB", "BOB_INVENTORY",
+    }
+    for _, k in ipairs(candidateKeys) do
+        local ok, ref = pcall(function() return config.Inv[k] end)
+        if ok and ref then
+            cachedBobInvRef = ref
+            return ref
+        end
+    end
+    pcall(function()
+        for k, ref in pairs(config.Inv) do
+            if type(k) == "string" then
+                local ku = string.upper(k)
+                if (string.find(ku, "BOB", 1, true) or string.find(ku, "FAMILIAR", 1, true) or string.find(ku, "BEAST_OF_BURDEN", 1, true))
+                    and not string.find(ku, "BANK", 1, true) then
+                    cachedBobInvRef = ref
+                    return
+                end
+            end
+        end
+    end)
+    return cachedBobInvRef
+end
+
+local function scanBobContainer(tracker, triggerInvType, checkedBank)
+    if triggerInvType and not cachedBobInvRef then
+        local okCfg, cfgName = pcall(function() return string.upper(tostring(triggerInvType.configName or "")) end)
+        if okCfg and cfgName and (string.find(cfgName, "BOB", 1, true) or string.find(cfgName, "FAMILIAR", 1, true) or string.find(cfgName, "BEAST_OF_BURDEN", 1, true))
+            and not string.find(cfgName, "BANK", 1, true) then
+            cachedBobInvRef = triggerInvType
+            bobInvRefChecked = true
+        end
+    end
+
+    local bobRef = getBobInvRef()
+    local bobInv = bobRef and InventoryScanner.findInventory(bobRef) or nil
+    if not bobInv and tracker.bobInvId and tracker.bobInvId >= 0 then
+        bobInv = InventoryScanner.findInventory(tracker.bobInvId)
+    end
+    if bobInv then
+        local bobMats, _, _, bobArts = tracker:extractMaterialsFromInv(bobInv)
+        if bobRef then
+            local okId, rId = pcall(function() return bobRef.id end)
+            if okId and type(rId) == "number" and rId >= 0 and tracker.bobInvId ~= rId then
+                tracker.bobInvId = rId
+                DB.set("arch_bob_inv_id", rId)
+            end
+        end
+        if tracker.lastAction == "bob_bank" and not checkedBank then
+            for matName, prevCount in pairs(tracker.bobMaterials or {}) do
+                local curCount = bobMats[matName] or 0
+                if prevCount > curCount then
+                    tracker.bankMaterials[matName] = (tracker.bankMaterials[matName] or 0) + (prevCount - curCount)
+                end
+            end
+            for artName, prevCount in pairs(tracker.bobArtefacts or {}) do
+                local curCount = bobArts[artName] or 0
+                if prevCount > curCount then
+                    tracker.bankArtefacts[artName] = (tracker.bankArtefacts[artName] or 0) + (prevCount - curCount)
+                end
+            end
+            DB.set("arch_bank_materials", DB.serializeCountMap(tracker.bankMaterials))
+            DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
+            tracker.lastAction = nil
+        end
+        tracker.bobMaterials = bobMats
+        tracker.bobArtefacts = bobArts
+        tracker.bobInvLive = true
+        DB.set("arch_bob_materials", DB.serializeCountMap(tracker.bobMaterials))
+        DB.set("arch_bob_artefacts", DB.serializeCountMap(tracker.bobArtefacts))
+        return true
+    end
+
+    if checkedBank and tracker._pendingBankFamiliarDeposit then
+        tracker._pendingBankFamiliarDeposit = false
+        tracker.bobMaterials = {}
+        tracker.bobArtefacts = {}
+        DB.set("arch_bob_materials", "")
+        DB.set("arch_bob_artefacts", "")
+    elseif tracker.lastAction == "bob_bank" and not checkedBank then
+        tracker:transferBobToBank()
+        tracker.lastAction = nil
+    end
+    tracker.bobInvLive = false
+    return false
+end
+
 --- Scans the player's Backpack, Bank, and any triggered Material Storage container.
 function InventoryScanner.scanAllInventories(tracker, triggerInvType)
     if not config or not config.Inv then
@@ -1110,10 +1268,11 @@ function InventoryScanner.scanAllInventories(tracker, triggerInvType)
         benchDeposits, benchWithdrawals, benchTriggered = scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
     end
 
-    -- 2. Scan Bank (config.Inv.BANK or bankInvId)
+    -- 2. Scan Bank (config.Inv.BANK or bankInvId) and Familiar BoB
     local checkedBank, bankInv = false, nil
     if not skipExternal then
         checkedBank, bankInv = scanBankContainer(tracker, triggerInvType)
+        scanBobContainer(tracker, triggerInvType, checkedBank)
     end
 
     if bagInv then

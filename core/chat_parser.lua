@@ -198,6 +198,62 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
         return true
     end
 
+    -- 1b. Waterfiend / familiar item duplication ("Your familiar has produced an item: <name>.")
+    local producedRaw = string.match(clean, "[Ff]amiliar has produced an item:%s*([^%.!]+)")
+        or string.match(clean, "[Ff]amiliar has produced:%s*([^%.!]+)")
+    if producedRaw then
+        local trimmed = Utils.trim(producedRaw)
+        local pQty = 1
+        local pName = trimmed
+        local qStr, rest = string.match(trimmed, "^(%d+)%s*[xX]%s*(.+)$")
+        if not qStr then
+            qStr, rest = string.match(trimmed, "^(%d+)%s+(.+)$")
+        end
+        if qStr and rest then
+            pQty = tonumber(qStr) or 1
+            pName = Utils.trim(rest)
+        end
+
+        local fMat = Materials.get(pName)
+        local fArt = (not fMat) and Artefacts.findByName(pName) or nil
+        if fMat or fArt then
+            if tracker.bobInvLive then
+                tracker:recalculate()
+                return true
+            end
+            if fMat then
+                tracker.bobMaterials[fMat.name] = (tracker.bobMaterials[fMat.name] or 0) + pQty
+                DB.set("arch_bob_materials", DB.serializeCountMap(tracker.bobMaterials))
+            elseif fArt then
+                local dmgKey = fArt.damagedName or (fArt.name .. " (damaged)")
+                tracker.bobArtefacts[dmgKey] = (tracker.bobArtefacts[dmgKey] or 0) + pQty
+                DB.set("arch_bob_artefacts", DB.serializeCountMap(tracker.bobArtefacts))
+            end
+            tracker._skipExternalContainerScan = true
+            local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+            tracker._skipExternalContainerScan = false
+            if not okRecalc then
+                error(errRecalc, 0)
+            end
+            return true
+        end
+    end
+
+    -- 1c. Waterfiend Straight Flush scroll banking BoB items
+    if (string.find(lower, "straight flush", 1, true)
+        or (string.find(lower, "familiar", 1, true) and string.find(lower, "bank", 1, true)))
+        and (next(tracker.bobMaterials or {}) ~= nil or next(tracker.bobArtefacts or {}) ~= nil) then
+        if tracker:transferBobToBank() then
+            tracker._skipExternalContainerScan = true
+            local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+            tracker._skipExternalContainerScan = false
+            if not okRecalc then
+                error(errRecalc, 0)
+            end
+            return true
+        end
+    end
+
     -- 2. Collector artefact submission
     if handleCollectorHandIn(tracker, lower) then
         return true

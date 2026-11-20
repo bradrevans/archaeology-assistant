@@ -1880,6 +1880,19 @@ function Window:populateRibbonHub(parent)
     end, forwardHubWheel)
     self.hubBtnSrcWorkbench.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
     self.hubBtnSrcWorkbench.setActive(isBench)
+    curY = curY + 30
+
+    -- Beast of Burden (Familiar) toggle
+    local isBob = t and t:isSourceEnabled("bob")
+    self.hubBtnSrcBob = Widgets.createToolbarButton(targetContent, isBob and "Beast of Burden (BoB): ON" or "Beast of Burden (BoB): OFF", "Include materials & artefacts stored in your Waterfiend / familiar BoB.", false, function()
+        if self.tracker then
+            self.tracker:toggleSource("bob")
+            self:refresh()
+            self:refreshHub()
+        end
+    end, forwardHubWheel)
+    self.hubBtnSrcBob.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnSrcBob.setActive(isBob)
     curY = curY + 38
 
     -- 3. Section: COLLECTIONS FILTER
@@ -1961,6 +1974,11 @@ function Window:refreshHub()
             local isBench = t:isSourceEnabled("workbench")
             self.hubBtnSrcWorkbench.setLabel(isBench and "Workbench Storage: ON" or "Workbench Storage: OFF")
             self.hubBtnSrcWorkbench.setActive(isBench)
+        end
+        if self.hubBtnSrcBob then
+            local isBob = t:isSourceEnabled("bob")
+            self.hubBtnSrcBob.setLabel(isBob and "Beast of Burden (BoB): ON" or "Beast of Burden (BoB): OFF")
+            self.hubBtnSrcBob.setActive(isBob)
         end
         if self.hubBtnLevelFilter then
             local isMet = t.filterByLevel
@@ -2306,7 +2324,8 @@ function Window:populateArtefactRows(artList)
             local inBag = item.inBag or 0
             local inBank = item.inBank or 0
             local inBench = item.inBench or 0
-            local ownedDamaged = item.ownedDamaged or (inBag + inBank + inBench)
+            local inBob = item.inBob or 0
+            local ownedDamaged = item.ownedDamaged or (inBag + inBank + inBench + inBob)
             local bagRestored = item.bagRestored or 0
             local bankRestored = item.bankRestored or 0
             local totalRestored = bagRestored + bankRestored
@@ -2318,11 +2337,13 @@ function Window:populateArtefactRows(artList)
                     locTag = " (Bank)"
                 end
             elseif ownedDamaged > 0 then
-                local locs = (inBag > 0 and 1 or 0) + (inBench > 0 and 1 or 0) + (inBank > 0 and 1 or 0)
+                local locs = (inBag > 0 and 1 or 0) + (inBob > 0 and 1 or 0) + (inBench > 0 and 1 or 0) + (inBank > 0 and 1 or 0)
                 if locs > 1 then
                     locTag = " (Multi)"
                 elseif inBag > 0 then
                     locTag = " (Bag)"
+                elseif inBob > 0 then
+                    locTag = " (BoB)"
                 elseif inBench > 0 then
                     locTag = " (Bench)"
                 elseif inBank > 0 then
