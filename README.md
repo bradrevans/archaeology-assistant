@@ -3,13 +3,13 @@
 **Author:** Brad Evans  
 **Required Dependency:** `PrettyUI` (`6398181`)
 
-An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your inventory for damaged and restored Archaeology artefacts, calculates the restoration materials required, tracks your owned materials and artefacts across your **Backpack**, **Workbench Storage**, **Material Storage**, and **Bank**, and shows your live `Owned / Required` (`x/x`) progress, exact material deficits, and 3D world excavation spot indicators.
+An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your inventory for damaged and restored Archaeology artefacts, calculates the restoration materials required, tracks your owned materials and artefacts across your **Backpack**, **Workbench Storage**, **Material Storage**, **Bank**, and **Waterfiend BoB**, and shows your live `Owned / Required` (`x/x`) progress, exact material deficits, and 3D world excavation spot indicators.
 
 ---
 
 ## Plugin Features
 - **Dynamic Client `DBTable` Data + Minimal Wiki Extras**:
-  - At startup, [`core/db_extractor.lua`](core/db_extractor.lua) dynamically extracts all 69 materials, 250 artefacts, 79 permanent collections (filtering out seasonal event collections), and 102 excavation hotspots directly from RS3's `DBTable` / `DBRow` APIs so new dig sites and collections stay current automatically.
+  - At startup, [`core/db_extractor.lua`](core/db_extractor.lua) dynamically extracts all 72 materials, 250 artefacts, 79 permanent collections (filtering out seasonal event collections), and 102 excavation hotspots directly from RS3's `DBTable` / `DBRow` APIs so new dig sites and collections stay current automatically.
   - Only fields not exposed on `DBRow`s (artefact chronote values in `Artefacts.CHRONOTES` and collection reward/repeatability metadata in `Collections.EXTRAS`) are maintained in `data/*.lua` via `scripts/update_wiki_data.py`.
 - **Three Dedicated Views (Tabs) with Sticky Header**:
   - Navigation tabs, search/level filters, and sync status badges (`Collectors`, `Workbench`, `Storage`, `Bank`) remain pinned above the scroll area while scrolling.
@@ -30,10 +30,10 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - Excavating duplicate damaged artefacts for a tracked collection does not inflate your target repair count beyond what the collection needs.
       - Displays tracked collection tags on artefacts in the Artefacts tab.
     - **Clean Tooltip Inspection**: Hovering any collection shows the collector's exact hand-in location across Gielinor, account benefits, recurring rewards, chronotes, and a concise checklist of every required artefact with its live status (`Handed in to collector`, `Restored (in Bag/Bank)`, `Damaged (in Bag/Bank)`, `Missing`).
-    - **Filter & Management**: Toolbar controls include `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`, `Unsynced`), `Lvl` level filter (applied across Collections, Artefacts, and Materials), `Clear Tracked`, and `Collectors: X/13`, plus independent source toggles (`Backpack`, `Material Storage`, `Bank`, `Workbench Storage`) in the Plugin Hub settings.
+    - **Filter & Management**: Toolbar controls include `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`, `Unsynced`), `Lvl` level filter (applied across Collections, Artefacts, and Materials), `Clear Tracked`, and `Collectors: X/13`, plus independent source toggles (`Backpack`, `Material Storage`, `Bank`, `Workbench Storage`, `Waterfiend BoB`) in the Plugin Hub settings.
     - **Targeted Collections Total Chronotes Bounty**: Displays the combined total Chronote payout across all currently targeted collections directly on the Collections tab header (`Collections (X | +Y)`).
   - **Artefacts Tab (Second)**:
-    - Scans damaged and restored artefacts across your **Backpack**, **Workbench Storage**, and **Bank**, including uncollected artefacts targeted by collections.
+    - Scans damaged and restored artefacts across your **Backpack**, **Workbench Storage**, **Bank**, and **Waterfiend BoB**, including uncollected artefacts targeted by collections.
     - **`Dmg / Rst` Column & Location Tags**: Displays `Damaged / Restored` counts with `(Bag)`, `(Bench)`, `(Bank)`, or `(Multi)` tags (prioritising `(Bag)` when restored copies are in your backpack), with full Bag / Bench / Bank breakdowns in the hover tooltip.
     - **Artefact Ownership & Readiness Status (`X/Y Ready`)**: Displays exact repair readiness (`X/Y Ready`) with colour-coded status text (**Green** when ready, **Orange** when only materials are short, and **Red** when damaged artefacts are short or both artefacts and materials are short), with full material deficits in the hover tooltip.
     - **Uncollected Artefact Display & Recipe Deficits**: When collections are tracked, uncollected artefacts are displayed alongside owned artefacts, and their complete restoration materials are added to the Materials tab deficit calculations.
@@ -63,7 +63,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - Fully click-through: does not block interaction with the world or the excavation spot.
 - **Porter, Cart & Area Loot Handling**:
   - Automatically retains gathered material progress when depositing via **Material Carts**, Bank Deposit Boxes, or bank chests without requiring a manual Material Storage resync.
-  - Automatically credits Sign of the Porter / Grace of the Elves transfers to Material Storage in real time via client chat event handling (`chatAccess` permission).
+  - Automatically credits Sign of the Porter, Grace of the Elves, and Boon of Crondis material gains/transfers via client chat event handling (`chatAccess` permission), and reconciles Waterfiend BoB Straight Flush transfers into your Bank.
   - Correctly distinguishes material deposits from dropping items (MiniMenu `Drop` action decreases owned counts naturally) and artefact restoration (where required materials are consumed).
   - Area Loot, dialogue containers, and restoration recipe inspection windows are strictly isolated and never overwrite storage cache or reset tracker state.
 
@@ -81,9 +81,9 @@ The codebase follows **SOLID** and **DRY** principles with small, single-respons
   - [`core/utils.lua`](core/utils.lua) — Shared string normalization, HTML/colour tag stripping, number formatting, and table helpers
   - [`core/db.lua`](core/db.lua) — Safe `PersistentDB` wrapper and deterministic map/set/submission serializers
   - [`core/db_extractor.lua`](core/db_extractor.lua) — Runtime `DBTable` / `DBRow` extractor populating materials, artefacts, collections, and hotspots directly from the RS3 client
-  - [`core/inventory_scanner.lua`](core/inventory_scanner.lua) — Backpack, Workbench Storage, Bank, and Material Storage scanner with Area Loot and recipe preview isolation
+  - [`core/inventory_scanner.lua`](core/inventory_scanner.lua) — Backpack, Workbench Storage, Bank, Material Storage, and Waterfiend BoB scanner with Area Loot and recipe preview isolation
   - [`core/noticeboard_scanner.lua`](core/noticeboard_scanner.lua) — `VarPlayer.COLLECTION_*` and `config.Achievement` collector sync engine (gated on Archaeology Journal or Guild noticeboard proximity)
-  - [`core/chat_parser.lua`](core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, collector hand-in, and excavation discovery chat parser
+  - [`core/chat_parser.lua`](core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, Boon of Crondis, Straight Flush, collector hand-in, and excavation discovery chat parser
 - **`data/` — Slimmed Runtime Shells & Wiki Extras**:
   - [`data/materials.lua`](data/materials.lua) — Runtime shell populated by `DBExtractor.syncAll()`
   - [`data/artefacts.lua`](data/artefacts.lua) — Runtime shell + `Artefacts.CHRONOTES` lookup (45 entries not exposed on `DBRow`s)
