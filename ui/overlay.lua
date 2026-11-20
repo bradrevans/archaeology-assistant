@@ -13,7 +13,7 @@ local Overlay = {}
 Overlay.__index = Overlay
 
 local MAX_INDICATORS          = 8
-local MAX_SLOTS_PER_INDICATOR = 5
+local MAX_SLOTS_PER_INDICATOR = 9
 local SCAN_INTERVAL_TICKS     = 30 -- ~1.2s between background spot checks
 local DEFAULT_PILL_W          = 110
 local ROW_H                   = 22
