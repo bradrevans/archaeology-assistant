@@ -103,7 +103,7 @@ function Tooltip.new(parent, onScrollWheel)
     return self
 end
 
-function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailText, titleCol, objId)
+function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailText, titleCol, objId, mouseX, mouseY)
     if not self.root or not isWindowVisible then
         return
     end
@@ -198,9 +198,12 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
     local minH = hasIcon and 52 or 24
     local tipH = math.max(minH, currentY + 8)
 
-    local fallbackX = (windowRoot and windowRoot.x or 100) + 120
-    local fallbackY = (windowRoot and windowRoot.y or 100) + 120
-    local mx, my = Theme.getScaledMousePos(fallbackX, fallbackY)
+    local mx, my = mouseX, mouseY
+    if type(mx) ~= "number" or type(my) ~= "number" then
+        local fallbackX = (windowRoot and windowRoot.x or 100) + 120
+        local fallbackY = (windowRoot and windowRoot.y or 100) + 120
+        mx, my = Theme.getScaledMousePos(fallbackX, fallbackY)
+    end
     local tx = math.floor(mx + 16)
     local ty = math.floor(my + 14)
 

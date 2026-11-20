@@ -1182,7 +1182,8 @@ end
 
 function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
     if self.tooltip then
-        self.tooltip:show(self.root, self.isVisible, titleText, subText, detailText, titleCol, objId)
+        local mx, my = self:getScaledMousePosForWindow()
+        self.tooltip:show(self.root, self.isVisible, titleText, subText, detailText, titleCol, objId, mx, my)
     end
 end
 
