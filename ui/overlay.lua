@@ -37,6 +37,7 @@ local cachedLocQueryMode   = nil
 local NEGATIVE_LOC_NAME_TOKENS = {
     "DECOR", "SCENERY", "PROP", "DEPLETED", "EMPTY", "INACTIVE",
     "INSCRIPTION", "EPITAPH", "PLAQUE", "TRANSLAT", "LORE", "MYSTERY", "STATIC",
+    "NO_OP", "NOOP",
 }
 
 local NEGATIVE_CURSOR_TOKENS = {
@@ -148,7 +149,7 @@ local function getLocConfigSignature(loc)
     end
 
     local sig = {
-        allow       = true,
+        allow       = (tier >= 0),
         tier        = tier,
         sigKey      = cacheKey,
         cfgId       = cfgId,
