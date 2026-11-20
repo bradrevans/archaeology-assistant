@@ -347,6 +347,7 @@ end
 function Window:buildPrettyWindow(parent, x, y, w, h)
     local win = prettyui.Window.new(parent, {
         title = "Archaeology Assistant",
+        categoryID = "auto",
         x = x,
         y = y,
         width = w,
@@ -872,9 +873,6 @@ function Window:ensureActiveTabBuilt()
     end
     if built then
         self._lastReflowAvailW = nil
-        if prettyui and prettyui.RefreshComponentIDs and self.parent then
-            pcall(prettyui.RefreshComponentIDs, self.parent)
-        end
     end
     return built
 end
@@ -926,6 +924,7 @@ function Window:buildSearchBar(container, forwardScrollWheel)
 
     local ok, field = pcall(function()
         return prettyui.TextField.new(container, {
+            categoryID = "auto",
             x = 8,
             y = 0,
             width = 240,
@@ -1776,6 +1775,7 @@ function Window:populateRibbonHub(parent)
     if prettyui and prettyui.SimpleView then
         local ok, view = pcall(function()
             return prettyui.SimpleView.new(parent, {
+                categoryID = "auto",
                 x = 0,
                 y = 0,
                 width = 0,
@@ -2778,9 +2778,6 @@ function Window:shutdown()
         pcall(function() self:onWindowGeometryChanged() end)
         pcall(function() self.win:Destroy() end)
         self.win = nil
-    end
-    if prettyui and prettyui.RefreshComponentIDs and self.parent then
-        pcall(prettyui.RefreshComponentIDs, self.parent)
     end
 end
 
