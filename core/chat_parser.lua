@@ -181,6 +181,66 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
         end
     end
 
+    -- 1a. Boon of Crondis item doubling
+    if string.find(lower, "boon of crondis", 1, true) and string.find(lower, "doubled the following item", 1, true) then
+        local dest, payload = string.match(clean, "sent it to your ([^:]+):%s*([^%.!]+)")
+        if dest and payload then
+            local destLower = string.lower(Utils.trim(dest))
+            local isStorageDest = string.find(destLower, "material storage", 1, true) ~= nil
+            local isBankDest = (not isStorageDest)
+                and (destLower == "bank" or string.find(destLower, "bank", 1, true) ~= nil)
+                and not string.find(destLower, "metal bank", 1, true)
+
+            if isStorageDest or isBankDest then
+                local trimmed = Utils.trim(payload)
+                local bQty = 1
+                local bName = trimmed
+                local qStr, rest = string.match(trimmed, "^(%d+)%s*[xX]%s*(.+)$")
+                if not qStr then
+                    qStr, rest = string.match(trimmed, "^(%d+)%s+(.+)$")
+                end
+                if qStr and rest then
+                    bQty = tonumber(qStr) or 1
+                    bName = Utils.trim(rest)
+                end
+
+                local bMat = Materials.get(bName)
+                local bArt = (not bMat) and Artefacts.findByName(bName) or nil
+                if bMat then
+                    if isStorageDest then
+                        tracker.storageMaterials[bMat.name] = (tracker.storageMaterials[bMat.name] or 0) + bQty
+                        tracker.storageHasCache = true
+                        DB.set("arch_storage_materials", DB.serializeCountMap(tracker.storageMaterials))
+                    else
+                        tracker.bankMaterials[bMat.name] = (tracker.bankMaterials[bMat.name] or 0) + bQty
+                        tracker.bankHasCache = true
+                        DB.set("arch_bank_materials", DB.serializeCountMap(tracker.bankMaterials))
+                    end
+                    tracker._skipExternalContainerScan = true
+                    local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+                    tracker._skipExternalContainerScan = false
+                    if not okRecalc then
+                        error(errRecalc, 0)
+                    end
+                    return true
+                elseif bArt and isBankDest then
+                    local dmgKey = bArt.damagedName or (bArt.name .. " (damaged)")
+                    tracker.bankArtefacts[dmgKey] = (tracker.bankArtefacts[dmgKey] or 0) + bQty
+                    tracker.bankHasCache = true
+                    DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
+                    tracker._skipExternalContainerScan = true
+                    local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+                    tracker._skipExternalContainerScan = false
+                    if not okRecalc then
+                        error(errRecalc, 0)
+                    end
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
     -- 1. Sign of the Porter / Grace of the Elves / Material Storage transport
     local mat, qty = parsePorterTransport(clean, lower)
     if mat then
