@@ -87,17 +87,44 @@ local function handleCollectorHandIn(tracker, lower)
             break
         end
     end
+    if not matchedCollector then
+        matchedCollector = tracker.lastCollectorNpc
+    end
 
     for artLower, artObj in pairs((Artefacts and Artefacts.BY_BASE_LOWER) or {}) do
         if string.find(lower, artLower, 1, true) then
             local artName = artObj.name or artLower
-            for _, col in ipairs(Collections.LIST or {}) do
-                if (not matchedCollector or col.collector == matchedCollector) and col.artefacts then
-                    for _, cArt in ipairs(col.artefacts) do
-                        if string.lower(cArt) == string.lower(artName) then
-                            tracker.submittedArtefacts[col.name] = tracker.submittedArtefacts[col.name] or {}
-                            tracker.submittedArtefacts[col.name][cArt] = true
-                            foundArt = true
+            local effectiveCollector = matchedCollector
+            if not effectiveCollector then
+                local seen = {}
+                local count = 0
+                for _, col in ipairs(Collections.LIST or {}) do
+                    if col.collector and col.artefacts then
+                        for _, cArt in ipairs(col.artefacts) do
+                            if string.lower(cArt) == string.lower(artName) then
+                                if not seen[col.collector] then
+                                    seen[col.collector] = true
+                                    count = count + 1
+                                    effectiveCollector = col.collector
+                                end
+                                break
+                            end
+                        end
+                    end
+                end
+                if count ~= 1 then
+                    effectiveCollector = nil
+                end
+            end
+            if effectiveCollector then
+                for _, col in ipairs(Collections.LIST or {}) do
+                    if col.collector == effectiveCollector and col.artefacts then
+                        for _, cArt in ipairs(col.artefacts) do
+                            if string.lower(cArt) == string.lower(artName) then
+                                tracker.submittedArtefacts[col.name] = tracker.submittedArtefacts[col.name] or {}
+                                tracker.submittedArtefacts[col.name][cArt] = true
+                                foundArt = true
+                            end
                         end
                     end
                 end

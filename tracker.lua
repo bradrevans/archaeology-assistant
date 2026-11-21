@@ -1511,10 +1511,40 @@ function Tracker:onRestoredArtefactSubmitted(artName, _countHandedIn)
     self._cachedNeededCounts = nil
     local lowerTarget = string.lower(artName)
 
+    local targetCollector = self.lastCollectorNpc
+    if not targetCollector then
+        local matchingCollectors = {}
+        local count = 0
+        for _, col in ipairs(Collections.LIST) do
+            if col.collector and col.artefacts then
+                for _, cArt in ipairs(col.artefacts) do
+                    if string.lower(cArt) == lowerTarget then
+                        if not matchingCollectors[col.collector] then
+                            matchingCollectors[col.collector] = true
+                            count = count + 1
+                            targetCollector = col.collector
+                        end
+                        break
+                    end
+                end
+            end
+        end
+        if count ~= 1 then
+            targetCollector = nil
+        end
+    end
+
+    if not targetCollector then
+        return
+    end
+
     for _, col in ipairs(Collections.LIST) do
-        if col.artefacts then
+        if col.collector == targetCollector and col.artefacts then
             for _, cArt in ipairs(col.artefacts) do
                 if string.lower(cArt) == lowerTarget then
+                    if not col.isRepeatable and self:isCollectionCompleted(col.name) then
+                        break
+                    end
                     self.submittedArtefacts[col.name] = self.submittedArtefacts[col.name] or {}
                     self.submittedArtefacts[col.name][cArt] = true
 
@@ -1543,12 +1573,25 @@ end
 function Tracker:onMiniMenuAction(verb, full)
     local vLower = string.lower(verb or "")
     local fLower = string.lower(full or "")
+    if Collections and Collections.LIST then
+        for _, col in ipairs(Collections.LIST) do
+            if col.collector and col.collector ~= "" and col.collector ~= "Unknown" then
+                local cLower = Utils.escapePattern(string.lower(col.collector))
+                if string.find(fLower, "%f[%a]" .. cLower .. "%f[%A]") then
+                    self.lastCollectorNpc = col.collector
+                    break
+                end
+            end
+        end
+    end
     if vLower == "drop" or string.find(fLower, "drop") then
         self.lastAction = "drop"
+        self.lastCollectorNpc = nil
     elseif string.find(fLower, "bank") or string.find(fLower, "chest") or string.find(fLower, "booth") or string.find(fLower, "deposit box")
         or string.find(fLower, "deposit carried") or string.find(fLower, "deposit worn") or string.find(fLower, "deposit beast") or string.find(fLower, "deposit familiar")
         or (string.find(fLower, "deposit") and config and config.Inv and config.Inv.BANK and InventoryScanner.findInventory(config.Inv.BANK) ~= nil) then
         self.lastAction = "bank"
+        self.lastCollectorNpc = nil
         if string.find(fLower, "deposit familiar") or string.find(fLower, "deposit beast") or string.find(fLower, "deposit bob") then
             self._pendingBankFamiliarDeposit = true
         end
@@ -1562,6 +1605,7 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "bob_bank"
     elseif string.find(fLower, "material storage") or string.find(vLower, "material storage") then
         self.lastAction = "storage"
+        self.lastCollectorNpc = nil
         self.storageActionTicks = 750
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
@@ -1569,6 +1613,7 @@ function Tracker:onMiniMenuAction(verb, full)
         self.pendingWorkbenchScan = false
     elseif string.find(vLower, "restore") or string.find(fLower, "restore") then
         self.lastAction = "restore"
+        self.lastCollectorNpc = nil
         self.workbenchActionTicks = 750
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
@@ -1582,16 +1627,19 @@ function Tracker:onMiniMenuAction(verb, full)
     elseif string.find(fLower, "workbench") or string.find(vLower, "workbench") then
         -- Interacting with the archaeologist's workbench itself defaults to restoration crafting
         self.lastAction = "restore"
+        self.lastCollectorNpc = nil
         self.workbenchActionTicks = 750
         self.pendingWorkbenchScan = true
         self.workbenchCacheCleared = false
     elseif string.find(fLower, "storage") then
         self.lastAction = "storage"
+        self.lastCollectorNpc = nil
         self.storageActionTicks = 750
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
     elseif string.find(vLower, "excavate", 1, true) then
         self.lastAction = "excavate"
+        self.lastCollectorNpc = nil
         self.lastExcavateTarget = Utils.cleanText(string.gsub(full or "", "^[Ee]xcavate%s*", ""))
     elseif string.find(fLower, "withdraw") or string.find(vLower, "withdraw")
         or string.find(fLower, "take bob") or string.find(fLower, "take beast") or string.find(fLower, "take familiar")
@@ -1600,6 +1648,7 @@ function Tracker:onMiniMenuAction(verb, full)
         self.lastAction = "bob"
     elseif string.find(fLower, "cart") or string.find(fLower, "deposit") or string.find(vLower, "store") then
         self.lastAction = "storage"
+        self.lastCollectorNpc = nil
         self.storageActionTicks = 750
         self.pendingJournalStorageScan = true
         self.storageCacheCleared = false
@@ -1612,6 +1661,7 @@ function Tracker:onMiniMenuAction(verb, full)
         self.storageActionTicks = 750
     elseif string.find(vLower, "restore") or string.find(fLower, "restore") or string.find(fLower, "workbench") then
         self.lastAction = "restore"
+        self.lastCollectorNpc = nil
     end
 end
 
