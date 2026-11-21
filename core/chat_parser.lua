@@ -10,6 +10,18 @@ local DB          = require("core/db")
 
 local ChatParser = {}
 
+local function parseQtyAndName(raw)
+    local trimmed = Utils.trim(raw)
+    local qStr, rest = string.match(trimmed, "^(%d+)%s*[xX]%s*(.+)$")
+    if not qStr then
+        qStr, rest = string.match(trimmed, "^(%d+)%s+(.+)$")
+    end
+    if qStr and rest then
+        return tonumber(qStr) or 1, Utils.trim(rest)
+    end
+    return 1, trimmed
+end
+
 --- Parses Sign of the Porter / Grace of the Elves / Material Cart storage transfer messages.
 local function parsePorterTransport(clean, lower)
     local transported = string.match(clean, "material storage:%s*([^%.!]+)")
@@ -36,8 +48,6 @@ local function parsePorterTransport(clean, lower)
         string.find(lower, "material storage", 1, true)
         or string.find(lower, "porter", 1, true)
         or string.find(lower, "grace of the elves", 1, true)
-        or string.find(lower, "transport", 1, true)
-        or string.find(lower, "imp-souled", 1, true)
         or string.find(lower, "premier artefact", 1, true)
     ) then
         local bestMat = nil
@@ -269,6 +279,40 @@ function ChatParser.onChatMessage(tracker, textOrEvent)
             end
         end
         return false
+    end
+
+    -- 1b. Imp Souled / bank transport ("Your Imp Souled perk transports your items to your bank: <item>")
+    if (string.find(lower, "imp souled", 1, true)
+        or string.find(lower, "imp-souled", 1, true)
+        or string.find(lower, "to your bank:", 1, true))
+        and not string.find(lower, "material storage", 1, true) then
+        local payload = string.match(clean, "[Bb]ank:%s*([^%.!]+)")
+            or string.match(clean, ":%s*([^%.!]+)")
+        if payload then
+            local qty, itemName = parseQtyAndName(payload)
+            local mat = Materials.get(itemName)
+            local art = (not mat) and Artefacts.findByName(itemName) or nil
+            if mat then
+                tracker.bankMaterials[mat.name] = (tracker.bankMaterials[mat.name] or 0) + qty
+                tracker.bankHasCache = true
+                DB.set("arch_bank_materials", DB.serializeCountMap(tracker.bankMaterials))
+                tracker._skipExternalContainerScan = true
+                local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+                tracker._skipExternalContainerScan = false
+                if not okRecalc then error(errRecalc, 0) end
+                return true
+            elseif art then
+                local dmgKey = art.damagedName or (art.name .. " (damaged)")
+                tracker.bankArtefacts[dmgKey] = (tracker.bankArtefacts[dmgKey] or 0) + qty
+                tracker.bankHasCache = true
+                DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
+                tracker._skipExternalContainerScan = true
+                local okRecalc, errRecalc = pcall(function() tracker:recalculate() end)
+                tracker._skipExternalContainerScan = false
+                if not okRecalc then error(errRecalc, 0) end
+                return true
+            end
+        end
     end
 
     -- 1. Sign of the Porter / Grace of the Elves / Material Storage transport
