@@ -30,7 +30,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - Excavating duplicate damaged artefacts for a tracked collection does not inflate your target repair count beyond what the collection needs.
       - Displays tracked collection tags on artefacts in the Artefacts tab.
     - **Clean Tooltip Inspection**: Hovering any collection shows the collector's exact hand-in location across Gielinor, account benefits, recurring rewards, chronotes, and a concise checklist of every required artefact with its live status (`Handed in to collector`, `Restored (in Bag/Bank)`, `Damaged (in Bag/Bank)`, `Missing`).
-    - **Filter & Management**: Toolbar controls include `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`, `Unsynced`), `Lvl` level filter (applied across Collections, Artefacts, and Materials), `Clear Tracked`, and `Collectors: X/13`, plus independent source toggles (`Backpack`, `Material Storage`, `Bank`, `Workbench Storage`, `Waterfiend BoB`) in the Plugin Hub settings.
+    - **Filter & Management**: Toolbar controls include `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`), `Lvl` level filter (applied across Collections, Artefacts, and Materials), `Clear Tracked`, and `Collectors: X/13`, plus independent source toggles (`Backpack`, `Material Storage`, `Bank`, `Workbench Storage`, `Waterfiend BoB`) in the Plugin Hub settings, and click-to-edit Target quantities.
     - **Targeted Collections Total Chronotes Bounty**: Displays the combined total Chronote payout across all currently targeted collections directly on the Collections tab header (`Collections (X | +Y)`).
   - **Artefacts Tab (Second)**:
     - Scans damaged and restored artefacts across your **Backpack**, **Workbench Storage**, **Bank**, and **Waterfiend BoB**, including uncollected artefacts targeted by collections.
@@ -41,7 +41,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
     - **Artefact Source Filtering**: Dedicated toolbar filter button (`Show: All`, `Show: Tracked`, `Show: Owned`) to instantly isolate artefacts needed for your tracked collections.
     - Displays in-game item icons alongside artefact names.
     - Hovering any row displays a rich floating tooltip with an enlarged (32x32) in-game item sprite, location, restoration XP, Chronotes, targeted collection sources, and the complete materials recipe with live `owned / required` quantities scaled to your target count.
-    - Direct **Include** quantity controls (**`+` / `-`** steppers, with `0` cleanly excluding an artefact from material calculations).
+    - Direct **Include** quantity controls (**`+` / `-`** steppers and click-to-edit numeric input, with `0` cleanly excluding an artefact from material calculations).
     - **Flexible Inclusion Modes (`Dupes` button)**: Cycle between **Dupes: All**, **Dupes: 1x**, and **Include: 0** (sets all includes to 0 across the board for selective single-artefact repairs). Switching back to `All` or `1x` cleanly re-includes previously excluded artefacts.
     - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
     - **Pin / Lock** button (`Pin` / `Unpin`) to lock your chosen artefact targets so you can bank them and farm materials without losing your plan.
@@ -63,7 +63,7 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
   - Fully click-through: does not block interaction with the world or the excavation spot.
 - **Porter, Cart & Area Loot Handling**:
   - Automatically retains gathered material progress when depositing via **Material Carts**, Bank Deposit Boxes, or bank chests without requiring a manual Material Storage resync.
-  - Automatically credits Sign of the Porter, Grace of the Elves, and Boon of Crondis material gains/transfers via client chat event handling (`chatAccess` permission), and reconciles Waterfiend BoB Straight Flush transfers into your Bank.
+  - Automatically credits Sign of the Porter, Grace of the Elves, Boon of Crondis, and Imp-Souled material/artefact gains and transfers (to Material Storage or Bank) via client chat event handling (`chatAccess` permission), and reconciles Waterfiend BoB Straight Flush transfers into your Bank.
   - Correctly distinguishes material deposits from dropping items (MiniMenu `Drop` action decreases owned counts naturally) and artefact restoration (where required materials are consumed).
   - Area Loot, dialogue containers, and restoration recipe inspection windows are strictly isolated and never overwrite storage cache or reset tracker state.
 
@@ -79,11 +79,11 @@ The codebase follows **SOLID** and **DRY** principles with small, single-respons
 - [`tracker.lua`](tracker.lua) — State coordinator for source modes, filters, collection progress, and material/artefact deficit calculations
 - **`core/` — Single-Responsibility Domain & Infrastructure Modules**:
   - [`core/utils.lua`](core/utils.lua) — Shared string normalization, HTML/colour tag stripping, number formatting, and table helpers
-  - [`core/db.lua`](core/db.lua) — Safe `PersistentDB` wrapper and deterministic map/set/submission serializers
+  - [`core/db.lua`](core/db.lua) — Account-scoped `PersistentDB` wrapper (with legacy key migration) and deterministic map/set/submission serializers
   - [`core/db_extractor.lua`](core/db_extractor.lua) — Runtime `DBTable` / `DBRow` extractor populating materials, artefacts, collections, and hotspots directly from the RS3 client
   - [`core/inventory_scanner.lua`](core/inventory_scanner.lua) — Backpack, Workbench Storage, Bank, Material Storage, and Waterfiend BoB scanner with Area Loot and recipe preview isolation
   - [`core/noticeboard_scanner.lua`](core/noticeboard_scanner.lua) — `VarPlayer.COLLECTION_*` and `config.Achievement` collector sync engine (gated on Archaeology Journal or Guild noticeboard proximity)
-  - [`core/chat_parser.lua`](core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, Boon of Crondis, Straight Flush, collector hand-in, and excavation discovery chat parser
+  - [`core/chat_parser.lua`](core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, Imp-Souled, Boon of Crondis, Straight Flush, collector hand-in, and excavation discovery chat parser
 - **`data/` — Slimmed Runtime Shells & Wiki Extras**:
   - [`data/materials.lua`](data/materials.lua) — Runtime shell populated by `DBExtractor.syncAll()`
   - [`data/artefacts.lua`](data/artefacts.lua) — Runtime shell + `Artefacts.CHRONOTES` lookup (45 entries not exposed on `DBRow`s)
