@@ -951,9 +951,9 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
         return btnBg, btnTxt
     end
 
-    local minusBg, minusTxt = makeStepBtn(-242, sliderSprites and sliderSprites.decrease, "-")
+    local minusBg, minusTxt = makeStepBtn(-264, sliderSprites and sliderSprites.decrease, "-")
 
-    local qtyTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -222, rowY + 2, 24, rowH - 2, nil, 1.0, 0, 0, 0)
+    local qtyTxt = Widgets.createText(artLayer, Theme.COL_WHITE, -246, rowY + 2, 50, rowH - 2, nil, 1.0, 0, 0, 0)
     if ui.AlignMode then
         pcall(function()
             qtyTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -992,14 +992,14 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
             locTxt:SetPos(rowTbl.locX or 202, newY + 2, 0, 0)
             local ownedOff = rowTbl.ownedOffset or 316
             ownedTxt:SetPos(-ownedOff, newY + 2, 1.0, 0)
-            local qtyOff = rowTbl.qtyOffset or 242
+            local qtyOff = rowTbl.qtyOffset or 264
             local mY = (minusTxt == nil) and (newY + 4) or (newY + 2)
             minusBg:SetPos(-qtyOff, mY, 1.0, 0)
             if minusTxt then minusTxt:SetPos(-qtyOff, newY + 2, 1.0, 0) end
-            qtyTxt:SetPos(-qtyOff + 20, newY + 2, 1.0, 0)
+            qtyTxt:SetPos(-qtyOff + 18, newY + 2, 1.0, 0)
             local pY = (plusTxt == nil) and (newY + 4) or (newY + 2)
-            plusBg:SetPos(-qtyOff + 48, pY, 1.0, 0)
-            if plusTxt then plusTxt:SetPos(-qtyOff + 48, newY + 2, 1.0, 0) end
+            plusBg:SetPos(-qtyOff + 70, pY, 1.0, 0)
+            if plusTxt then plusTxt:SetPos(-qtyOff + 70, newY + 2, 1.0, 0) end
             statusTxt:SetPos(-(rowTbl.statusOffset or 143), newY + 2, 1.0, 0)
         end,
     }

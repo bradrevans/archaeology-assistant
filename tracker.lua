@@ -574,27 +574,27 @@ function Tracker:toggleArtefactExcluded(damagedName)
     return self:recalculate()
 end
 
-function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
-    if not damagedName then return self.lastResult end
+local function getDefaultArtefactQty(self, damagedName, rawCount)
     local colTargets = self:getTargetedArtefactRequirements()
     local targetInfo = colTargets and colTargets[damagedName]
     local minTarget  = (targetInfo and targetInfo.count) or 0
 
-    local defaultQty
     if targetInfo and targetInfo.isSubmitted then
-        defaultQty = 0
+        return 0
     elseif minTarget > 0 then
-        defaultQty = minTarget
+        return minTarget
     elseif self.includeMode == "ZERO" then
-        defaultQty = 0
+        return 0
     elseif self.includeMode == "ONE" or not self.includeDuplicates then
-        defaultQty = 1
-    else
-        defaultQty = math.max(1, tonumber(rawCount) or 1)
+        return 1
     end
+    return math.max(1, tonumber(rawCount) or 1)
+end
 
-    local currentQty = self.excludedArtefacts[damagedName] and 0 or (self.customArtefactCounts[damagedName] or defaultQty)
-    local newQty     = math.max(0, currentQty + (tonumber(delta) or 0))
+function Tracker:setArtefactCount(damagedName, count, rawCount)
+    if not damagedName then return self.lastResult end
+    local defaultQty = getDefaultArtefactQty(self, damagedName, rawCount)
+    local newQty     = math.max(0, math.floor(tonumber(count) or 0))
 
     if newQty <= 0 then
         self.excludedArtefacts[damagedName] = 1
@@ -611,6 +611,13 @@ function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
     DB.set("arch_excluded_artefacts", DB.serializeCountMap(self.excludedArtefacts))
     DB.set("arch_custom_art_counts", DB.serializeCountMap(self.customArtefactCounts))
     return self:recalculate()
+end
+
+function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
+    if not damagedName then return self.lastResult end
+    local defaultQty = getDefaultArtefactQty(self, damagedName, rawCount)
+    local currentQty = self.excludedArtefacts[damagedName] and 0 or (self.customArtefactCounts[damagedName] or defaultQty)
+    return self:setArtefactCount(damagedName, currentQty + (tonumber(delta) or 0), rawCount)
 end
 
 function Tracker:clearAllCache()

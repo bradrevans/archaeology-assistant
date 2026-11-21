@@ -830,6 +830,12 @@ function Window:unloadTabLayer(tabName)
         self._lastColLayerCount = nil
         self._lastColFirstIdx = nil
     elseif tabName == "artefacts" and self.artefactTableLayer then
+        if self.artQtyInput and self.artQtyInput.Destroy then
+            pcall(function() self.artQtyInput:Destroy() end)
+        end
+        self.artQtyInput = nil
+        self._editingArtName = nil
+        self._editingArtRawCount = nil
         pcall(function() self.artefactTableLayer:Destroy() end)
         self.artefactTableLayer = nil
         self.artefactRows = {}
@@ -1091,12 +1097,19 @@ function Window:buildArtefactsTable(container, _bindRowHover, forwardScrollWheel
         local rowIdx = math.floor((y - 24) / Theme.ROW_HEIGHT) + 1
         if rowIdx < 1 or rowIdx > (self.visibleArtRowCount or 0) then return end
         local w = (comp and comp.width and comp.width > 0) and comp.width or ((self:getAvailableContentWidth() or 480) + 16)
-        local qtyOffset = self._artQtyOffset or 242
+        local qtyOffset = self._artQtyOffset or 264
         local delta = nil
         if x >= (w - qtyOffset - 2) and x <= (w - qtyOffset + 18) then
+            self:commitArtefactQtyInput(false)
             delta = -1
-        elseif x >= (w - qtyOffset + 46) and x <= (w - qtyOffset + 66) then
+        elseif x >= (w - qtyOffset + 19) and x <= (w - qtyOffset + 69) then
+            self:openArtefactQtyInput(rowIdx)
+            return
+        elseif x >= (w - qtyOffset + 70) and x <= (w - qtyOffset + 88) then
+            self:commitArtefactQtyInput(false)
             delta = 1
+        else
+            self:commitArtefactQtyInput(true)
         end
         if delta then
             local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
@@ -1316,6 +1329,78 @@ function Window:onResetCollectionTarget(rowIdx)
         self.tracker:resetCollectionTarget(item.data.name)
         self:refresh()
         self:onHoverCollectionRow(rowIdx)
+    end
+end
+
+function Window:commitArtefactQtyInput(applyValue)
+    local damagedName = self._editingArtName
+    local rawCount = self._editingArtRawCount
+    local field = self.artQtyInput
+    self._editingArtName = nil
+    self._editingArtRawCount = nil
+    if field and field.root then
+        field.root.hidden = true
+    end
+    if applyValue and damagedName and field and field.GetText and self.tracker then
+        local val = tonumber(Utils.trim(field:GetText() or ""))
+        if val and val >= 0 then
+            self.tracker:setArtefactCount(damagedName, math.floor(val), rawCount)
+            self:refresh()
+        end
+    end
+end
+
+function Window:openArtefactQtyInput(rowIdx)
+    local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
+    if not item or not item.artefact or not item.artefact.damagedName or not self.artefactTableLayer then return end
+    if not prettyui or not prettyui.TextField then return end
+
+    local damagedName = item.artefact.damagedName
+    local current = item.effectiveCount or 0
+    local rowY = 24 + (rowIdx - 1) * Theme.ROW_HEIGHT
+    local qtyOffset = self._artQtyOffset or 264
+    local xPos = -qtyOffset + 21
+
+    if not self.artQtyInput then
+        local ok, field = pcall(function()
+            return prettyui.TextField.new(self.artefactTableLayer, {
+                categoryID = "auto",
+                x = xPos,
+                y = rowY - 1,
+                xAnchor = 1.0,
+                width = 48,
+                height = Theme.ROW_HEIGHT,
+                text = tostring(current),
+                filterMode = ui and ui.InputFieldFilterMode and ui.InputFieldFilterMode.NUMBERS or nil,
+                onSubmit = function()
+                    self:commitArtefactQtyInput(true)
+                end,
+            })
+        end)
+        if not ok or not field then return end
+        self.artQtyInput = field
+        if field.root and ui and ui.AlignMode then
+            pcall(function()
+                field.root.alignHorizontal = ui.AlignMode.CENTRE
+                field.root.alignVertical = ui.AlignMode.CENTRE
+            end)
+        end
+    end
+
+    self._editingArtName = damagedName
+    self._editingArtRawCount = item.rawCount
+    local f = self.artQtyInput
+    if f.SetText then f:SetText(tostring(current), false) end
+    if f.root then
+        f.root:SetPos(xPos, rowY - 1, 1.0, 0)
+        f.root:SetSize(48, Theme.ROW_HEIGHT, 0, 0)
+        f.root.hidden = false
+        f.root:MoveToFront()
+        if f.root.SetFocus then
+            pcall(function() f.root:SetFocus() end)
+        elseif f.root.Focus then
+            pcall(function() f.root:Focus() end)
+        end
     end
 end
 
@@ -1623,7 +1708,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
 
         local statusOffset = statusW + 6
         local qtyGap = 14
-        local qtyOffset = statusOffset + 64 + qtyGap
+        local qtyOffset = statusOffset + 86 + qtyGap
         local ownedOffset = qtyOffset + ownedW + 6
         self._artQtyOffset = qtyOffset
 
@@ -1648,6 +1733,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
             self.colArtStatus:SetPos(-statusOffset, 2, 1.0, 0)
             self.colArtStatus:SetSize(statusW, 20, 0, 0)
             self.colArtQty:SetPos(-qtyOffset, 2, 1.0, 0)
+            self.colArtQty:SetSize(86, 20, 0, 0)
             self.colArtOwned:SetPos(-ownedOffset, 2, 1.0, 0)
             self.colArtOwned:SetSize(ownedW, 20, 0, 0)
 
@@ -1678,9 +1764,9 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         row.statusTxt:SetSize(statusW, Theme.ROW_HEIGHT - 2, 0, 0)
                         local isSprite = (row.plusTxt == nil)
                         local btnY = isSprite and (rY + 4) or (rY + 2)
-                        row.plusBg:SetPos(-qtyOffset + 48, btnY, 1.0, 0)
-                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 48, rY + 2, 1.0, 0) end
-                        row.qtyTxt:SetPos(-qtyOffset + 20, rY + 2, 1.0, 0)
+                        row.plusBg:SetPos(-qtyOffset + 70, btnY, 1.0, 0)
+                        if row.plusTxt then row.plusTxt:SetPos(-qtyOffset + 70, rY + 2, 1.0, 0) end
+                        row.qtyTxt:SetPos(-qtyOffset + 18, rY + 2, 1.0, 0)
                         row.minusBg:SetPos(-qtyOffset, btnY, 1.0, 0)
                         if row.minusTxt then row.minusTxt:SetPos(-qtyOffset, rY + 2, 1.0, 0) end
                         row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
