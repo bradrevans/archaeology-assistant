@@ -80,6 +80,9 @@ local function syncSingleCollection(tracker, col, varpSynced, allowAchReqs, stat
                 tracker.completedCollections[col.name] = compVal
                 state.completedChanged = true
                 state.syncedCount = state.syncedCount + 1
+                if (state.wasBoardSyncedLive or prev > 0) and tracker.onCollectionCompleted then
+                    tracker:onCollectionCompleted(col.name)
+                end
             end
             if not col.isRepeatable and tracker.submittedArtefacts and tracker.submittedArtefacts[col.name] then
                 tracker.submittedArtefacts[col.name] = nil
@@ -222,6 +225,7 @@ function NoticeboardScanner.syncCollectionsDoneStatus(tracker)
         completedChanged = false,
         submittedChanged = false,
         scannedChanged   = false,
+        wasBoardSyncedLive = tracker.boardSyncedLive == true,
         hasAnyScanned    = (tracker.scannedCollectors and next(tracker.scannedCollectors) ~= nil) == true,
         hasAchApi        = (tracker.scannedCollectors and next(tracker.scannedCollectors) ~= nil
             and config and config.Achievement and config.Achievement.FromID) ~= nil,

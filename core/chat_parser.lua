@@ -167,9 +167,12 @@ local function handleCollectionCompletion(tracker, lower)
     local matched = false
     for _, col in ipairs((Collections and Collections.LIST) or {}) do
         if string.find(lower, string.lower(col.name), 1, true) then
-            tracker.completedCollections[col.name] = 1
+            tracker.completedCollections[col.name] = math.max(1, (tracker.completedCollections[col.name] or 0) + 1)
             if tracker.submittedArtefacts and tracker.submittedArtefacts[col.name] then
                 tracker.submittedArtefacts[col.name] = nil
+            end
+            if tracker.onCollectionCompleted then
+                tracker:onCollectionCompleted(col.name)
             end
             matched = true
         end

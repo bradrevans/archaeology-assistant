@@ -713,10 +713,11 @@ function Tracker:isCollectionCompleted(colName)
             end
         end
         if allSub then
-            self.completedCollections[colName] = 1
+            self.completedCollections[colName] = math.max(1, (self.completedCollections[colName] or 0) + 1)
             DB.set("arch_completed_collections", DB.serializeCountMap(self.completedCollections))
             self.submittedArtefacts[colName] = nil
             DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(self.submittedArtefacts))
+            self:onCollectionCompleted(colName)
             return true
         end
     end
@@ -816,6 +817,34 @@ end
 
 function Tracker:resetCollectionTarget(colName)
     return self:setCollectionTargetCount(colName, 1)
+end
+
+function Tracker:onCollectionCompleted(colName)
+    if not colName or not self:isCollectionTargeted(colName) then
+        return false
+    end
+    local nowTick = self._logicTicks or 0
+    self._lastCompletedTick = self._lastCompletedTick or {}
+    if (nowTick - (self._lastCompletedTick[colName] or -999)) < 50 then
+        return false
+    end
+    self._lastCompletedTick[colName] = nowTick
+
+    local current = self:getCollectionTargetCount(colName)
+    if current <= 1 then
+        self.targetedCollections[colName] = nil
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+    else
+        local newCount = current - 1
+        self.targetedCollections[colName] = newCount
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+        self.collectionRememberedCounts = self.collectionRememberedCounts or {}
+        self.collectionRememberedCounts[colName] = newCount
+        DB.set("arch_col_remembered_counts", DB.serializeCountMap(self.collectionRememberedCounts))
+    end
+    self._cachedColTargets = nil
+    self._cachedNeededCounts = nil
+    return true
 end
 
 function Tracker:toggleCollectionTargeted(colName)
@@ -1561,6 +1590,7 @@ function Tracker:onRestoredArtefactSubmitted(artName, _countHandedIn)
                         self.submittedArtefacts[col.name] = nil
                         DB.set("arch_completed_collections", DB.serializeCountMap(self.completedCollections))
                         DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(self.submittedArtefacts))
+                        self:onCollectionCompleted(col.name)
                     else
                         DB.set("arch_submitted_artefacts", DB.serializeSubmittedMap(self.submittedArtefacts))
                     end
