@@ -562,8 +562,6 @@ function Tracker:adjustArtefactCount(damagedName, delta, rawCount)
     local defaultQty
     if targetInfo and targetInfo.isSubmitted then
         defaultQty = 0
-    elseif targetInfo and targetInfo.neededToRestore then
-        defaultQty = targetInfo.neededToRestore
     elseif minTarget > 0 then
         defaultQty = minTarget
     elseif self.includeMode == "ZERO" then
@@ -1789,8 +1787,8 @@ local function resolveDefaultArtefactQty(self, art, info, rawCount, minTarget)
     elseif info.isTargetedCol then
         if info.isSubmitted then
             return 0
-        elseif (info.neededToRestore or 0) > 0 then
-            return info.neededToRestore
+        elseif (info.colTarget or 0) > 0 then
+            return info.colTarget
         else
             return 0
         end
@@ -1885,9 +1883,10 @@ local function computeSequentialRestorableCounts(artefactsList, materialsList)
 
     local restorableArtefacts = 0
     for _, item in ipairs(artefactsList) do
-        if not item.excluded and item.effectiveCount > 0 then
+        local toRestore = (item.toRestoreCount ~= nil) and item.toRestoreCount or item.effectiveCount
+        if not item.excluded and toRestore > 0 then
             local canMake    = 0
-            local maxCanMake = math.min(item.effectiveCount, item.ownedDamaged or 0)
+            local maxCanMake = math.min(toRestore, item.ownedDamaged or 0)
             for _ = 1, maxCanMake do
                 local enough = true
                 for _, req in ipairs(item.artefact.materials) do
@@ -1957,32 +1956,35 @@ function Tracker:recalculate(triggerInvType)
                 local targetCount    = self.customArtefactCounts[art.damagedName] or defaultQty
                 local effectiveCount = isExcluded and 0 or targetCount
 
-                totalArtefacts = totalArtefacts + effectiveCount
-                totalXp        = totalXp + (art.xp * effectiveCount)
+                local bagRestored   = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[art.name]) or 0) or 0
+                local bankRestored  = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[art.name]) or 0) or 0
+                local ownedRestored = math.max(info.ownedRestored or 0, bagRestored + bankRestored)
+                local toRestoreCount = (info.isTargetedCol and self.customArtefactCounts[art.damagedName] == nil)
+                    and math.max(0, effectiveCount - ownedRestored)
+                    or effectiveCount
+
+                totalArtefacts = totalArtefacts + toRestoreCount
+                totalXp        = totalXp + (art.xp * toRestoreCount)
                 totalChronotes = totalChronotes + (art.chronotes * effectiveCount)
 
                 local ownedDamaged    = ownedDamagedInfo
                 local matPossibleNow  = 999999
                 local missingMatTypes = 0
                 for _, req in ipairs(art.materials) do
-                    if effectiveCount > 0 then
-                        requiredByMat[req.name] = (requiredByMat[req.name] or 0) + (req.count * effectiveCount)
+                    if toRestoreCount > 0 then
+                        requiredByMat[req.name] = (requiredByMat[req.name] or 0) + (req.count * toRestoreCount)
                     end
                     local ownedMat     = self:getOwnedMaterialCount(req.name, mode)
                     local copiesForMat = (req.count > 0) and math.floor(ownedMat / req.count) or 999999
                     if copiesForMat < matPossibleNow then
                         matPossibleNow = copiesForMat
                     end
-                    if ownedMat < (req.count * math.max(1, effectiveCount)) then
+                    if ownedMat < (req.count * math.max(1, toRestoreCount)) then
                         missingMatTypes = missingMatTypes + 1
                     end
                 end
                 if matPossibleNow == 999999 then matPossibleNow = 0 end
                 local maxPossibleNow = math.min(ownedDamaged, matPossibleNow)
-
-                local bagRestored   = (self.srcBag ~= false) and ((self.backpackRestored and self.backpackRestored[art.name]) or 0) or 0
-                local bankRestored  = (self.srcBank ~= false) and ((self.bankRestored and self.bankRestored[art.name]) or 0) or 0
-                local ownedRestored = bagRestored + bankRestored
 
                 local itemEntry = {
                     artefact        = art,
@@ -1996,13 +1998,14 @@ function Tracker:recalculate(triggerInvType)
                     rawCount        = rawCount,
                     targetCount     = targetCount,
                     effectiveCount  = effectiveCount,
+                    toRestoreCount  = toRestoreCount,
                     excluded        = isExcluded,
                     maxPossibleNow  = maxPossibleNow,
                     matPossibleNow  = matPossibleNow,
                     missingMatTypes = missingMatTypes,
                     colTarget       = info.colTarget or 0,
                     colNames        = info.colNames,
-                    ownedRestored   = math.max(info.ownedRestored or 0, ownedRestored),
+                    ownedRestored   = ownedRestored,
                     neededToRestore = info.neededToRestore or 0,
                     isSubmitted     = info.isSubmitted or false,
                     isTargetedCol   = info.isTargetedCol or false,
@@ -2026,8 +2029,9 @@ function Tracker:recalculate(triggerInvType)
     local restorableArtefacts = computeSequentialRestorableCounts(artefactsList, materialsList)
     local readyRestoredArtefacts = 0
     for _, item in ipairs(artefactsList) do
-        if not item.excluded and not item.isSubmitted and item.effectiveCount == 0 and (item.ownedRestored or 0) > 0 then
-            readyRestoredArtefacts = readyRestoredArtefacts + math.min(math.max(1, item.colTarget or 1), item.ownedRestored)
+        if not item.excluded and not item.isSubmitted and (item.ownedRestored or 0) > 0 then
+            local cap = (item.effectiveCount > 0) and item.effectiveCount or math.max(1, item.colTarget or 1)
+            readyRestoredArtefacts = readyRestoredArtefacts + math.min(cap, item.ownedRestored)
         end
     end
 

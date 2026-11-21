@@ -2386,20 +2386,29 @@ function Window:populateArtefactRows(artList)
                 end
             else
                 rowUI.qtyTxt.colour = Theme.COL_WHITE
-                local readyNow = math.min(item.maxPossibleNow or 0, item.effectiveCount)
-                rowUI.statusTxt.content = string.format("%d/%d Ready", readyNow, item.effectiveCount)
-                if readyNow >= item.effectiveCount then
+                local toRestore = (item.toRestoreCount ~= nil) and item.toRestoreCount or item.effectiveCount
+                local restoredUsed = math.max(0, item.effectiveCount - toRestore)
+                local readyNow = math.min(item.effectiveCount, restoredUsed + math.min(item.maxPossibleNow or 0, toRestore))
+                if toRestore == 0 then
+                    rowUI.statusTxt.content = "Ready (Restored)"
                     rowUI.nameTxt.colour = Theme.COL_GREEN
                     rowUI.lvlTxt.colour = Theme.COL_GREEN
                     rowUI.statusTxt.colour = Theme.COL_GREEN
-                elseif ownedDamaged < item.effectiveCount then
-                    rowUI.nameTxt.colour = Theme.COL_WHITE
-                    rowUI.lvlTxt.colour = Theme.COL_CREAM
-                    rowUI.statusTxt.colour = Theme.COL_RED
                 else
-                    rowUI.nameTxt.colour = Theme.COL_WHITE
-                    rowUI.lvlTxt.colour = Theme.COL_CREAM
-                    rowUI.statusTxt.colour = Theme.COL_AMBER
+                    rowUI.statusTxt.content = string.format("%d/%d Ready", readyNow, item.effectiveCount)
+                    if readyNow >= item.effectiveCount then
+                        rowUI.nameTxt.colour = Theme.COL_GREEN
+                        rowUI.lvlTxt.colour = Theme.COL_GREEN
+                        rowUI.statusTxt.colour = Theme.COL_GREEN
+                    elseif (restoredUsed + ownedDamaged) < item.effectiveCount then
+                        rowUI.nameTxt.colour = Theme.COL_WHITE
+                        rowUI.lvlTxt.colour = Theme.COL_CREAM
+                        rowUI.statusTxt.colour = Theme.COL_RED
+                    else
+                        rowUI.nameTxt.colour = Theme.COL_WHITE
+                        rowUI.lvlTxt.colour = Theme.COL_CREAM
+                        rowUI.statusTxt.colour = Theme.COL_AMBER
+                    end
                 end
             end
             item.statusText = rowUI.statusTxt.content

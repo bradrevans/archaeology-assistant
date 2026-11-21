@@ -518,13 +518,19 @@ function Tooltip.buildArtefactRowTooltip(tracker, item)
         statusStr, locStr, ownedBreakdown
     )
     local reqParts = {}
-    local mult = math.max(1, item.effectiveCount > 0 and item.effectiveCount or 1)
-    for _, req in ipairs(art.materials or {}) do
-        local owned = tracker:getOwnedMaterialCount(req.name)
-        local needed = req.count * mult
-        table.insert(reqParts, string.format("%s (%s/%s)", req.name, Utils.formatInt(owned), Utils.formatInt(needed)))
+    local restoreMult = (item.toRestoreCount ~= nil) and item.toRestoreCount or item.effectiveCount
+    local detail
+    if restoreMult <= 0 and item.effectiveCount > 0 then
+        detail = "Materials: None needed (already restored)"
+    else
+        local mult = math.max(1, restoreMult > 0 and restoreMult or 1)
+        for _, req in ipairs(art.materials or {}) do
+            local owned = tracker:getOwnedMaterialCount(req.name)
+            local needed = req.count * mult
+            table.insert(reqParts, string.format("%s (%s/%s)", req.name, Utils.formatInt(owned), Utils.formatInt(needed)))
+        end
+        detail = string.format("Materials (%dx): %s", mult, table.concat(reqParts, ", "))
     end
-    local detail = string.format("Materials (%dx): %s", mult, table.concat(reqParts, ", "))
     if item.colNames and #item.colNames > 0 then
         detail = string.format("Status: %s\nTargeted by: %s\n%s", statusStr, table.concat(item.colNames, ", "), detail)
     else
