@@ -31,8 +31,8 @@ local function resolveDamagedKey(artName)
     return (art and art.damagedName) or (artName .. " (damaged)")
 end
 
-function Tracker.new()
-    local self = setmetatable({}, Tracker)
+function Tracker:loadPersistedState()
+    self.activeAccountKey = DB.refreshAccount()
 
     self.sourceModeIndex = 1
     self.includeMode = DB.get("arch_include_mode", "ALL") -- "ALL" | "ONE" | "ZERO"
@@ -48,7 +48,7 @@ function Tracker.new()
     self.srcBob       = DB.getBool("arch_src_bob", true)
 
     -- Level requirement filtering (defaults to Level Met)
-    if DB.get("arch_filter_by_level_init", nil) == nil then
+    if self.activeAccountKey and DB.get("arch_filter_by_level_init", nil) == nil then
         self.filterByLevel = true
         DB.setBool("arch_filter_by_level", true)
         DB.set("arch_filter_by_level_init", 1)
@@ -99,6 +99,8 @@ function Tracker.new()
     self.bankInvId    = tonumber(DB.get("arch_bank_inv_id", -1)) or -1
     self.storageActionTicks        = 0
     self.pendingJournalStorageScan = false
+    self.workbenchActionTicks      = 0
+    self.pendingWorkbenchScan      = false
 
     -- Guard against cached storage corruption caused by inspecting a damaged artefact in an older session
     if storEntries > 0 and storEntries <= 5 then
@@ -148,6 +150,13 @@ function Tracker.new()
     local savedBoardCache = (tonumber(DB.get("arch_board_has_cache", 0)) or 0) == 1
     self.boardHasCache = savedBoardCache or hasSubmissions
     self.lastAction    = nil
+    self.lastCollectorNpc = nil
+    self._cachedColTargets = nil
+    self._cachedNeededCounts = nil
+    self._cachedArtByDamaged = nil
+    self.prevBackpackMaterials = nil
+    self.prevBackpackArtefacts = nil
+    self.prevBackpackRestored = nil
 
     self.lastResult = {
         artefacts                 = {},
@@ -162,7 +171,11 @@ function Tracker.new()
         distinctMaterialsShort    = 0,
         totalMaterialsShort       = 0,
     }
+end
 
+function Tracker.new()
+    local self = setmetatable({}, Tracker)
+    self:loadPersistedState()
     pcall(function() self:syncCollectionsDoneStatus() end)
     return self
 end
@@ -1505,6 +1518,20 @@ function Tracker:onLogicTick()
         if self:checkBackpackChanged() then
             updated = true
         end
+    end
+
+    if (self._logicTicks % 20) ~= 0 and self.activeAccountKey ~= nil then
+        return updated
+    end
+
+    local curAcct = DB.detectAccountKey()
+    if curAcct and curAcct ~= self.activeAccountKey then
+        DB.setActiveAccount(curAcct)
+        self:loadPersistedState()
+        self:detectPlayerArchLevel()
+        self:syncCollectionsDoneStatus()
+        self:recalculate()
+        updated = true
     end
 
     if (self._logicTicks % 20) ~= 0 then
