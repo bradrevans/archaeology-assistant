@@ -1,6 +1,6 @@
 {
     "name": "Archaeology Assistant",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "contactEmailAddress": "contact@archaeology-assistant.dev",
     "hasRibbonIcon": true,
     "hasSettingsIcon": false,

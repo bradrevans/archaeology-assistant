@@ -141,7 +141,7 @@ python manage.py package
 This command:
 1. Validates `plugin.json` fields, manifest dependencies, Lua brace balance, `require(...)` resolution, and Wiki data cross-references.
 2. Stages a clean production bundle in `dist/archaeology-assistant/` excluding all build scripts and documentation.
-3. Compresses the bundle into `dist/archaeology-assistant-v1.0.5.zip` with forward-slash relative paths and verifies that `main.lua` and `plugin.json` sit strictly at the root of the ZIP archive.
+3. Compresses the bundle into `dist/archaeology-assistant-v1.0.6.zip` with forward-slash relative paths and verifies that `main.lua` and `plugin.json` sit strictly at the root of the ZIP archive.
 
 ### 5. Enable, Permissions & Reload in the RS3 Client
 1. In the Beta lobby, click **Import Save** to copy your live character into the Beta world, then enter the game.
