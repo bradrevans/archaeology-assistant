@@ -1265,8 +1265,6 @@ function Tracker:getCollectionsForDisplay(filterMode)
             include = (string.find(rec, "tetra", 1, true) ~= nil
                 or string.find(one, "tetra", 1, true) ~= nil
                 or string.find(ben, "tetra", 1, true) ~= nil)
-        elseif filterMode == "unsynced" then
-            include = not self:isCollectorSynced(col.collector)
         end
 
         if include then

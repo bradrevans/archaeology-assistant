@@ -23,8 +23,7 @@ local COL_FILTER_MODES = {
     { id = "incomplete", label = "Incomplete"    },
     { id = "targeted",   label = "Targeted"      },
     { id = "tetra",      label = "Tetra Pieces"  },
-    { id = "powers",     label = "Powers/Relics" },
-    { id = "unsynced",   label = "Unsynced"      }
+    { id = "powers",     label = "Powers/Relics" }
 }
 
 local HUB_EVENT_ID = "arch_assistant_hub"
