@@ -732,7 +732,7 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
         trackCheckbox = ui.Sprite.new(colLayer)
         trackCheckbox.spriteID = cbSprites.empty
         trackCheckbox.clickthrough = true
-        trackCheckbox:SetPos(22, rowY + 4)
+        trackCheckbox:SetPos(18, rowY + 4)
         trackCheckbox:SetSize(16, 16)
         trackCheckbox.hidden = isHidden
     else
@@ -782,9 +782,9 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
         return btnBg, btnTxt
     end
 
-    local minusBg, minusTxt = makeStepBtn(58, sliderSprites and sliderSprites.decrease, "-")
+    local minusBg, minusTxt = makeStepBtn(42, sliderSprites and sliderSprites.decrease, "-")
 
-    local targetTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 78, rowY + 2, 24, rowH - 2, "1", 0, 0, 0, 0)
+    local targetTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 60, rowY + 2, 50, rowH - 2, "1", 0, 0, 0, 0)
     if ui.AlignMode then
         pcall(function()
             targetTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -793,9 +793,9 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
     end
     targetTxt.hidden = isHidden
 
-    local plusBg, plusTxt = makeStepBtn(106, sliderSprites and sliderSprites.increase, "+")
+    local plusBg, plusTxt = makeStepBtn(112, sliderSprites and sliderSprites.increase, "+")
 
-    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 128, rowY + 2, 28, rowH - 2)
+    local lvlTxt = Widgets.createText(colLayer, Theme.COL_MUTED, 132, rowY + 2, 26, rowH - 2)
     if ui.AlignMode then
         pcall(function()
             lvlTxt.alignHorizontal = ui.AlignMode.CENTRE
@@ -804,7 +804,7 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
     end
     lvlTxt.hidden = isHidden
 
-    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 160, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
+    local nameTxt = Widgets.createText(colLayer, Theme.COL_WHITE, 162, rowY + 2, 60, rowH - 2, nil, 0, 0, 0, 0)
     nameTxt.hidden = isHidden
 
     local rewardTxt = Widgets.createText(colLayer, Theme.COL_MUTED, -156, rowY + 2, 88, rowH - 2, nil, 1.0, 0, 0, 0)
@@ -835,19 +835,19 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
             bg:SetPos(8, newY)
             accentBar:SetPos(8, newY)
             if trackCheckbox then
-                trackCheckbox:SetPos(22, newY + 4)
+                trackCheckbox:SetPos(18, newY + 4)
             elseif trackFallbackBtn then
                 trackFallbackBtn.setBounds(10, newY + 2, 40, 20)
             end
             local stepY = (minusTxt == nil) and (newY + 4) or (newY + 2)
-            minusBg:SetPos(58, stepY, 0, 0)
-            if minusTxt then minusTxt:SetPos(58, newY + 2, 0, 0) end
-            targetTxt:SetPos(78, newY + 2, 0, 0)
+            minusBg:SetPos(42, stepY, 0, 0)
+            if minusTxt then minusTxt:SetPos(42, newY + 2, 0, 0) end
+            targetTxt:SetPos(60, newY + 2, 0, 0)
             local plusY = (plusTxt == nil) and (newY + 4) or (newY + 2)
-            plusBg:SetPos(106, plusY, 0, 0)
-            if plusTxt then plusTxt:SetPos(106, newY + 2, 0, 0) end
-            lvlTxt:SetPos(128, newY + 2)
-            nameTxt:SetPos(160, newY + 2, 0, 0)
+            plusBg:SetPos(112, plusY, 0, 0)
+            if plusTxt then plusTxt:SetPos(112, newY + 2, 0, 0) end
+            lvlTxt:SetPos(132, newY + 2)
+            nameTxt:SetPos(162, newY + 2, 0, 0)
             rewardTxt:SetPos(-(rowTbl.rewNegOffset or 156), newY + 2, 1.0, 0)
             readyTxt:SetPos(-62, newY + 2, 1.0, 0)
         end,

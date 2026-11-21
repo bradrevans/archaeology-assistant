@@ -811,6 +811,11 @@ function Window:unloadTabLayer(tabName)
         self:hideRowTooltip()
     end
     if tabName == "collections" and self.collectionsTableLayer then
+        if self.colTargetInput and self.colTargetInput.Destroy then
+            pcall(function() self.colTargetInput:Destroy() end)
+        end
+        self.colTargetInput = nil
+        self._editingColName = nil
         pcall(function() self.collectionsTableLayer:Destroy() end)
         self.collectionsTableLayer = nil
         self.collectionRows = {}
@@ -1016,12 +1021,19 @@ function Window:buildCollectionsTable(container, _bindRowHover, forwardScrollWhe
         if type(x) ~= "number" or type(y) ~= "number" or y < 24 then return end
         local rowIdx = math.floor((y - 24) / Theme.ROW_HEIGHT) + 1
         if rowIdx < 1 or rowIdx > (self.visibleColRowCount or 0) then return end
-        if x >= 8 and x <= 46 then
+        if x >= 8 and x <= 40 then
+            self:commitCollectionTargetInput(false)
             self:onToggleCollectionTarget(rowIdx)
-        elseif x >= 54 and x <= 76 then
+        elseif x >= 41 and x <= 59 then
+            self:commitCollectionTargetInput(false)
             self:onStepCollectionTarget(rowIdx, -1)
-        elseif x >= 102 and x <= 124 then
+        elseif x >= 60 and x <= 110 then
+            self:openCollectionTargetInput(rowIdx)
+        elseif x >= 111 and x <= 129 then
+            self:commitCollectionTargetInput(false)
             self:onStepCollectionTarget(rowIdx, 1)
+        else
+            self:commitCollectionTargetInput(true)
         end
     end)
 
@@ -1034,19 +1046,19 @@ function Window:buildCollectionsTable(container, _bindRowHover, forwardScrollWhe
     forwardScrollWheel(colHeaderBg)
 
     self.colHTrack   = Widgets.createText(colLayer, Theme.COL_GOLD, 8,   2, 44,  20, "Track")
-    self.colHTarget  = Widgets.createText(colLayer, Theme.COL_GOLD, 56,  2, 68,  20, "Target")
+    self.colHTarget  = Widgets.createText(colLayer, Theme.COL_GOLD, 42,  2, 86,  20, "Target")
     if ui.AlignMode then
         pcall(function()
             self.colHTarget.alignHorizontal = ui.AlignMode.CENTRE
         end)
     end
-    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 128, 2, 28,  20, "Lvl")
+    self.colHLvl     = Widgets.createText(colLayer, Theme.COL_GOLD, 132, 2, 26,  20, "Lvl")
     if ui.AlignMode then
         pcall(function()
             self.colHLvl.alignHorizontal = ui.AlignMode.CENTRE
         end)
     end
-    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 160, 2, 60,  20, "Collection", 0, 0, 0, 0)
+    self.colHColName = Widgets.createText(colLayer, Theme.COL_GOLD, 162, 2, 60,  20, "Collection", 0, 0, 0, 0)
     self.colHReward  = Widgets.createText(colLayer, Theme.COL_GOLD, -156, 2, 88,   20, "Reward",     1.0, 0, 0, 0)
     self.colHReady   = Widgets.createText(colLayer, Theme.COL_GOLD, -62,  2, 54,   20, "Ready",      1.0, 0, 0, 0)
 
@@ -1209,6 +1221,74 @@ function Window:onToggleCollectionTarget(rowIdx)
     if item and item.data and item.data.name then
         self.tracker:toggleCollectionTargeted(item.data.name)
         self:refresh()
+    end
+end
+
+function Window:commitCollectionTargetInput(applyValue)
+    local colName = self._editingColName
+    local field = self.colTargetInput
+    self._editingColName = nil
+    if field and field.root then
+        field.root.hidden = true
+    end
+    if applyValue and colName and field and field.GetText and self.tracker then
+        local val = tonumber(Utils.trim(field:GetText() or ""))
+        if val and val >= 1 then
+            self.tracker:setCollectionTargetCount(colName, math.floor(val))
+            self:refresh()
+        end
+    end
+end
+
+function Window:openCollectionTargetInput(rowIdx)
+    local item = self.currentCollections and self.currentCollections[rowIdx]
+    if not item or not item.data or not item.data.name or not self.collectionsTableLayer then return end
+    if not prettyui or not prettyui.TextField then return end
+
+    local colName = item.data.name
+    local current = self.tracker and (self.tracker:isCollectionTargeted(colName)
+        and self.tracker:getCollectionTargetCount(colName)
+        or self.tracker:getCollectionRememberedCount(colName)) or 1
+    local rowY = 24 + (rowIdx - 1) * Theme.ROW_HEIGHT
+
+    if not self.colTargetInput then
+        local ok, field = pcall(function()
+            return prettyui.TextField.new(self.collectionsTableLayer, {
+                categoryID = "auto",
+                x = 63,
+                y = rowY - 1,
+                width = 48,
+                height = Theme.ROW_HEIGHT,
+                text = tostring(current),
+                filterMode = ui and ui.InputFieldFilterMode and ui.InputFieldFilterMode.NUMBERS or nil,
+                onSubmit = function()
+                    self:commitCollectionTargetInput(true)
+                end,
+            })
+        end)
+        if not ok or not field then return end
+        self.colTargetInput = field
+        if field.root and ui and ui.AlignMode then
+            pcall(function()
+                field.root.alignHorizontal = ui.AlignMode.CENTRE
+                field.root.alignVertical = ui.AlignMode.CENTRE
+            end)
+        end
+    end
+
+    self._editingColName = colName
+    local f = self.colTargetInput
+    if f.SetText then f:SetText(tostring(current), false) end
+    if f.root then
+        f.root:SetPos(63, rowY - 1, 0, 0)
+        f.root:SetSize(48, Theme.ROW_HEIGHT, 0, 0)
+        f.root.hidden = false
+        f.root:MoveToFront()
+        if f.root.SetFocus then
+            pcall(function() f.root:SetFocus() end)
+        elseif f.root.Focus then
+            pcall(function() f.root:Focus() end)
+        end
     end
 end
 
@@ -1621,16 +1701,16 @@ function Window:reflowDynamicContent(availW, forceReflow)
 
     if self.colHReward and self.colHTarget and self.colHReady and self.colHColName then
         local wAvail = availW or 480
-        local flexColW = math.max(120, (wAvail - 74) - 160)
+        local flexColW = math.max(120, (wAvail - 74) - 162)
         local rewW = math.min(260, math.max(75, math.floor(flexColW * 0.45)))
         local rewNegOffset = 68 + rewW
-        local nameW = math.max(60, (wAvail - rewNegOffset - 6) - 160)
+        local nameW = math.max(60, (wAvail - rewNegOffset - 6) - 162)
 
         if forceReflow or self._lastColAvailW ~= wAvail then
             self._lastColAvailW = wAvail
             self.colHReward:SetPos(-rewNegOffset, 2, 1.0, 0)
             self.colHReward:SetSize(rewW, 20, 0, 0)
-            self.colHColName:SetPos(160, 2, 0, 0)
+            self.colHColName:SetPos(162, 2, 0, 0)
             self.colHColName:SetSize(nameW, 20, 0, 0)
 
             if self.collectionRows then
@@ -1641,7 +1721,7 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         row.rewNegOffset = rewNegOffset
                         row.rewardTxt:SetPos(-rewNegOffset, rY + 2, 1.0, 0)
                         row.rewardTxt:SetSize(rewW, Theme.ROW_HEIGHT - 2, 0, 0)
-                        row.nameTxt:SetPos(160, rY + 2, 0, 0)
+                        row.nameTxt:SetPos(162, rY + 2, 0, 0)
                         row.nameTxt:SetSize(nameW, Theme.ROW_HEIGHT - 2, 0, 0)
                     end
                 end
