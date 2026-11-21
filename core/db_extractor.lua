@@ -146,6 +146,9 @@ local function rebuildArtefactIndices(Artefacts)
         if art.name then
             Artefacts.BY_BASE_LOWER[Utils.normalizeName(art.name)] = art
         end
+        if art.isTetracompass then
+            Artefacts.BY_BASE_LOWER["tetracompass (powered)"] = art
+        end
         if art.id then Artefacts.BY_ID[art.id] = art end
         if art.damagedId then Artefacts.BY_ID[art.damagedId] = art end
         if art.restoredId then Artefacts.BY_ID[art.restoredId] = art end
@@ -247,12 +250,18 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                 or (restoredId and Artefacts.findById(restoredId))
                 or Artefacts.findRestoredByName(restoredName)
 
+            local isTetracompass = (not damagedId) and (string.find(string.lower(restoredName), "^tetracompass") ~= nil)
+            local resolvedDamagedName = damagedName
+                or (isTetracompass and "Tetracompass (unassembled)")
+                or (damagedId and (restoredName .. " (damaged)") or restoredName)
+
             if art then
                 art.id          = primaryId
                 art.damagedId   = damagedId
                 art.restoredId  = restoredId or art.restoredId
                 art.name        = restoredName
-                art.damagedName = damagedName or art.damagedName or (damagedId and (restoredName .. " (damaged)") or restoredName)
+                art.isTetracompass = isTetracompass or art.isTetracompass
+                art.damagedName = resolvedDamagedName or art.damagedName
                 if level and level > 0 then art.level = level end
                 if recipeXp and recipeXp > 0 then art.xp = recipeXp end
                 if #recipeMats > 0 then
@@ -271,7 +280,8 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                     damagedId   = damagedId,
                     restoredId  = restoredId,
                     name        = restoredName,
-                    damagedName = damagedName or (damagedId and (restoredName .. " (damaged)") or restoredName),
+                    isTetracompass = isTetracompass,
+                    damagedName = resolvedDamagedName,
                     level       = level or 1,
                     location    = "Archaeology Dig Site",
                     xp          = recipeXp or 0,

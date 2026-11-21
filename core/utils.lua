@@ -43,7 +43,7 @@ function Utils.normalizeName(name)
     return string.lower(Utils.cleanText(name))
 end
 
---- Extracts the base artefact name and whether the name carried a (damaged) or (unpowered) suffix.
+--- Extracts the base artefact name and whether the name carried a (damaged) suffix.
 function Utils.extractDamagedBaseName(rawName)
     local norm = Utils.normalizeName(rawName)
     local base = string.match(norm, "^(.-)%s*%(damaged%)$")
@@ -53,10 +53,6 @@ function Utils.extractDamagedBaseName(rawName)
     local commaBase = string.match(norm, "^(.-),%s*damaged%)$")
     if commaBase then
         return Utils.trim(commaBase) .. ")", true
-    end
-    local unpowered = string.match(norm, "^(.-)%s*%(unpowered%)$")
-    if unpowered then
-        return Utils.trim(unpowered), true
     end
     return norm, false
 end

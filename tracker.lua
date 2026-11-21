@@ -77,6 +77,14 @@ function Tracker:loadPersistedState()
     self.backpackRestored = {}
     self.bankRestored     = DB.deserializeCountMap(DB.get("arch_bank_restored", ""))
 
+    if self.bankArtefacts and (self.bankArtefacts["Tetracompass (unpowered)"] or 0) > 0 then
+        local legacyTetra = self.bankArtefacts["Tetracompass (unpowered)"]
+        self.bankArtefacts["Tetracompass (unpowered)"] = nil
+        self.bankRestored["Tetracompass (unpowered)"] = math.max(self.bankRestored["Tetracompass (unpowered)"] or 0, legacyTetra)
+        DB.set("arch_bank_artefacts", DB.serializeCountMap(self.bankArtefacts))
+        DB.set("arch_bank_restored", DB.serializeCountMap(self.bankRestored))
+    end
+
     self.completedCollections        = DB.deserializeCountMap(DB.get("arch_completed_collections", ""))
     self.targetedCollections         = DB.deserializeCountMap(DB.get("arch_targeted_collections", ""))
     self.collectionRememberedCounts  = DB.deserializeCountMap(DB.get("arch_col_remembered_counts", ""))
@@ -1757,7 +1765,7 @@ local function buildCombinedArtefactsMap(self)
     else
         local function addOwned(map, field)
             for damagedName, count in pairs(map or {}) do
-                if count and count > 0 then
+                if count and count > 0 and damagedName ~= "Tetracompass (unpowered)" then
                     local entry = combinedArts[damagedName]
                     if not entry then
                         entry = { inBag = 0, inBank = 0, inBench = 0, inBob = 0, rawCount = 0 }
@@ -1772,6 +1780,54 @@ local function buildCombinedArtefactsMap(self)
         if self.srcBank ~= false then addOwned(self.bankArtefacts, "inBank") end
         if self.srcWorkbench ~= false then addOwned(benchArts, "inBench") end
         if self.srcBob ~= false then addOwned(bobArts, "inBob") end
+
+        local tetraArt = Artefacts and Artefacts.findRestoredByName and Artefacts.findRestoredByName("Tetracompass (unpowered)")
+        if tetraArt and tetraArt.damagedName then
+            local pieces = {
+                "Tetracompass piece (left)",
+                "Tetracompass piece (right)",
+                "Tetracompass piece (dial)",
+                "Tetracompass piece (needle)",
+            }
+            local function minSetsIn(map)
+                if not map then return 0 end
+                local m = 999999
+                for _, p in ipairs(pieces) do
+                    local c = map[p] or 0
+                    if c < m then m = c end
+                end
+                return (m == 999999) and 0 or m
+            end
+            local totalMin = 999999
+            for _, p in ipairs(pieces) do
+                local c = 0
+                if self.srcBag ~= false then c = c + ((self.backpackMaterials and self.backpackMaterials[p]) or 0) end
+                if self.srcBank ~= false then c = c + ((self.bankMaterials and self.bankMaterials[p]) or 0) end
+                if self.srcBob ~= false then c = c + ((self.bobMaterials and self.bobMaterials[p]) or 0) end
+                if c < totalMin then totalMin = c end
+            end
+            if totalMin == 999999 then totalMin = 0 end
+            if totalMin > 0 then
+                local bagSets  = (self.srcBag ~= false) and minSetsIn(self.backpackMaterials) or 0
+                local bankSets = (self.srcBank ~= false) and minSetsIn(self.bankMaterials) or 0
+                local bobSets  = (self.srcBob ~= false) and minSetsIn(self.bobMaterials) or 0
+                local accounted = bagSets + bankSets + bobSets
+                if totalMin > accounted then
+                    if self.srcBank ~= false and countMapEntries(self.bankMaterials) > 0 then
+                        bankSets = bankSets + (totalMin - accounted)
+                    else
+                        bagSets = bagSets + (totalMin - accounted)
+                    end
+                end
+                combinedArts[tetraArt.damagedName] = {
+                    inBag    = bagSets,
+                    inBank   = bankSets,
+                    inBench  = 0,
+                    inBob    = bobSets,
+                    rawCount = totalMin,
+                }
+            end
+        end
     end
 
     local colTargets = self:getTargetedArtefactRequirements()
