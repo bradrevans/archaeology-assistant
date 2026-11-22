@@ -408,11 +408,13 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     Widgets.addCornerResizeGrip(win.root)
 
     -- Expand PrettyUI's south-east ('se') corner resize handle to a generous 26x26 click box
-    if win.resize and win.resize._Refresh and win.resize.handles and win.resize.handles.se then
+    if win.resize and win.resize._Refresh then
         local origRefresh = win.resize._Refresh
         win.resize._Refresh = function(resSelf, raise)
             origRefresh(resSelf, raise)
             local drag = resSelf.dragState
+            local wasResizing = (self._isResizing == true)
+            self._isResizing = (drag ~= nil)
             local expanded = drag and drag.captureExpanded
             local se = resSelf.handles and resSelf.handles.se
             if se and not expanded and resSelf.root and not se.hidden then
@@ -424,6 +426,10 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
                 se:SetPos(rx + rw - cornerSize + 4, ry + rh - cornerSize + 4)
                 se:SetSize(cornerSize, cornerSize)
                 se:MoveToFront()
+            end
+            if wasResizing and not self._isResizing then
+                self._lastGeomW = nil
+                self:onWindowGeometryChanged()
             end
         end
         win.resize:Refresh()
@@ -1838,12 +1844,19 @@ end
 
 function Window:onWindowGeometryChanged()
     if self._inLayout or not self.root then return end
-    self:updateStickyHeaderBounds()
 
     local rx = math.floor(self.root.x or Theme.DEFAULT_X)
     local ry = math.floor(self.root.y or Theme.DEFAULT_Y)
     local rw = math.floor(self.root.width or Theme.DEFAULT_W)
     local rh = math.floor(self.root.height or Theme.DEFAULT_H)
+
+    if rx == self._lastGeomX and ry == self._lastGeomY
+        and rw == self._lastGeomW and rh == self._lastGeomH then
+        return
+    end
+    self._lastGeomX, self._lastGeomY, self._lastGeomW, self._lastGeomH = rx, ry, rw, rh
+
+    self:updateStickyHeaderBounds()
 
     if self.parent and self.parent.width and self.parent.height and self.parent.width > 100 then
         local maxX = math.max(0, self.parent.width - rw)
