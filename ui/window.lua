@@ -786,17 +786,6 @@ function Window:buildContentComponents(container, tabsContainer)
         end
     )
 
-    self.btnPin = self:createToolbarButton(
-        tabsContainer,
-        "Pin",
-        "Pin/lock the current damaged artefact list.",
-        true,
-        function()
-            self.tracker:togglePin()
-            self:refresh()
-        end
-    )
-
     self.btnSpots = self:createToolbarButton(
         tabsContainer,
         (self.overlay and self.overlay.enabled) and "Spots: On" or "Spots: Off",
@@ -1611,15 +1600,13 @@ function Window:updateToolbarLayout(forceReflow)
             self.btnArtFilter.setHidden(true)
             if self.btnArtStatus then self.btnArtStatus.setHidden(true) end
             self.btnDupes.setHidden(true)
-            self.btnPin.setHidden(true)
             self.btnFilter.setHidden(true)
             if self.btnSpots then self.btnSpots.setHidden(true) end
         elseif isArtTab then
-            local availForBtns = totalBtnsW - (gap * 3)
-            local w1 = math.floor(availForBtns * 0.26)
-            local w2 = math.floor(availForBtns * 0.30)
-            local w3 = math.floor(availForBtns * 0.27)
-            local w4 = availForBtns - (w1 + w2 + w3)
+            local availForBtns = totalBtnsW - (gap * 2)
+            local w1 = math.floor(availForBtns * 0.33)
+            local w2 = math.floor(availForBtns * 0.36)
+            local w3 = availForBtns - (w1 + w2)
             self.btnArtFilter.setHidden(false)
             self.btnArtFilter.setBounds(8, 36, w1, 26)
             if self.btnArtStatus then
@@ -1628,8 +1615,6 @@ function Window:updateToolbarLayout(forceReflow)
             end
             self.btnDupes.setHidden(false)
             self.btnDupes.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
-            self.btnPin.setHidden(false)
-            self.btnPin.setBounds(8 + w1 + gap + w2 + gap + w3 + gap, 36, w4, 26)
 
             self.btnColFilter.setHidden(true)
             if self.btnTargetMax then self.btnTargetMax.setHidden(true) end
@@ -1646,7 +1631,6 @@ function Window:updateToolbarLayout(forceReflow)
             self.btnArtFilter.setHidden(true)
             if self.btnArtStatus then self.btnArtStatus.setHidden(true) end
             self.btnDupes.setHidden(true)
-            self.btnPin.setHidden(true)
             if self.btnSpots then self.btnSpots.setHidden(true) end
         end
     end
@@ -2752,9 +2736,8 @@ function Window:refresh()
     self.currentArtefacts = artList
     self.currentMaterials = matList
 
-    local winTitle = t.isPinned and "Archaeology Assistant [PINNED]" or "Archaeology Assistant"
     if self.win and self.win.SetTitle then
-        self.win:SetTitle(winTitle)
+        self.win:SetTitle("Archaeology Assistant")
     end
 
     local isColTab = (self.activeTab == "collections")
@@ -2949,8 +2932,6 @@ function Window:refresh()
         self.btnSpots.setLabel(self.overlay.enabled and "Spots: On" or "Spots: Off")
         self.btnSpots.setActive(self.overlay.enabled)
     end
-    self.btnPin.setLabel(t.isPinned and "Unpin" or "Pin")
-    self.btnPin.setActive(t.isPinned)
 
     -- Update Sync Badges
     local syncStatus = t:getSyncStatus()

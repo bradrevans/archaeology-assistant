@@ -628,13 +628,6 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
     local hadBackpackDelta = false
     for artName, countRestored in pairs(artsRestored) do
         hadBackpackDelta = true
-        if tracker.isPinned and tracker.pinnedArtefactCounts and tracker.pinnedArtefactCounts[artName] then
-            tracker.pinnedArtefactCounts[artName] = math.max(0, tracker.pinnedArtefactCounts[artName] - countRestored)
-            if tracker.pinnedArtefactCounts[artName] == 0 then
-                tracker.pinnedArtefactCounts[artName] = nil
-            end
-            DB.set("arch_pinned_artefacts", DB.serializeCountMap(tracker.pinnedArtefactCounts))
-        end
 
         local artDef = Artefacts.findByName(artName)
         if artDef and artDef.materials then

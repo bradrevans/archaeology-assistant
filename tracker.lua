@@ -57,12 +57,8 @@ function Tracker:loadPersistedState()
     end
     self.playerArchLevel = tonumber(DB.get("arch_player_level", 0)) or 0
 
-    local savedPinned = DB.get("arch_is_pinned", 0)
-    self.isPinned = (savedPinned == 1 or savedPinned == true)
-
     self.excludedArtefacts    = DB.deserializeCountMap(DB.get("arch_excluded_artefacts", ""))
     self.customArtefactCounts = DB.deserializeCountMap(DB.get("arch_custom_art_counts", ""))
-    self.pinnedArtefactCounts = DB.deserializeCountMap(DB.get("arch_pinned_artefacts", ""))
 
     self.backpackArtefacts = {}
     self.bankArtefacts     = DB.deserializeCountMap(DB.get("arch_bank_artefacts", ""))
@@ -189,7 +185,7 @@ function Tracker.new()
 end
 
 -- =========================================================================
--- Source Modes, Filters, Exclusions, Custom Quantities, and Pins
+-- Source Modes, Filters, Exclusions, and Custom Quantities
 -- =========================================================================
 
 function Tracker:getSourceMode()
@@ -517,10 +513,6 @@ function Tracker:cycleDuplicatesThreshold()
     return self:cycleDuplicates()
 end
 
-function Tracker:togglePinned()
-    return self:togglePin()
-end
-
 function Tracker:cycleArtefactFilter()
     if self.artefactFilter == "ALL" then
         self.artefactFilter = "TARGETED"
@@ -637,8 +629,6 @@ function Tracker:clearAllCache()
     self.collectionRememberedCounts = {}
     self.excludedArtefacts        = {}
     self.customArtefactCounts     = {}
-    self.pinnedArtefactCounts     = {}
-    self.isPinned                 = false
     self.storageSyncedLive        = false
     self.bankSyncedLive           = false
     self.storageHasCache          = false
@@ -682,8 +672,6 @@ function Tracker:clearAllCache()
     DB.set("arch_col_remembered_counts", "")
     DB.set("arch_excluded_artefacts", "")
     DB.set("arch_custom_art_counts", "")
-    DB.set("arch_pinned_artefacts", "")
-    DB.set("arch_is_pinned", 0)
     DB.set("arch_submitted_artefacts", "")
     DB.set("arch_board_has_cache", 0)
     DB.set("arch_completed_collections", "")
@@ -694,31 +682,6 @@ function Tracker:clearAllCache()
     local res = self:recalculate()
     self._skipExternalContainerScan = false
     return res
-end
-
-function Tracker:togglePin()
-    if self.isPinned then
-        self.isPinned = false
-        self.pinnedArtefactCounts = {}
-        DB.set("arch_is_pinned", 0)
-        DB.set("arch_pinned_artefacts", "")
-    else
-        local liveMap = {}
-        local hasAny = false
-        if self.lastResult and self.lastResult.artefacts then
-            for _, item in ipairs(self.lastResult.artefacts) do
-                if item.rawCount and item.rawCount > 0 then
-                    liveMap[item.artefact.damagedName] = item.rawCount
-                    hasAny = true
-                end
-            end
-        end
-        self.pinnedArtefactCounts = liveMap
-        self.isPinned = hasAny
-        DB.set("arch_is_pinned", self.isPinned and 1 or 0)
-        DB.set("arch_pinned_artefacts", DB.serializeCountMap(self.pinnedArtefactCounts))
-    end
-    return self:recalculate()
 end
 
 -- =========================================================================
@@ -1160,12 +1123,6 @@ function Tracker:getArtefactNeededCount(damagedName, artName)
     if self.customArtefactCounts and self.customArtefactCounts[damagedName] ~= nil then
         targetQty = tonumber(self.customArtefactCounts[damagedName]) or 0
     end
-    if (not targetQty) and self.isPinned and self.pinnedArtefactCounts then
-        local pCount = self.pinnedArtefactCounts[damagedName] or self.pinnedArtefactCounts[artName]
-        if pCount ~= nil then
-            targetQty = tonumber(pCount) or 0
-        end
-    end
     if not targetQty then
         local colTargets = self:getTargetedArtefactRequirements()
         local targetInfo = colTargets and colTargets[damagedName]
@@ -1410,8 +1367,6 @@ function Tracker:savePersistentState()
     DB.set("arch_source_mode_idx", self.sourceModeIndex)
     DB.set("arch_include_dupes", self.includeDuplicates and 1 or 0)
     DB.set("arch_short_only", self.shortOnly and 1 or 0)
-    DB.set("arch_is_pinned", self.isPinned and 1 or 0)
-    DB.set("arch_pinned_artefacts", DB.serializeCountMap(self.pinnedArtefactCounts))
     DB.set("arch_excluded_artefacts", DB.serializeCountMap(self.excludedArtefacts))
     DB.set("arch_custom_art_counts", DB.serializeCountMap(self.customArtefactCounts))
     DB.set("arch_bank_artefacts", DB.serializeCountMap(self.bankArtefacts))
@@ -1750,88 +1705,75 @@ function Tracker:getOwnedMaterialCount(matName, mode)
     return owned
 end
 
---- Builds the combined damaged artefact map across Backpack, Bank, Workbench storage, BoB, Pins, and Targeted Collections.
+--- Builds the combined damaged artefact map across Backpack, Bank, Workbench storage, BoB, and Targeted Collections.
 local function buildCombinedArtefactsMap(self)
     local combinedArts = {}
     local benchArts = self.workbenchArtefacts or {}
     local bobArts = self.bobArtefacts or {}
-    if self.isPinned then
-        for damagedName, pinnedCount in pairs(self.pinnedArtefactCounts or {}) do
-            if pinnedCount and pinnedCount > 0 then
-                combinedArts[damagedName] = {
-                    inBag    = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0,
-                    inBank   = (self.srcBank ~= false) and (self.bankArtefacts[damagedName] or 0) or 0,
-                    inBench  = (self.srcWorkbench ~= false) and (benchArts[damagedName] or 0) or 0,
-                    inBob    = (self.srcBob ~= false) and (bobArts[damagedName] or 0) or 0,
-                    rawCount = pinnedCount,
-                }
-            end
-        end
-    else
-        local function addOwned(map, field)
-            for damagedName, count in pairs(map or {}) do
-                if count and count > 0 and damagedName ~= "Tetracompass (unpowered)" then
-                    local entry = combinedArts[damagedName]
-                    if not entry then
-                        entry = { inBag = 0, inBank = 0, inBench = 0, inBob = 0, rawCount = 0 }
-                        combinedArts[damagedName] = entry
-                    end
-                    entry[field]   = count
-                    entry.rawCount = entry.rawCount + count
-                end
-            end
-        end
-        if self.srcBag ~= false then addOwned(self.backpackArtefacts, "inBag") end
-        if self.srcBank ~= false then addOwned(self.bankArtefacts, "inBank") end
-        if self.srcWorkbench ~= false then addOwned(benchArts, "inBench") end
-        if self.srcBob ~= false then addOwned(bobArts, "inBob") end
 
-        local tetraArt = Artefacts and Artefacts.findRestoredByName and Artefacts.findRestoredByName("Tetracompass (unpowered)")
-        if tetraArt and tetraArt.damagedName then
-            local pieces = {
-                "Tetracompass piece (left)",
-                "Tetracompass piece (right)",
-                "Tetracompass piece (dial)",
-                "Tetracompass piece (needle)",
-            }
-            local function minSetsIn(map)
-                if not map then return 0 end
-                local m = 999999
-                for _, p in ipairs(pieces) do
-                    local c = map[p] or 0
-                    if c < m then m = c end
+    local function addOwned(map, field)
+        for damagedName, count in pairs(map or {}) do
+            if count and count > 0 and damagedName ~= "Tetracompass (unpowered)" then
+                local entry = combinedArts[damagedName]
+                if not entry then
+                    entry = { inBag = 0, inBank = 0, inBench = 0, inBob = 0, rawCount = 0 }
+                    combinedArts[damagedName] = entry
                 end
-                return (m == 999999) and 0 or m
+                entry[field]   = count
+                entry.rawCount = entry.rawCount + count
             end
-            local totalMin = 999999
+        end
+    end
+    if self.srcBag ~= false then addOwned(self.backpackArtefacts, "inBag") end
+    if self.srcBank ~= false then addOwned(self.bankArtefacts, "inBank") end
+    if self.srcWorkbench ~= false then addOwned(benchArts, "inBench") end
+    if self.srcBob ~= false then addOwned(bobArts, "inBob") end
+
+    local tetraArt = Artefacts and Artefacts.findRestoredByName and Artefacts.findRestoredByName("Tetracompass (unpowered)")
+    if tetraArt and tetraArt.damagedName then
+        local pieces = {
+            "Tetracompass piece (left)",
+            "Tetracompass piece (right)",
+            "Tetracompass piece (dial)",
+            "Tetracompass piece (needle)",
+        }
+        local function minSetsIn(map)
+            if not map then return 0 end
+            local m = 999999
             for _, p in ipairs(pieces) do
-                local c = 0
-                if self.srcBag ~= false then c = c + ((self.backpackMaterials and self.backpackMaterials[p]) or 0) end
-                if self.srcBank ~= false then c = c + ((self.bankMaterials and self.bankMaterials[p]) or 0) end
-                if self.srcBob ~= false then c = c + ((self.bobMaterials and self.bobMaterials[p]) or 0) end
-                if c < totalMin then totalMin = c end
+                local c = map[p] or 0
+                if c < m then m = c end
             end
-            if totalMin == 999999 then totalMin = 0 end
-            if totalMin > 0 then
-                local bagSets  = (self.srcBag ~= false) and minSetsIn(self.backpackMaterials) or 0
-                local bankSets = (self.srcBank ~= false) and minSetsIn(self.bankMaterials) or 0
-                local bobSets  = (self.srcBob ~= false) and minSetsIn(self.bobMaterials) or 0
-                local accounted = bagSets + bankSets + bobSets
-                if totalMin > accounted then
-                    if self.srcBank ~= false and countMapEntries(self.bankMaterials) > 0 then
-                        bankSets = bankSets + (totalMin - accounted)
-                    else
-                        bagSets = bagSets + (totalMin - accounted)
-                    end
+            return (m == 999999) and 0 or m
+        end
+        local totalMin = 999999
+        for _, p in ipairs(pieces) do
+            local c = 0
+            if self.srcBag ~= false then c = c + ((self.backpackMaterials and self.backpackMaterials[p]) or 0) end
+            if self.srcBank ~= false then c = c + ((self.bankMaterials and self.bankMaterials[p]) or 0) end
+            if self.srcBob ~= false then c = c + ((self.bobMaterials and self.bobMaterials[p]) or 0) end
+            if c < totalMin then totalMin = c end
+        end
+        if totalMin == 999999 then totalMin = 0 end
+        if totalMin > 0 then
+            local bagSets  = (self.srcBag ~= false) and minSetsIn(self.backpackMaterials) or 0
+            local bankSets = (self.srcBank ~= false) and minSetsIn(self.bankMaterials) or 0
+            local bobSets  = (self.srcBob ~= false) and minSetsIn(self.bobMaterials) or 0
+            local accounted = bagSets + bankSets + bobSets
+            if totalMin > accounted then
+                if self.srcBank ~= false and countMapEntries(self.bankMaterials) > 0 then
+                    bankSets = bankSets + (totalMin - accounted)
+                else
+                    bagSets = bagSets + (totalMin - accounted)
                 end
-                combinedArts[tetraArt.damagedName] = {
-                    inBag    = bagSets,
-                    inBank   = bankSets,
-                    inBench  = 0,
-                    inBob    = bobSets,
-                    rawCount = totalMin,
-                }
             end
+            combinedArts[tetraArt.damagedName] = {
+                inBag    = bagSets,
+                inBank   = bankSets,
+                inBench  = 0,
+                inBob    = bobSets,
+                rawCount = totalMin,
+            }
         end
     end
 
@@ -1845,9 +1787,7 @@ local function buildCombinedArtefactsMap(self)
             entry.neededToRestore = targetInfo.neededToRestore
             entry.isSubmitted     = targetInfo.isSubmitted
             entry.isTargetedCol   = true
-            if not self.isPinned then
-                entry.rawCount = targetInfo.neededToRestore or 0
-            end
+            entry.rawCount = targetInfo.neededToRestore or 0
         else
             combinedArts[damagedName] = {
                 inBag           = (self.srcBag ~= false) and (self.backpackArtefacts[damagedName] or 0) or 0,
