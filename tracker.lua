@@ -886,6 +886,134 @@ function Tracker:setAllTrackedToMax()
     return self.lastResult
 end
 
+function Tracker:setAllTrackedToMin()
+    if not self:hasTargetedCollections() then
+        return self.lastResult
+    end
+
+    local remMats = {}
+    local function getMat(matName)
+        if remMats[matName] == nil then
+            remMats[matName] = self:getOwnedMaterialCount(matName)
+        end
+        return remMats[matName]
+    end
+
+    local remRestored = {}
+    local function getRestored(artName)
+        if remRestored[artName] == nil then
+            local c = 0
+            if self.srcBag ~= false and self.backpackRestored then c = c + (self.backpackRestored[artName] or 0) end
+            if self.srcBank ~= false and self.bankRestored then c = c + (self.bankRestored[artName] or 0) end
+            remRestored[artName] = c
+        end
+        return remRestored[artName]
+    end
+
+    local remDamaged = {}
+    local function getDamaged(damagedName)
+        if remDamaged[damagedName] == nil then
+            local c = 0
+            if self.srcBag ~= false and self.backpackArtefacts then c = c + (self.backpackArtefacts[damagedName] or 0) end
+            if self.srcBank ~= false and self.bankArtefacts then c = c + (self.bankArtefacts[damagedName] or 0) end
+            if self.srcWorkbench ~= false and self.workbenchArtefacts then c = c + (self.workbenchArtefacts[damagedName] or 0) end
+            if self.srcBob ~= false and self.bobArtefacts then c = c + (self.bobArtefacts[damagedName] or 0) end
+            remDamaged[damagedName] = c
+        end
+        return remDamaged[damagedName]
+    end
+
+    local colNames = {}
+    for colName, _ in pairs(self.targetedCollections) do
+        table.insert(colNames, colName)
+    end
+    table.sort(colNames)
+
+    local changed = false
+    for _, colName in ipairs(colNames) do
+        local col = Collections and Collections.BY_NAME and Collections.BY_NAME[colName]
+        local sets = 0
+        if col and col.artefacts and #col.artefacts > 0 then
+            for setIdx = 1, 999 do
+                local matSpend = {}
+                local restSpend = {}
+                local dmgSpend = {}
+                local canComplete = true
+
+                for _, artName in ipairs(col.artefacts) do
+                    local usedSubmitted = (setIdx == 1) and self:isArtefactSubmitted(colName, artName)
+                    if not usedSubmitted then
+                        local rAvail = getRestored(artName) - (restSpend[artName] or 0)
+                        if rAvail > 0 then
+                            restSpend[artName] = (restSpend[artName] or 0) + 1
+                        else
+                            local damagedName = resolveDamagedKey(artName)
+                            local dAvail = getDamaged(damagedName) - (dmgSpend[damagedName] or 0)
+                            if dAvail <= 0 then
+                                canComplete = false
+                                break
+                            end
+                            dmgSpend[damagedName] = (dmgSpend[damagedName] or 0) + 1
+
+                            local artDef = Artefacts and Artefacts.findByName and Artefacts.findByName(artName)
+                            if artDef and artDef.materials then
+                                for _, req in ipairs(artDef.materials) do
+                                    local need = (matSpend[req.name] or 0) + (req.count or 0)
+                                    if getMat(req.name) < need then
+                                        canComplete = false
+                                        break
+                                    end
+                                    matSpend[req.name] = need
+                                end
+                            end
+                            if not canComplete then break end
+                        end
+                    end
+                end
+
+                if not canComplete then break end
+                sets = sets + 1
+                for k, v in pairs(restSpend) do remRestored[k] = getRestored(k) - v end
+                for k, v in pairs(dmgSpend) do remDamaged[k] = getDamaged(k) - v end
+                for k, v in pairs(matSpend) do remMats[k] = getMat(k) - v end
+            end
+        end
+
+        local newTarget = math.max(1, sets)
+        if self.targetedCollections[colName] ~= newTarget then
+            self.targetedCollections[colName] = newTarget
+            self.collectionRememberedCounts[colName] = newTarget
+            changed = true
+        end
+    end
+
+    if changed then
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+        DB.set("arch_col_remembered_counts", DB.serializeCountMap(self.collectionRememberedCounts))
+        return self:recalculate()
+    end
+    return self.lastResult
+end
+
+function Tracker:resetAllTrackedToOne()
+    local changed = false
+    if self:hasTargetedCollections() then
+        for colName, count in pairs(self.targetedCollections) do
+            if count ~= 1 then
+                self.targetedCollections[colName] = 1
+                self.collectionRememberedCounts[colName] = 1
+                changed = true
+            end
+        end
+    end
+    if changed then
+        DB.set("arch_targeted_collections", DB.serializeCountMap(self.targetedCollections))
+        DB.set("arch_col_remembered_counts", DB.serializeCountMap(self.collectionRememberedCounts))
+        return self:recalculate()
+    end
+    return self.lastResult
+end
+
 function Tracker:clearTargetedCollections()
     self.targetedCollections = {}
     self.collectionRememberedCounts = {}

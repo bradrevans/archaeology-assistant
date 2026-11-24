@@ -52,6 +52,12 @@ local MAT_FILTER_MODES = {
     { id = "short", label = "Show: Short Only", menuLabel = "Short Only", tooltip = "Show only materials where your current holdings are short of what is required." }
 }
 
+local COL_TARGET_ACTIONS = {
+    { id = "max",   label = "Target Max", menuLabel = "Target Max", tooltip = "Set all tracked collections to the maximum possible completions from your owned artefacts." },
+    { id = "min",   label = "Target Min", menuLabel = "Target Min", tooltip = "Set all tracked collections to how many complete sets you have both the artefacts and materials to restore right now (min 1)." },
+    { id = "reset", label = "Reset",      menuLabel = "Reset",      tooltip = "Reset all tracked collections' target quantities back to 1." }
+}
+
 local function matchesArtefactStatusFilter(item, modeId)
     if not item or modeId == "all" then return true end
     local eff = item.effectiveCount or 0
@@ -749,17 +755,23 @@ function Window:buildContentComponents(container, tabsContainer)
         end
     )
 
-    self.btnTargetMax = self:createToolbarButton(
+    self.btnTargetMax = self:createDropdownButton(
         tabsContainer,
-        "Target Max",
-        "Set all tracked collections to the maximum possible completions from your current holdings.",
-        false,
+        "Targets",
+        "Bulk-set target quantities for all currently tracked collections.",
         function()
-            self:hideRowTooltip()
-            if self.tracker then
-                self.tracker:setAllTrackedToMax()
-                self:refresh()
-            end
+            self:openDropdown(self.btnTargetMax, COL_TARGET_ACTIONS, nil, function(opt)
+                if self.tracker then
+                    if opt.id == "max" then
+                        self.tracker:setAllTrackedToMax()
+                    elseif opt.id == "min" then
+                        self.tracker:setAllTrackedToMin()
+                    elseif opt.id == "reset" then
+                        self.tracker:resetAllTrackedToOne()
+                    end
+                    self:refresh()
+                end
+            end)
         end
     )
 
@@ -3160,7 +3172,6 @@ function Window:refresh()
     end
     if self.btnTargetMax then
         self.btnTargetMax.setHidden(not isColTab)
-        self.btnTargetMax.setActive(targetedCols > 0)
     end
     if self.btnClearTargets then
         self.btnClearTargets.setHidden(not isColTab)
