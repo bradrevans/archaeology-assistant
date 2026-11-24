@@ -26,6 +26,37 @@ local COL_FILTER_MODES = {
     { id = "powers",     label = "Powers/Relics" }
 }
 
+local ART_STATUS_FILTERS = {
+    { id = "all",           label = "Status: All" },
+    { id = "short_art",     label = "Short Art"   },
+    { id = "short_mats",    label = "Short Mats"  },
+    { id = "ready_restore", label = "Ready"       },
+    { id = "ready_submit",  label = "To Submit"   },
+    { id = "submitted",     label = "Submitted"   },
+}
+
+local function matchesArtefactStatusFilter(item, modeId)
+    if not item or modeId == "all" then return true end
+    local eff = item.effectiveCount or 0
+    local toRestore = (item.toRestoreCount ~= nil) and item.toRestoreCount or eff
+    local restoredUsed = math.max(0, eff - toRestore)
+    local maxNow = item.maxPossibleNow or 0
+    local readyNow = math.min(eff, restoredUsed + math.min(maxNow, toRestore))
+
+    if modeId == "submitted" then
+        return item.isSubmitted == true
+    elseif modeId == "ready_submit" then
+        return (not item.isSubmitted) and ((eff > 0 and toRestore == 0) or (item.ownedRestored or 0) > 0)
+    elseif modeId == "ready_restore" then
+        return (not item.excluded or eff == 0) and maxNow >= 1 and (eff == 0 or toRestore > 0)
+    elseif modeId == "short_art" then
+        return (not item.excluded) and eff > 0 and toRestore > 0 and (restoredUsed + (item.ownedDamaged or 0)) < eff
+    elseif modeId == "short_mats" then
+        return (not item.excluded) and eff > 0 and toRestore > 0 and (item.missingMatTypes or 0) > 0
+    end
+    return true
+end
+
 local HUB_EVENT_ID = "arch_assistant_hub"
 local MOUNT_EVENT_ID = "arch_assistant_mount"
 local RESIZE_EVENT_ID = "arch_assistant_resize"
@@ -37,6 +68,7 @@ function Window.new(tracker)
     self.mounted = false
     self.activeTab = DB.get("arch_active_tab", "collections")
     self.colFilterIndex = 1
+    self.artStatusFilterIndex = 1
     self.collectionRows = {}
     self.currentCollections = {}
     self.materialRows = {}
@@ -711,6 +743,22 @@ function Window:buildContentComponents(container, tabsContainer)
         function()
             self.tracker:cycleArtefactFilter()
             if self.btnArtFilter then self.btnArtFilter.setLabel(self.tracker:getArtefactFilterLabel()) end
+            self:refresh()
+        end
+    )
+
+    self.btnArtStatus = self:createToolbarButton(
+        tabsContainer,
+        "Status: All",
+        "Filter artefacts by status: All, Short Art, Short Mats, Ready, To Submit, or Submitted.",
+        false,
+        function()
+            self.artStatusFilterIndex = (self.artStatusFilterIndex % #ART_STATUS_FILTERS) + 1
+            local mode = ART_STATUS_FILTERS[self.artStatusFilterIndex]
+            if self.btnArtStatus and mode then
+                self.btnArtStatus.setLabel(mode.label)
+                self.btnArtStatus.setActive(self.artStatusFilterIndex > 1)
+            end
             self:refresh()
         end
     )
@@ -1561,21 +1609,27 @@ function Window:updateToolbarLayout(forceReflow)
             self.btnClearTargets.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
 
             self.btnArtFilter.setHidden(true)
+            if self.btnArtStatus then self.btnArtStatus.setHidden(true) end
             self.btnDupes.setHidden(true)
             self.btnPin.setHidden(true)
             self.btnFilter.setHidden(true)
             if self.btnSpots then self.btnSpots.setHidden(true) end
         elseif isArtTab then
-            local availForBtns = totalBtnsW - (gap * 2)
-            local w1 = math.floor(availForBtns * 0.38)
-            local w2 = math.floor(availForBtns * 0.38)
-            local w3 = availForBtns - (w1 + w2)
+            local availForBtns = totalBtnsW - (gap * 3)
+            local w1 = math.floor(availForBtns * 0.26)
+            local w2 = math.floor(availForBtns * 0.30)
+            local w3 = math.floor(availForBtns * 0.27)
+            local w4 = availForBtns - (w1 + w2 + w3)
             self.btnArtFilter.setHidden(false)
             self.btnArtFilter.setBounds(8, 36, w1, 26)
+            if self.btnArtStatus then
+                self.btnArtStatus.setHidden(false)
+                self.btnArtStatus.setBounds(8 + w1 + gap, 36, w2, 26)
+            end
             self.btnDupes.setHidden(false)
-            self.btnDupes.setBounds(8 + w1 + gap, 36, w2, 26)
+            self.btnDupes.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
             self.btnPin.setHidden(false)
-            self.btnPin.setBounds(8 + w1 + gap + w2 + gap, 36, w3, 26)
+            self.btnPin.setBounds(8 + w1 + gap + w2 + gap + w3 + gap, 36, w4, 26)
 
             self.btnColFilter.setHidden(true)
             if self.btnTargetMax then self.btnTargetMax.setHidden(true) end
@@ -1590,6 +1644,7 @@ function Window:updateToolbarLayout(forceReflow)
             if self.btnTargetMax then self.btnTargetMax.setHidden(true) end
             self.btnClearTargets.setHidden(true)
             self.btnArtFilter.setHidden(true)
+            if self.btnArtStatus then self.btnArtStatus.setHidden(true) end
             self.btnDupes.setHidden(true)
             self.btnPin.setHidden(true)
             if self.btnSpots then self.btnSpots.setHidden(true) end
@@ -2767,6 +2822,17 @@ function Window:refresh()
         artList = filteredArts
     end
 
+    local artStatusMode = ART_STATUS_FILTERS[self.artStatusFilterIndex] and ART_STATUS_FILTERS[self.artStatusFilterIndex].id or "all"
+    if artStatusMode ~= "all" then
+        local statusFiltered = {}
+        for _, item in ipairs(artList) do
+            if matchesArtefactStatusFilter(item, artStatusMode) then
+                table.insert(statusFiltered, item)
+            end
+        end
+        artList = statusFiltered
+    end
+
     local matQuery = string.lower(Utils.trim(self.matSearchQuery or ""))
     if matQuery ~= "" then
         local filteredMats = {}
@@ -2867,6 +2933,12 @@ function Window:refresh()
     if self.btnArtFilter then
         self.btnArtFilter.setLabel(t:getArtefactFilterLabel())
         self.btnArtFilter.setActive(t.artefactFilter ~= "ALL")
+    end
+    if self.btnArtStatus then
+        local statusMode = ART_STATUS_FILTERS[self.artStatusFilterIndex] or ART_STATUS_FILTERS[1]
+        self.btnArtStatus.setLabel(statusMode.label)
+        self.btnArtStatus.setActive(self.artStatusFilterIndex > 1)
+        self.btnArtStatus.setHidden(not isArtTab)
     end
     if self.btnDupes then
         self.btnDupes.setLabel(t:getDuplicatesLabel())
