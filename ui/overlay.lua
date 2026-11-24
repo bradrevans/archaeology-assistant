@@ -1053,11 +1053,11 @@ function Overlay:scanWorldSpots(force)
 end
 
 function Overlay:onDraw()
-    if not self.mounted and not self:tryMount() then return end
     if not self.enabled or #self.activeSpots == 0 then
-        self:hideAllWidgets()
+        if self.mounted then self:hideAllWidgets() end
         return
     end
+    if not self.mounted and not self:tryMount() then return end
     if not ScreenConvert or not ScreenConvert.CoordGridToScreen then
         self:hideAllWidgets()
         return
@@ -1229,13 +1229,11 @@ function Overlay:destroy()
     if Event and Event.Logic and Event.Logic.Unsubscribe then
         pcall(function() Event.Logic.Unsubscribe("arch_spot_logic") end)
     end
-    self:hideAllWidgets()
     if self.overlayRoot then
         pcall(function()
+            self.overlayRoot.hidden = true
             if self.overlayRoot.Destroy then
                 self.overlayRoot:Destroy()
-            else
-                self.overlayRoot.hidden = true
             end
         end)
         self.overlayRoot = nil

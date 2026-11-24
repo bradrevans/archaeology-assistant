@@ -93,12 +93,7 @@ function Tooltip.new(parent, onScrollWheel)
     self.title = makeTipText(Theme.COL_GOLD, 8)
     self.sub = makeTipText(Theme.COL_WHITE, 28)
     self.lines = {}
-
-    for i = 1, MAX_TOOLTIP_LINES do
-        local txt = makeTipText(Theme.COL_CREAM, 48)
-        txt.hidden = true
-        self.lines[i] = txt
-    end
+    self._makeTipText = makeTipText
 
     return self
 end
@@ -137,8 +132,9 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
     if hasSub then
         maxTextW = math.max(maxTextW, measureLineW(subText))
     end
+    local numLines = math.min(#lines, MAX_TOOLTIP_LINES)
     local hasDetails = false
-    for i = 1, #self.lines do
+    for i = 1, numLines do
         local entry = lines[i]
         local text = type(entry) == "table" and entry.text or entry
         if text ~= nil and text ~= "" then
@@ -173,24 +169,31 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
         currentY = currentY + 4
     end
 
-    for i = 1, #self.lines do
-        local lineTxt = self.lines[i]
-        local entry = lines[i]
+    local totalPool = math.max(numLines, #self.lines)
+    for i = 1, totalPool do
+        local entry = (i <= numLines) and lines[i] or nil
         local text = type(entry) == "table" and entry.text or entry
         local explicitCol = type(entry) == "table" and entry.colour or nil
+        local lineTxt = self.lines[i]
         if text ~= nil and text ~= "" then
-            lineTxt.hidden = false
-            lineTxt.content = text
-            lineTxt.colour = explicitCol or getDetailLineColour(text)
+            if not lineTxt and self._makeTipText then
+                lineTxt = self._makeTipText(Theme.COL_CREAM, 48)
+                self.lines[i] = lineTxt
+            end
+            if lineTxt then
+                lineTxt.hidden = false
+                lineTxt.content = text
+                lineTxt.colour = explicitCol or getDetailLineColour(text)
 
-            local hLine = Theme.measureWrappedTextHeight(text, availTxtW)
-            lineTxt:SetPos(textX, currentY)
-            lineTxt:SetSize(-(textX + 10), hLine, 1.0, 0)
-            currentY = currentY + hLine + 2
+                local hLine = Theme.measureWrappedTextHeight(text, availTxtW)
+                lineTxt:SetPos(textX, currentY)
+                lineTxt:SetSize(-(textX + 10), hLine, 1.0, 0)
+                currentY = currentY + hLine + 2
+            end
         elseif hasDetails and text == "" then
-            lineTxt.hidden = true
+            if lineTxt then lineTxt.hidden = true end
             currentY = currentY + 4
-        else
+        elseif lineTxt then
             lineTxt.hidden = true
         end
     end
