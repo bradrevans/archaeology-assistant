@@ -143,7 +143,7 @@ function Tooltip:show(windowRoot, isWindowVisible, titleText, subText, detailTex
         end
     end
 
-    local tipW = math.max(hasIcon and 64 or 40, math.min(460, math.ceil(textX + maxTextW + 12)))
+    local tipW = math.max(hasIcon and 64 or 40, math.min(460, math.ceil(textX + maxTextW + 16)))
     local availTxtW = math.max(20, tipW - textX - 10)
     local hTitle = Theme.measureWrappedTextHeight(titleText, availTxtW)
 
