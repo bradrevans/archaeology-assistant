@@ -19,20 +19,37 @@ local Window = {}
 Window.__index = Window
 
 local COL_FILTER_MODES = {
-    { id = "all",        label = "Show: All"     },
-    { id = "incomplete", label = "Incomplete"    },
-    { id = "targeted",   label = "Targeted"      },
-    { id = "tetra",      label = "Tetra Pieces"  },
-    { id = "powers",     label = "Powers/Relics" }
+    { id = "all",        label = "Show: All",     menuLabel = "All",           tooltip = "Show all Archaeology collections (respecting your Level Req setting)." },
+    { id = "incomplete", label = "Incomplete",    menuLabel = "Incomplete",    tooltip = "Show only collections you have not yet completed or submitted." },
+    { id = "targeted",   label = "Targeted",      menuLabel = "Targeted",      tooltip = "Show only collections you have targeted/tracked (Target > 0)." },
+    { id = "tetra",      label = "Tetra Pieces",  menuLabel = "Tetra Pieces",  tooltip = "Show only collections that reward Tetracompass pieces." },
+    { id = "powers",     label = "Powers/Relics", menuLabel = "Powers/Relics", tooltip = "Show only collections that unlock Relic powers, weapons, or mysteries." }
+}
+
+local ART_FILTER_MODES = {
+    { id = "ALL",      label = "Show: All",     menuLabel = "All",     tooltip = "Show all damaged artefacts in your containers plus any artefacts needed for tracked collections." },
+    { id = "TARGETED", label = "Show: Tracked", menuLabel = "Tracked", tooltip = "Show only artefacts required for your currently tracked collections." },
+    { id = "OWNED",    label = "Show: Owned",   menuLabel = "Owned",   tooltip = "Show only artefacts you currently own in your active containers (Backpack, Bank, Workbench, BoB)." }
 }
 
 local ART_STATUS_FILTERS = {
-    { id = "all",           label = "Status: All" },
-    { id = "short_art",     label = "Short Art"   },
-    { id = "short_mats",    label = "Short Mats"  },
-    { id = "ready_restore", label = "Ready"       },
-    { id = "ready_submit",  label = "To Submit"   },
-    { id = "submitted",     label = "Submitted"   },
+    { id = "all",           label = "Status: All", menuLabel = "All",        tooltip = "Show all artefacts regardless of repair or submission status." },
+    { id = "short_art",     label = "Short Art",   menuLabel = "Short Art",  tooltip = "Show artefacts where you still need to excavate more damaged artefacts to meet your target." },
+    { id = "short_mats",    label = "Short Mats",  menuLabel = "Short Mats", tooltip = "Show included artefacts that are missing one or more required materials to restore." },
+    { id = "ready_restore", label = "Ready",       menuLabel = "Ready",      tooltip = "Show artefacts where you have at least 1 damaged artefact and enough materials to restore it now." },
+    { id = "ready_submit",  label = "To Submit",   menuLabel = "To Submit",  tooltip = "Show restored artefacts ready to hand in to a collector (or already restored for your target)." },
+    { id = "submitted",     label = "Submitted",   menuLabel = "Submitted",  tooltip = "Show artefacts that have already been submitted for their tracked collection." },
+}
+
+local DUPES_MODES = {
+    { id = "ALL",  label = "Dupes: All", menuLabel = "All", tooltip = "Include all damaged duplicates you own (calculates materials for every damaged copy)." },
+    { id = "ONE",  label = "Dupes: 1x",  menuLabel = "1x",  tooltip = "Include at most 1 of each non-targeted damaged artefact (ignores extra duplicates)." },
+    { id = "ZERO", label = "Include: 0", menuLabel = "0",   tooltip = "Set all non-targeted artefacts to 0 included so you can manually '+' only the ones you want to repair." }
+}
+
+local MAT_FILTER_MODES = {
+    { id = "all",   label = "Show: All",        menuLabel = "All",        tooltip = "Show all materials required for your currently included artefacts." },
+    { id = "short", label = "Show: Short Only", menuLabel = "Short Only", tooltip = "Show only materials where your current holdings are short of what is required." }
 }
 
 local function matchesArtefactStatusFilter(item, modeId)
@@ -375,6 +392,28 @@ function Window:createToolbarButton(parent, label, tooltipText, toggleable, onCl
     return btn
 end
 
+function Window:createDropdownButton(parent, label, tooltipText, onClick)
+    local btn = self:createToolbarButton(parent, label, tooltipText, false, onClick)
+    if btn and btn.root then
+        if btn.isPretty and btn.widget and btn.widget.content and btn.widget.content.SetSize then
+            local c = btn.widget.content
+            c:SetPos(2, c.y or 0)
+            c:SetSize(-18, c.height or 0, 1.0, (c.height and c.height > 0) and 0 or 1.0)
+        end
+        local triCol = Theme.COL_CREAM
+        local widths = { 7, 5, 3, 1 }
+        for i, w in ipairs(widths) do
+            local bar = ui.Rectangle.new(btn.root)
+            bar.colour = triCol
+            bar.fill = true
+            bar.clickthrough = true
+            bar:SetPos(-9 - math.floor(w / 2), 11 + (i - 1), 1.0, 0)
+            bar:SetSize(w, 1)
+        end
+    end
+    return btn
+end
+
 function Window:buildPrettyWindow(parent, x, y, w, h)
     local win = prettyui.Window.new(parent, {
         title = "Archaeology Assistant",
@@ -434,6 +473,7 @@ function Window:buildPrettyWindow(parent, x, y, w, h)
     self.stickyHeaderBg = stickyBg
 
     self:buildContentComponents(win.content, stickyHeader)
+    self:buildDropdownMenu(win.root)
     self.tooltip = Tooltip.new(parent, function(comp, delta)
         return self:handleScrollWheel(comp, delta)
     end)
@@ -514,6 +554,7 @@ function Window:buildFallbackWindow(parent, x, y, w, h)
     self.contentParent = root
 
     self:buildContentComponents(root, root)
+    self:buildDropdownMenu(root)
     self.tooltip = Tooltip.new(parent, function(comp, delta)
         return self:handleScrollWheel(comp, delta)
     end)
@@ -556,6 +597,7 @@ function Window:switchTab(tabName)
         return
     end
 
+    self:closeDropdown()
     self:hideRowTooltip()
     local changed = (self.activeTab ~= tabName)
     self.activeTab = tabName
@@ -694,16 +736,16 @@ function Window:buildContentComponents(container, tabsContainer)
         end
     )
 
-    self.btnColFilter = self:createToolbarButton(
+    self.btnColFilter = self:createDropdownButton(
         tabsContainer,
         "Show: All",
-        "Filter collections: All, Incomplete Only, Targeted Only, or Relics/Powers.",
-        false,
+        "Choose which collections to display.",
         function()
-            self.colFilterIndex = (self.colFilterIndex % #COL_FILTER_MODES) + 1
-            local mode = COL_FILTER_MODES[self.colFilterIndex]
-            if self.btnColFilter then self.btnColFilter.setLabel(mode.label) end
-            self:refresh()
+            local activeMode = COL_FILTER_MODES[self.colFilterIndex] and COL_FILTER_MODES[self.colFilterIndex].id or "all"
+            self:openDropdown(self.btnColFilter, COL_FILTER_MODES, activeMode, function(opt, idx)
+                self.colFilterIndex = idx
+                self:refresh()
+            end)
         end
     )
 
@@ -735,54 +777,54 @@ function Window:buildContentComponents(container, tabsContainer)
         end
     )
 
-    self.btnArtFilter = self:createToolbarButton(
+    self.btnArtFilter = self:createDropdownButton(
         tabsContainer,
         "Show: All",
-        "Filter artefacts: Show All (inventory + tracked), Tracked (only artefacts needed for tracked collections), or Owned (only artefacts in bag/bank).",
-        false,
+        "Choose which artefacts are shown in the list.",
         function()
-            self.tracker:cycleArtefactFilter()
-            if self.btnArtFilter then self.btnArtFilter.setLabel(self.tracker:getArtefactFilterLabel()) end
-            self:refresh()
+            self:openDropdown(self.btnArtFilter, ART_FILTER_MODES, self.tracker.artefactFilter, function(opt)
+                self.tracker:setArtefactFilter(opt.id)
+                self:refresh()
+            end)
         end
     )
 
-    self.btnArtStatus = self:createToolbarButton(
+    self.btnArtStatus = self:createDropdownButton(
         tabsContainer,
         "Status: All",
-        "Filter artefacts by status: All, Short Art, Short Mats, Ready, To Submit, or Submitted.",
-        false,
+        "Filter artefacts by repair or submission status.",
         function()
-            self.artStatusFilterIndex = (self.artStatusFilterIndex % #ART_STATUS_FILTERS) + 1
-            local mode = ART_STATUS_FILTERS[self.artStatusFilterIndex]
-            if self.btnArtStatus and mode then
-                self.btnArtStatus.setLabel(mode.label)
-                self.btnArtStatus.setActive(self.artStatusFilterIndex > 1)
-            end
-            self:refresh()
+            local activeMode = ART_STATUS_FILTERS[self.artStatusFilterIndex] and ART_STATUS_FILTERS[self.artStatusFilterIndex].id or "all"
+            self:openDropdown(self.btnArtStatus, ART_STATUS_FILTERS, activeMode, function(opt, idx)
+                self.artStatusFilterIndex = idx
+                self:refresh()
+            end)
         end
     )
 
-    self.btnDupes = self:createToolbarButton(
+    self.btnDupes = self:createDropdownButton(
         tabsContainer,
         "Dupes: All",
-        "Toggle artefact inclusion: Dupes: All, Dupes: 1x, or Include: 0 (clear all to 0 for selective repair).",
-        false,
+        "Choose how many duplicate damaged artefacts to include by default.",
         function()
-            self.tracker:cycleDuplicates()
-            if self.btnDupes then self.btnDupes.setLabel(self.tracker:getDuplicatesLabel()) end
-            self:refresh()
+            local activeMode = self.tracker:hasCustomCounts() and "__custom__" or self.tracker.includeMode
+            self:openDropdown(self.btnDupes, DUPES_MODES, activeMode, function(opt)
+                self.tracker:setIncludeMode(opt.id)
+                self:refresh()
+            end)
         end
     )
 
-    self.btnFilter = self:createToolbarButton(
+    self.btnFilter = self:createDropdownButton(
         tabsContainer,
         "Show: All",
-        "Toggle between showing all required materials or only materials you are short on.",
-        true,
+        "Choose which materials to display.",
         function()
-            self.tracker:toggleShortOnly()
-            self:refresh()
+            local activeMode = self.tracker.shortOnly and "short" or "all"
+            self:openDropdown(self.btnFilter, MAT_FILTER_MODES, activeMode, function(opt)
+                self.tracker:setShortOnly(opt.id == "short")
+                self:refresh()
+            end)
         end
     )
 
@@ -1262,6 +1304,221 @@ function Window:hideRowTooltip()
     end
 end
 
+local MAX_DROPDOWN_ITEMS = 8
+local DROPDOWN_ROW_H = 24
+local DROPDOWN_BG_NORMAL = Theme.makeColour(0.11, 0.10, 0.09, 0.98)
+local DROPDOWN_BG_ACTIVE = Theme.makeColour(0.19, 0.16, 0.11, 0.98)
+local DROPDOWN_BG_HOVER  = Theme.makeColour(0.30, 0.25, 0.16, 0.98)
+local DROPDOWN_BORDER    = Theme.makeColour(0.55, 0.45, 0.28, 0.95)
+
+function Window:buildDropdownMenu(parentRoot)
+    if not parentRoot then return end
+    local ddRoot = ui.Layer.new(parentRoot)
+    ddRoot.clickthrough = false
+    ddRoot:SetPos(0, 0)
+    ddRoot:SetSize(0, 0, 1.0, 1.0)
+    ddRoot.hidden = true
+
+    local backdrop = ui.Rectangle.new(ddRoot)
+    backdrop.colour = Theme.makeColour(0, 0, 0, 0.01)
+    backdrop.fill = true
+    backdrop.clickthrough = false
+    backdrop:SetPos(0, 0)
+    backdrop:SetSize(0, 0, 1.0, 1.0)
+    if ui.Hook and ui.Hook.ONCLICK then
+        backdrop:Subscribe(ui.Hook.ONCLICK, function()
+            self:closeDropdown()
+            return false
+        end)
+    end
+    if ui.Hook and ui.Hook.ONSCROLLWHEEL then
+        backdrop:Subscribe(ui.Hook.ONSCROLLWHEEL, function()
+            self:closeDropdown()
+            return false
+        end)
+    end
+
+    local panel = ui.Layer.new(ddRoot)
+    panel.clickthrough = false
+    panel:SetPos(0, 0)
+    panel:SetSize(140, 60)
+
+    local panelBg = ui.Rectangle.new(panel)
+    panelBg.colour = DROPDOWN_BG_NORMAL
+    panelBg.fill = true
+    panelBg.clickthrough = true
+    panelBg:SetPos(0, 0)
+    panelBg:SetSize(0, 0, 1.0, 1.0)
+
+    local border = ui.Rectangle.new(panel)
+    border.colour = DROPDOWN_BORDER
+    border.fill = false
+    border.clickthrough = true
+    border:SetPos(0, 0)
+    border:SetSize(0, 0, 1.0, 1.0)
+
+    local rows = {}
+    for i = 1, MAX_DROPDOWN_ITEMS do
+        local rowLayer = ui.Layer.new(panel)
+        rowLayer.clickthrough = false
+        rowLayer:SetPos(2, 2 + (i - 1) * DROPDOWN_ROW_H)
+        rowLayer:SetSize(-4, DROPDOWN_ROW_H, 1.0, 0)
+        rowLayer.hidden = true
+
+        local bg = ui.Rectangle.new(rowLayer)
+        bg.colour = DROPDOWN_BG_NORMAL
+        bg.fill = true
+        bg.clickthrough = true
+        bg:SetPos(0, 0)
+        bg:SetSize(0, 0, 1.0, 1.0)
+
+        local marker = ui.Rectangle.new(rowLayer)
+        marker.colour = Theme.COL_GOLD
+        marker.fill = true
+        marker.clickthrough = true
+        marker:SetPos(2, 4)
+        marker:SetSize(3, DROPDOWN_ROW_H - 8)
+
+        local txt = ui.Text.new(rowLayer)
+        txt.font = id.Font.MUSEO_SANS_15PT_REGULAR
+        txt.colour = Theme.COL_WHITE
+        txt.content = ""
+        txt.clickthrough = true
+        txt:SetPos(10, 4)
+        txt:SetSize(-14, DROPDOWN_ROW_H - 6, 1.0, 0)
+
+        local rowData = {
+            layer = rowLayer,
+            bg = bg,
+            marker = marker,
+            text = txt,
+            opt = nil,
+            idx = i,
+            isSelected = false,
+        }
+
+        if ui.Hook and ui.Hook.ONMOUSEOVER then
+            rowLayer:Subscribe(ui.Hook.ONMOUSEOVER, function()
+                rowData.bg.colour = DROPDOWN_BG_HOVER
+                local opt = rowData.opt
+                if opt then
+                    local sub = rowData.isSelected and "Currently selected" or "Click to select"
+                    self:showRowTooltip(opt.label or "", sub, opt.tooltip or "", Theme.COL_GOLD)
+                end
+                return true
+            end)
+        end
+        if ui.Hook and ui.Hook.ONMOUSELEAVE then
+            rowLayer:Subscribe(ui.Hook.ONMOUSELEAVE, function()
+                rowData.bg.colour = rowData.isSelected and DROPDOWN_BG_ACTIVE or DROPDOWN_BG_NORMAL
+                self:hideRowTooltip()
+                return true
+            end)
+        end
+        if ui.Hook and ui.Hook.ONCLICK then
+            rowLayer:Subscribe(ui.Hook.ONCLICK, function()
+                local dd = self.dropdownOverlay
+                local opt = rowData.opt
+                local onSelect = dd and dd.onSelect
+                self:closeDropdown()
+                if opt and onSelect then
+                    onSelect(opt, rowData.idx)
+                end
+                return true
+            end)
+        end
+
+        rows[i] = rowData
+    end
+
+    self.dropdownOverlay = {
+        root = ddRoot,
+        panel = panel,
+        border = border,
+        rows = rows,
+        onSelect = nil,
+    }
+    self._openDropdownBtn = nil
+end
+
+function Window:closeDropdown()
+    if self.dropdownOverlay and self.dropdownOverlay.root and not self.dropdownOverlay.root.hidden then
+        self.dropdownOverlay.root.hidden = true
+        self.dropdownOverlay.onSelect = nil
+    end
+    self._openDropdownBtn = nil
+    self:hideRowTooltip()
+end
+
+function Window:openDropdown(anchorBtn, options, activeId, onSelect)
+    local dd = self.dropdownOverlay
+    if not dd or not dd.root or not anchorBtn or not anchorBtn.root or not options or #options == 0 then
+        return
+    end
+    if self._openDropdownBtn == anchorBtn and not dd.root.hidden then
+        self:closeDropdown()
+        return
+    end
+
+    self._pendingHeaderTip = nil
+    self:hideRowTooltip()
+    self._openDropdownBtn = anchorBtn
+    dd.onSelect = onSelect
+
+    local maxLabelW = 0
+    for i = 1, math.min(#options, MAX_DROPDOWN_ITEMS) do
+        local opt = options[i]
+        local w = Theme.getStringPxWidth(opt.menuLabel or opt.label or "")
+        if w > maxLabelW then maxLabelW = w end
+    end
+
+    local anchorW = anchorBtn.root.width or 100
+    local winW = (self.root and self.root.width) or 360
+    local menuW = math.max(anchorW, math.min(winW - 12, math.ceil(maxLabelW + 26)))
+    local count = math.min(#options, MAX_DROPDOWN_ITEMS)
+    local menuH = (count * DROPDOWN_ROW_H) + 4
+
+    local baseX = self.stickyHeaderBaseX or 0
+    local baseY = self.stickyHeaderBaseY or 0
+    local btnX = anchorBtn.root.x or 8
+    local btnY = anchorBtn.root.y or 36
+    local btnH = anchorBtn.root.height or 26
+
+    local menuX = baseX + btnX
+    if menuX + menuW > winW - 6 then
+        menuX = math.max(6, winW - menuW - 6)
+    end
+    local menuY = baseY + btnY + btnH + 2
+
+    dd.panel:SetPos(menuX, menuY)
+    dd.panel:SetSize(menuW, menuH)
+
+    for i = 1, MAX_DROPDOWN_ITEMS do
+        local row = dd.rows[i]
+        local opt = options[i]
+        if opt then
+            local isSel = (opt.id == activeId)
+            row.opt = opt
+            row.idx = i
+            row.isSelected = isSel
+            row.bg.colour = isSel and DROPDOWN_BG_ACTIVE or DROPDOWN_BG_NORMAL
+            row.marker.hidden = not isSel
+            row.text.colour = isSel and Theme.COL_GOLD or Theme.COL_WHITE
+            row.text.content = opt.menuLabel or opt.label or ""
+            row.layer.hidden = false
+        else
+            row.opt = nil
+            row.isSelected = false
+            row.layer.hidden = true
+        end
+    end
+
+    dd.root.hidden = false
+    if dd.root.MoveToFront then
+        dd.root:MoveToFront()
+    end
+end
+
 function Window:onHoverSyncBadge(badgeKind)
     if self._isResizing then return end
     self:showRowTooltip(Tooltip.buildSyncBadgeTooltip(self.tracker, badgeKind))
@@ -1604,7 +1861,7 @@ function Window:updateToolbarLayout(forceReflow)
             if self.btnSpots then self.btnSpots.setHidden(true) end
         elseif isArtTab then
             local availForBtns = totalBtnsW - (gap * 2)
-            local w1 = math.floor(availForBtns * 0.33)
+            local w1 = math.floor(availForBtns * 0.34)
             local w2 = math.floor(availForBtns * 0.36)
             local w3 = availForBtns - (w1 + w2)
             self.btnArtFilter.setHidden(false)
@@ -1894,6 +2151,7 @@ function Window:onWindowGeometryChanged()
         return
     end
     self._lastGeomX, self._lastGeomY, self._lastGeomW, self._lastGeomH = rx, ry, rw, rh
+    self:closeDropdown()
 
     self:updateStickyHeaderBounds()
 
@@ -2898,8 +3156,7 @@ function Window:refresh()
 
     self.btnSource.setLabel(mode.shortLabel)
     if self.btnColFilter then
-        self.btnColFilter.setLabel(COL_FILTER_MODES[self.colFilterIndex].label)
-        self.btnColFilter.setActive(self.colFilterIndex > 1)
+        self.btnColFilter.setLabel(COL_FILTER_MODES[self.colFilterIndex].label or "Show: All")
     end
     if self.btnTargetMax then
         self.btnTargetMax.setHidden(not isColTab)
@@ -2914,20 +3171,17 @@ function Window:refresh()
         self.colHReward.content = "Reward"
     end
     if self.btnArtFilter then
-        self.btnArtFilter.setLabel(t:getArtefactFilterLabel())
-        self.btnArtFilter.setActive(t.artefactFilter ~= "ALL")
+        self.btnArtFilter.setLabel(t:getArtefactFilterLabel() or "Show: All")
     end
     if self.btnArtStatus then
         local statusMode = ART_STATUS_FILTERS[self.artStatusFilterIndex] or ART_STATUS_FILTERS[1]
-        self.btnArtStatus.setLabel(statusMode.label)
-        self.btnArtStatus.setActive(self.artStatusFilterIndex > 1)
+        self.btnArtStatus.setLabel(statusMode.label or "Status: All")
         self.btnArtStatus.setHidden(not isArtTab)
     end
     if self.btnDupes then
-        self.btnDupes.setLabel(t:getDuplicatesLabel())
+        self.btnDupes.setLabel(t:getDuplicatesLabel() or "Dupes: All")
     end
-    self.btnFilter.setLabel(t.shortOnly and "Short Only" or "Show: All")
-    self.btnFilter.setActive(t.shortOnly)
+    self.btnFilter.setLabel(t.shortOnly and "Show: Short Only" or "Show: All")
     if self.btnSpots and self.overlay then
         self.btnSpots.setLabel(self.overlay.enabled and "Spots: On" or "Spots: Off")
         self.btnSpots.setActive(self.overlay.enabled)
@@ -3016,9 +3270,12 @@ function Window:shutdown()
         self.searchField = nil
     end
     if self.win and self.win.Destroy then
-        pcall(function() self:onWindowGeometryChanged() end)
+        self.dropdownOverlay = nil
         pcall(function() self.win:Destroy() end)
         self.win = nil
+    elseif self.dropdownOverlay and self.dropdownOverlay.root and self.dropdownOverlay.root.Destroy then
+        pcall(function() self.dropdownOverlay.root:Destroy() end)
+        self.dropdownOverlay = nil
     end
 end
 

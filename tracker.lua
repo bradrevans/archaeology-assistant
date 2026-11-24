@@ -481,20 +481,12 @@ function Tracker:hasCustomCounts()
     return countMapEntries(self.customArtefactCounts) > 0
 end
 
-function Tracker:cycleDuplicates()
-    if self:hasCustomCounts() or countMapEntries(self.excludedArtefacts) > 0 then
-        self.includeMode = "ALL"
-        self.includeDuplicates = true
-    elseif self.includeMode == "ALL" then
-        self.includeMode = "ONE"
-        self.includeDuplicates = false
-    elseif self.includeMode == "ONE" then
-        self.includeMode = "ZERO"
-        self.includeDuplicates = false
-    else
-        self.includeMode = "ALL"
-        self.includeDuplicates = true
+function Tracker:setIncludeMode(mode)
+    if mode ~= "ALL" and mode ~= "ONE" and mode ~= "ZERO" then
+        mode = "ALL"
     end
+    self.includeMode = mode
+    self.includeDuplicates = (mode == "ALL")
     self.excludedArtefacts = {}
     self.customArtefactCounts = {}
 
@@ -505,6 +497,18 @@ function Tracker:cycleDuplicates()
     return self:recalculate()
 end
 
+function Tracker:cycleDuplicates()
+    local nextMode = "ALL"
+    if not (self:hasCustomCounts() or countMapEntries(self.excludedArtefacts) > 0) then
+        if self.includeMode == "ALL" then
+            nextMode = "ONE"
+        elseif self.includeMode == "ONE" then
+            nextMode = "ZERO"
+        end
+    end
+    return self:setIncludeMode(nextMode)
+end
+
 function Tracker:toggleDuplicates()
     return self:cycleDuplicates()
 end
@@ -513,16 +517,23 @@ function Tracker:cycleDuplicatesThreshold()
     return self:cycleDuplicates()
 end
 
-function Tracker:cycleArtefactFilter()
-    if self.artefactFilter == "ALL" then
-        self.artefactFilter = "TARGETED"
-    elseif self.artefactFilter == "TARGETED" then
-        self.artefactFilter = "OWNED"
-    else
-        self.artefactFilter = "ALL"
+function Tracker:setArtefactFilter(mode)
+    if mode ~= "ALL" and mode ~= "TARGETED" and mode ~= "OWNED" then
+        mode = "ALL"
     end
+    self.artefactFilter = mode
     DB.set("arch_art_filter", self.artefactFilter)
     return self:recalculate()
+end
+
+function Tracker:cycleArtefactFilter()
+    local nextMode = "ALL"
+    if self.artefactFilter == "ALL" then
+        nextMode = "TARGETED"
+    elseif self.artefactFilter == "TARGETED" then
+        nextMode = "OWNED"
+    end
+    return self:setArtefactFilter(nextMode)
 end
 
 function Tracker:getArtefactFilterLabel()
@@ -545,10 +556,14 @@ function Tracker:getDuplicatesLabel()
     return "Dupes: All"
 end
 
-function Tracker:toggleShortOnly()
-    self.shortOnly = not self.shortOnly
+function Tracker:setShortOnly(isShort)
+    self.shortOnly = (isShort == true)
     DB.set("arch_short_only", self.shortOnly and 1 or 0)
     return self:recalculate()
+end
+
+function Tracker:toggleShortOnly()
+    return self:setShortOnly(not self.shortOnly)
 end
 
 function Tracker:toggleArtefactExcluded(damagedName)
