@@ -95,7 +95,7 @@ local function getLocConfigSignature(loc)
         end
     end
 
-    local cfgName, pCfgName, fastPicking, width = nil, nil, nil, nil
+    local cfgName, pCfgName, pName, fastPicking, width = nil, nil, nil, nil, nil
     pcall(function()
         if cfg then
             cfgName     = cfg.configName
@@ -103,7 +103,12 @@ local function getLocConfigSignature(loc)
             width       = cfg.width
         end
     end)
-    pcall(function() pCfgName = pCfg and pCfg.configName end)
+    pcall(function()
+        if pCfg then
+            pCfgName = pCfg.configName
+            pName    = pCfg.name
+        end
+    end)
 
     local upperCfg      = cfgName and string.upper(tostring(cfgName)) or ""
     local upperPCfg     = pCfgName and string.upper(tostring(pCfgName)) or ""
@@ -156,6 +161,7 @@ local function getLocConfigSignature(loc)
         cfgName     = cfgName,
         pCfgId      = pCfgId,
         pCfgName    = pCfgName,
+        pName       = pName,
         op1         = op1Name or "nil",
         fastPicking = fastPicking,
         width       = width,
@@ -275,6 +281,29 @@ local function classifyRawSpotName(rawName)
     rawNameSpotCache[rawName] = entry
     rawNameSpotCacheSize = rawNameSpotCacheSize + 1
     return entry
+end
+
+local function classifyFromConfigSig(sig)
+    if not sig then return false end
+    if sig.pName and sig.pName ~= "" then
+        local c = classifyRawSpotName(sig.pName)
+        if c then return c end
+    end
+    local cfgStr = sig.pCfgName or sig.cfgName
+    if type(cfgStr) == "string" and cfgStr ~= "" then
+        local upper = string.upper(cfgStr)
+        if string.sub(upper, 1, 16) == "ARCH_EXCAVATION_" then
+            local body = string.sub(cfgStr, 17)
+            body = string.gsub(body, "_[Uu][Nn][Cc][Oo][Vv][Ee][Rr][Ee][Dd]$", "")
+            body = string.gsub(body, "_[Cc][Oo][Vv][Ee][Rr][Ee][Dd]$", "")
+            body = string.gsub(body, "_[Mm][Uu][Ll][Tt][Ii]$", "")
+            body = string.gsub(body, "_%d+$", "")
+            body = string.gsub(body, "_", " ")
+            local c = classifyRawSpotName(body)
+            if c then return c end
+        end
+    end
+    return false
 end
 
 --- Builds and caches a lowercase hotspot name -> yielded artefacts lookup map and flat deduplicated list.
@@ -915,13 +944,15 @@ function Overlay:scanWorldSpots(force)
         if seenCoords[coordKey] then return end
 
         local okN, rawName = pcall(getEntityDisplayName, loc)
-        if not okN or not rawName or rawName == "" then return end
-
-        local spotClass = classifyRawSpotName(rawName)
-        if not spotClass then return end
+        local spotClass = (okN and rawName and rawName ~= "") and classifyRawSpotName(rawName) or false
 
         local canExcavate, locTier, locSig = isExcavatableLoc(loc)
         if not canExcavate then return end
+
+        if not spotClass then
+            spotClass = classifyFromConfigSig(locSig)
+            if not spotClass then return end
+        end
 
         if spotClass.isCache then
             local def = deficits[spotClass.cacheMatLower]
@@ -1010,7 +1041,7 @@ function Overlay:scanWorldSpots(force)
         local filtered = {}
         for _, spot in ipairs(matched) do
             local bestTier = bestTierBySpotKey[spot.spotKey]
-            if bestTier == nil or spot.tier >= bestTier then
+            if bestTier == nil or spot.tier >= (bestTier - 20) then
                 table.insert(filtered, spot)
             end
         end
