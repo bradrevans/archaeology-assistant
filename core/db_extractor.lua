@@ -297,28 +297,60 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
     rebuildArtefactIndices(Artefacts)
 
     -- 2. Map ARCH_SITE -> section rows -> hotspots & caches
+    Hotspots.DIG_SITES = Hotspots.DIG_SITES or {}
     local excSiteName = {}
-    local function mapSiteSubRow(sub, sName, depth)
+    local excSubSiteName = {}
+    local function mapSiteSubRow(sub, parentSiteName, subName, depth)
         if (type(sub) ~= "table" and type(sub) ~= "userdata") or not sub.id then return end
-        if not excSiteName[sub.id] then
-            excSiteName[sub.id] = sName
+        if parentSiteName and parentSiteName ~= "" then
+            excSiteName[sub.id] = parentSiteName
+        elseif not excSiteName[sub.id] and subName and subName ~= "" then
+            excSiteName[sub.id] = subName
+        end
+        if subName and subName ~= "" then
+            excSubSiteName[sub.id] = subName
         end
         if depth >= 2 then return end
+        local rowLabel = getFirst(sub, 3)
+        local nextSubName = (depth == 1 and rowLabel and rowLabel ~= "") and rowLabel or subName
         for _, child in ipairs(getCol(sub, 17)) do
-            mapSiteSubRow(child, sName, depth + 1)
+            mapSiteSubRow(child, parentSiteName, nextSubName, depth + 1)
         end
         for _, child in ipairs(getCol(sub, 18)) do
-            mapSiteSubRow(child, sName, depth + 1)
+            mapSiteSubRow(child, parentSiteName, nextSubName, depth + 1)
         end
     end
+    -- Pass 1: Parent dig sites (c2 == 1)
     for _, sRow in ipairs(siteRows) do
+        local sKind = tonumber(getFirst(sRow, 2))
+        local sIdx  = tonumber(getFirst(sRow, 1))
         local sName = getFirst(sRow, 3)
-        if sName and sName ~= "" then
+        if sKind == 1 and sName and sName ~= "" then
+            local info = {
+                name     = sName,
+                index    = sIdx,
+                mapDynId = (sIdx and sIdx >= 1) and (sIdx - 1) or nil,
+            }
+            Hotspots.DIG_SITES[sName] = info
+            Hotspots.DIG_SITES[string.lower(sName)] = info
             for _, sub in ipairs(getCol(sRow, 17)) do
-                mapSiteSubRow(sub, sName, 1)
+                mapSiteSubRow(sub, sName, nil, 1)
             end
             for _, sub in ipairs(getCol(sRow, 18)) do
-                mapSiteSubRow(sub, sName, 1)
+                mapSiteSubRow(sub, sName, nil, 1)
+            end
+        end
+    end
+    -- Pass 2: Standalone sub-sites (c2 ~= 1) not attached to a parent dig site
+    for _, sRow in ipairs(siteRows) do
+        local sKind = tonumber(getFirst(sRow, 2))
+        local sName = getFirst(sRow, 3)
+        if sKind ~= 1 and sName and sName ~= "" then
+            for _, sub in ipairs(getCol(sRow, 18)) do
+                if (type(sub) == "table" or type(sub) == "userdata") and sub.id then
+                    if not excSiteName[sub.id] then excSiteName[sub.id] = sName end
+                    if not excSubSiteName[sub.id] then excSubSiteName[sub.id] = sName end
+                end
             end
         end
     end
@@ -371,6 +403,8 @@ function DBExtractor.syncAll(Materials, Artefacts, Collections, Hotspots)
                 Hotspots.BY_NAME[hName] = {
                     level     = hLvl or (existingSpot and existingSpot.level) or 1,
                     materials = spotMats,
+                    digSite   = sName or (existingSpot and existingSpot.digSite),
+                    subSite   = excSubSiteName[rowId] or (existingSpot and existingSpot.subSite),
                 }
                 stats.spots = stats.spots + 1
             end
