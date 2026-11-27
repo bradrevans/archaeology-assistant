@@ -887,6 +887,153 @@ function Widgets.buildCollectionRow(colLayer, rowIdx, rowY)
     return rowTbl
 end
 
+--- Creates a 22x18 bevelled RS3 push-button with a centered crosshair glyph for row "Locate" actions.
+function Widgets.createLocateIcon(parent, x, y, hidden, kind)
+    local layer = ui.Layer.new(parent)
+    layer.clickthrough = true
+    layer:SetPos(x or 0, y or 0, 0, 0)
+    layer:SetSize(22, 18, 0, 0)
+    layer.hidden = (hidden == true)
+
+    local COL_ACCENT      = Theme.COL_CYAN
+    local COL_BORDER_IDLE = Theme.makeColour(0.58, 0.50, 0.35, 0.96)
+    local COL_BG_IDLE     = Theme.makeColour(0.24, 0.22, 0.18, 0.98)
+    local COL_BG_HOVER    = Theme.makeColour(0.36, 0.31, 0.23, 1.00)
+    local COL_BG_ACTIVE   = Theme.makeColour(0.08, 0.30, 0.38, 0.98)
+    local COL_BEVEL_IDLE  = Theme.makeColour(1.00, 0.94, 0.78, 0.22)
+    local COL_BEVEL_LIT   = Theme.makeColour(1.00, 0.96, 0.85, 0.44)
+    local COL_SHADOW      = Theme.makeColour(0.00, 0.00, 0.00, 0.55)
+    local COL_GLYPH_IDLE  = Theme.COL_GOLD
+    local COL_GLYPH_HOVER = Theme.COL_WHITE
+
+    local border = ui.Rectangle.new(layer)
+    border.colour = COL_BORDER_IDLE
+    border.fill = true
+    border.clickthrough = true
+    border:SetPos(0, 0)
+    border:SetSize(22, 18)
+
+    local bg = ui.Rectangle.new(layer)
+    bg.colour = COL_BG_IDLE
+    bg.fill = true
+    bg.clickthrough = true
+    bg:SetPos(1, 1)
+    bg:SetSize(20, 16)
+
+    local bevelTop = ui.Rectangle.new(layer)
+    bevelTop.colour = COL_BEVEL_IDLE
+    bevelTop.fill = true
+    bevelTop.clickthrough = true
+    bevelTop:SetPos(1, 1)
+    bevelTop:SetSize(20, 1)
+
+    local bevelBot = ui.Rectangle.new(layer)
+    bevelBot.colour = COL_SHADOW
+    bevelBot.fill = true
+    bevelBot.clickthrough = true
+    bevelBot:SetPos(1, 16)
+    bevelBot:SetSize(20, 1)
+
+    local ring = ui.Rectangle.new(layer)
+    ring.colour = COL_GLYPH_IDLE
+    ring.fill = false
+    ring.clickthrough = true
+    ring:SetPos(7, 5)
+    ring:SetSize(8, 8)
+
+    local tickTop = ui.Rectangle.new(layer)
+    tickTop.colour = COL_GLYPH_IDLE
+    tickTop.fill = true
+    tickTop.clickthrough = true
+    tickTop:SetPos(10, 2)
+    tickTop:SetSize(2, 3)
+
+    local tickBot = ui.Rectangle.new(layer)
+    tickBot.colour = COL_GLYPH_IDLE
+    tickBot.fill = true
+    tickBot.clickthrough = true
+    tickBot:SetPos(10, 13)
+    tickBot:SetSize(2, 3)
+
+    local tickLeft = ui.Rectangle.new(layer)
+    tickLeft.colour = COL_GLYPH_IDLE
+    tickLeft.fill = true
+    tickLeft.clickthrough = true
+    tickLeft:SetPos(4, 8)
+    tickLeft:SetSize(3, 2)
+
+    local tickRight = ui.Rectangle.new(layer)
+    tickRight.colour = COL_GLYPH_IDLE
+    tickRight.fill = true
+    tickRight.clickthrough = true
+    tickRight:SetPos(15, 8)
+    tickRight:SetSize(3, 2)
+
+    local dot = ui.Rectangle.new(layer)
+    dot.colour = COL_GLYPH_IDLE
+    dot.fill = true
+    dot.clickthrough = true
+    dot:SetPos(10, 8)
+    dot:SetSize(2, 2)
+
+    local curActive = false
+    local curHovered = false
+
+    local function syncVisuals()
+        local bCol, bgCol, bevCol, gCol
+        if curActive then
+            bCol   = COL_ACCENT
+            bgCol  = COL_BG_ACTIVE
+            bevCol = COL_BEVEL_LIT
+            gCol   = curHovered and COL_GLYPH_HOVER or COL_ACCENT
+        elseif curHovered then
+            bCol   = COL_ACCENT
+            bgCol  = COL_BG_HOVER
+            bevCol = COL_BEVEL_LIT
+            gCol   = COL_GLYPH_HOVER
+        else
+            bCol   = COL_BORDER_IDLE
+            bgCol  = COL_BG_IDLE
+            bevCol = COL_BEVEL_IDLE
+            gCol   = COL_GLYPH_IDLE
+        end
+        border.colour    = bCol
+        bg.colour        = bgCol
+        bevelTop.colour  = bevCol
+        ring.colour      = gCol
+        tickTop.colour   = gCol
+        tickBot.colour   = gCol
+        tickLeft.colour  = gCol
+        tickRight.colour = gCol
+        dot.colour       = gCol
+    end
+
+    return {
+        layer = layer,
+        setPos = function(nx, ny)
+            layer:SetPos(nx, ny, 0, 0)
+        end,
+        setHidden = function(h)
+            local hide = (h == true)
+            if layer.hidden ~= hide then
+                layer.hidden = hide
+            end
+        end,
+        setActive = function(active)
+            local a = (active == true)
+            if curActive == a then return end
+            curActive = a
+            syncVisuals()
+        end,
+        setHovered = function(hovered)
+            local hv = (hovered == true)
+            if curHovered == hv then return end
+            curHovered = hv
+            syncVisuals()
+        end,
+    }
+end
+
 --- Builds a single row in the Artefacts table using `prettyui.Sprites.SLIDER.decrease` and `increase`
 --- official RS3 stepper buttons instead of custom rectangles.
 function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
@@ -914,7 +1061,9 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
     local lvlTxt = Widgets.createText(artLayer, Theme.COL_CREAM, 170, rowY + 2, 30, rowH - 2)
     lvlTxt.hidden = isHidden
 
-    local locTxt = Widgets.createText(artLayer, Theme.COL_MUTED, 202, rowY + 2, 100, rowH - 2, nil, 0, 0, 0, 0)
+    local locateIcon = Widgets.createLocateIcon(artLayer, 202, rowY + 2, isHidden, "artefact")
+
+    local locTxt = Widgets.createText(artLayer, Theme.COL_MUTED, 228, rowY + 2, 74, rowH - 2, nil, 0, 0, 0, 0)
     locTxt.hidden = isHidden
 
     local ownedTxt = Widgets.createText(artLayer, Theme.COL_MUTED, -316, rowY + 2, 82, rowH - 2, nil, 1.0, 0, 0, 0)
@@ -974,6 +1123,7 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
         icon = icon,
         nameTxt = nameTxt,
         lvlTxt = lvlTxt,
+        locateIcon = locateIcon,
         locTxt = locTxt,
         ownedTxt = ownedTxt,
         minusBg = minusBg,
@@ -989,7 +1139,9 @@ function Widgets.buildArtefactRow(artLayer, rowIdx, rowY)
             icon:SetPos(14, newY + 2, 0, 0)
             nameTxt:SetPos(36, newY + 2)
             lvlTxt:SetPos(rowTbl.lvlX or 170, newY + 2, 0, 0)
-            locTxt:SetPos(rowTbl.locX or 202, newY + 2, 0, 0)
+            local lx = rowTbl.locX or 202
+            locateIcon.setPos(lx, newY + 2)
+            locTxt:SetPos(lx + 26, newY + 2, 0, 0)
             local ownedOff = rowTbl.ownedOffset or 316
             ownedTxt:SetPos(-ownedOff, newY + 2, 1.0, 0)
             local qtyOff = rowTbl.qtyOffset or 264
@@ -1031,7 +1183,9 @@ function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY)
     local lvlTxt = Widgets.createText(tableLayer, Theme.COL_CREAM, 173, rowY + 2, 32, rowH - 2)
     lvlTxt.hidden = isHidden
 
-    local locTxt = Widgets.createText(tableLayer, Theme.COL_MUTED, 209, rowY + 2, -390, rowH - 2, nil, 0, 0, 1.0, 0)
+    local locateIcon = Widgets.createLocateIcon(tableLayer, 209, rowY + 2, isHidden, "material")
+
+    local locTxt = Widgets.createText(tableLayer, Theme.COL_MUTED, 235, rowY + 2, -416, rowH - 2, nil, 0, 0, 1.0, 0)
     locTxt.hidden = isHidden
 
     local progTxt = Widgets.createText(tableLayer, Theme.COL_WHITE, -175, rowY + 2, 100, rowH - 2, nil, 1.0, 0, 0, 0)
@@ -1047,6 +1201,7 @@ function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY)
         icon = icon,
         nameTxt = nameTxt,
         lvlTxt = lvlTxt,
+        locateIcon = locateIcon,
         locTxt = locTxt,
         progTxt = progTxt,
         statusTxt = statusTxt,
@@ -1057,7 +1212,8 @@ function Widgets.buildMaterialRow(tableLayer, rowIdx, rowY)
             icon:SetPos(14, newY + 2, 0, 0)
             nameTxt:SetPos(38, newY + 2)
             lvlTxt:SetPos(173, newY + 2)
-            locTxt:SetPos(209, newY + 2, 0, 0)
+            locateIcon.setPos(209, newY + 2)
+            locTxt:SetPos(235, newY + 2, 0, 0)
             progTxt:SetPos(-175, newY + 2, 1.0, 0)
             statusTxt:SetPos(-71, newY + 2, 1.0, 0)
         end,

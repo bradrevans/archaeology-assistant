@@ -84,6 +84,9 @@ local function onInventoryEvent(event)
         if not tracker.boardSyncedLive then
             tracker:syncCollectionsDoneStatus()
         end
+        if window.overlay and window.overlay.onInventoryChanged then
+            window.overlay:onInventoryChanged()
+        end
         window:refresh()
     end, function(e)
         recordError("onInventoryEvent", e)

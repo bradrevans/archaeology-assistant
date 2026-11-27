@@ -5,9 +5,13 @@
 
 local Utils = require("core/utils")
 local DB = require("core/db")
+local Artefacts = require("data/artefacts")
+local Materials = require("data/materials")
+local Locations = require("data/locations")
 local Theme = require("ui/theme")
 local Tooltip = require("ui/tooltip")
 local Widgets = require("ui/widgets")
+local LocateWindow = require("ui/locate_window")
 
 local okOverlay, Overlay = xpcall(function()
     return require("ui/overlay")
@@ -120,7 +124,14 @@ function Window.new(tracker)
         end
     end
 
+    self.locateWindow = LocateWindow.new(function()
+        if self:clearLocateTarget() then
+            self:refresh()
+        end
+    end)
+
     self.isVisible = DB.getBool("arch_win_visible", true)
+    self.prioritiseCaches = DB.getBool("arch_prioritise_caches", true)
 
     if Event and Event.ContentLayerReady and Event.ContentLayerReady.Subscribe then
         Event.ContentLayerReady.Subscribe(HUB_EVENT_ID, function(event)
@@ -223,8 +234,17 @@ function Window:getTableLayerGeometry(tblLayer)
     return tblX, tblY, tblW, viewTop, viewBottom
 end
 
+function Window:clearHoveredLocateBtn()
+    if self._hoveredLocateIcon and self._hoveredLocateIcon.setHovered then
+        self._hoveredLocateIcon.setHovered(false)
+    end
+    self._hoveredLocateIcon = nil
+    self._hoveredOnLocateBtn = false
+end
+
 function Window:updateTableHover()
     if not self.isVisible or self._isResizing or not self._tableMouseInside or self._tableMouseInside ~= self.activeTab then
+        self:clearHoveredLocateBtn()
         return
     end
     local tblLayer, visibleCount
@@ -239,6 +259,7 @@ function Window:updateTableHover()
         visibleCount = self.visibleRowCount or 0
     end
     if not tblLayer or tblLayer.hidden or visibleCount <= 0 then
+        self:clearHoveredLocateBtn()
         if self._hoveredTableRow ~= nil then
             self._hoveredTableTab = nil
             self._hoveredTableRow = nil
@@ -252,6 +273,7 @@ function Window:updateTableHover()
     if not tblX or not mx or not my then return end
 
     if my < viewTop or my > viewBottom or mx < (tblX + 8) or mx > (tblX + tblW - 8) then
+        self:clearHoveredLocateBtn()
         if self._hoveredTableRow ~= nil then
             self._hoveredTableTab = nil
             self._hoveredTableRow = nil
@@ -260,9 +282,11 @@ function Window:updateTableHover()
         return
     end
 
+    local localX = mx - tblX
     local localY = my - tblY
     local rowIdx = math.floor((localY - 24) / Theme.ROW_HEIGHT) + 1
     if rowIdx < 1 or rowIdx > visibleCount or localY < 24 then
+        self:clearHoveredLocateBtn()
         if self._hoveredTableRow ~= nil then
             self._hoveredTableTab = nil
             self._hoveredTableRow = nil
@@ -271,10 +295,67 @@ function Window:updateTableHover()
         return
     end
 
-    if self._hoveredTableTab ~= self.activeTab or self._hoveredTableRow ~= rowIdx then
+    local overLocateBtn = false
+    local hoveredIcon = nil
+    if self.activeTab == "artefacts" and self._artLocVisible ~= false then
+        local locX = self._artLocX or 202
+        if localX >= (locX - 1) and localX <= (locX + 23) then
+            local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
+            if item and item.artefact then
+                overLocateBtn = true
+                local slotIdx = rowIdx - (self._lastArtFirstIdx or 1) + 1
+                local rowUI = self.artefactRows and self.artefactRows[slotIdx]
+                hoveredIcon = rowUI and rowUI.locateIcon or nil
+            end
+        end
+    elseif self.activeTab == "materials" then
+        if localX >= 208 and localX <= 232 then
+            local item = self.currentMaterials and self.currentMaterials[rowIdx]
+            local mat = item and item.material
+            if item and not (mat and mat.isArchMaterial == false) then
+                overLocateBtn = true
+                local slotIdx = rowIdx - (self._lastMatFirstIdx or 1) + 1
+                local rowUI = self.materialRows and self.materialRows[slotIdx]
+                hoveredIcon = rowUI and rowUI.locateIcon or nil
+            end
+        end
+    end
+
+    if self._hoveredLocateIcon ~= hoveredIcon then
+        if self._hoveredLocateIcon and self._hoveredLocateIcon.setHovered then
+            self._hoveredLocateIcon.setHovered(false)
+        end
+        self._hoveredLocateIcon = hoveredIcon
+        if hoveredIcon and hoveredIcon.setHovered then
+            hoveredIcon.setHovered(true)
+        end
+    end
+
+    if self._hoveredTableTab ~= self.activeTab
+        or self._hoveredTableRow ~= rowIdx
+        or self._hoveredOnLocateBtn ~= overLocateBtn then
         self._hoveredTableTab = self.activeTab
         self._hoveredTableRow = rowIdx
-        if self.activeTab == "collections" then
+        self._hoveredOnLocateBtn = overLocateBtn
+        if overLocateBtn then
+            if self.activeTab == "artefacts" then
+                local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
+                local art = item and item.artefact
+                if art then
+                    local active = (self._activeLocateKey ~= nil and self._activeLocateKey == art.name)
+                    local title = active and ("Stop Locating: " .. art.name) or ("Locate: " .. art.name)
+                    self:showRowTooltip(title, "Click to toggle step-by-step navigation & world highlights.", nil, Theme.COL_CYAN, art.restoredId or art.id)
+                end
+            else
+                local item = self.currentMaterials and self.currentMaterials[rowIdx]
+                local mat = item and item.material
+                if item then
+                    local active = (self._activeLocateKey ~= nil and self._activeLocateKey == item.name)
+                    local title = active and ("Stop Locating: " .. item.name) or ("Locate: " .. item.name)
+                    self:showRowTooltip(title, "Click to toggle step-by-step navigation & world highlights.", nil, Theme.COL_GOLD, mat and mat.id)
+                end
+            end
+        elseif self.activeTab == "collections" then
             self:onHoverCollectionRow(rowIdx)
         elseif self.activeTab == "artefacts" then
             self:onHoverArtefactRow(rowIdx)
@@ -285,6 +366,14 @@ function Window:updateTableHover()
 end
 
 function Window:onLogicTick()
+    if self._activeLocateSpec and self.locateWindow then
+        self._locWinTick = (self._locWinTick or 0) + 1
+        if self._locWinTick >= 4 then
+            self._locWinTick = 0
+            self:updateLocateWindow()
+        end
+    end
+
     if self.tooltip and self.tooltip.root and not self.tooltip.root.hidden then
         if not self.isVisible or self._isResizing then
             self._hoveredTableTab = nil
@@ -334,7 +423,8 @@ function Window:onLogicTick()
     tip.ticks = tip.ticks + 1
     if not tip.shown and tip.ticks >= 50 then
         tip.shown = true
-        self:showRowTooltip(tip.body, "", nil, Theme.COL_WHITE)
+        local bodyStr = (type(tip.body) == "function") and tip.body() or tip.body
+        self:showRowTooltip(bodyStr or "", "", nil, Theme.COL_WHITE)
     end
 end
 
@@ -927,6 +1017,8 @@ function Window:unloadTabLayer(tabName)
         self._lastColLayerCount = nil
         self._lastColFirstIdx = nil
     elseif tabName == "artefacts" and self.artefactTableLayer then
+        self._hoveredLocateIcon = nil
+        self._hoveredOnLocateBtn = false
         if self.artQtyInput and self.artQtyInput.Destroy then
             pcall(function() self.artQtyInput:Destroy() end)
         end
@@ -947,6 +1039,8 @@ function Window:unloadTabLayer(tabName)
         self._lastArtLayerCount = nil
         self._lastArtFirstIdx = nil
     elseif tabName == "materials" and self.tableLayer then
+        self._hoveredLocateIcon = nil
+        self._hoveredOnLocateBtn = false
         pcall(function() self.tableLayer:Destroy() end)
         self.tableLayer = nil
         self.materialRows = {}
@@ -1183,6 +1277,174 @@ function Window:ensureCollectionRow(i)
     return row
 end
 
+function Window:getLocateNeededQty(spec, res)
+    if not spec or not self.tracker then return 0 end
+    if spec.kind == "artefact" then
+        if self.tracker.getArtefactNeededCount then
+            return self.tracker:getArtefactNeededCount(spec.damagedName, spec.itemName) or 0
+        end
+        return 0
+    end
+    local mats = (res and res.materials) or (self.tracker.lastResult and self.tracker.lastResult.materials) or {}
+    local targetLower = string.lower(spec.key or "")
+    for _, row in ipairs(mats) do
+        if row.name and string.lower(row.name) == targetLower then
+            return row.short or 0
+        end
+    end
+    return 0
+end
+
+function Window:saveLocateTargetToDB()
+    local spec = self._activeLocateSpec
+    if spec and spec.kind and spec.key then
+        local autoFlag = spec.autoClearOnComplete and 1 or 0
+        DB.set("arch_locate_target", string.format("%s|%s|%d", tostring(spec.kind), tostring(spec.key), autoFlag))
+    else
+        DB.set("arch_locate_target", "")
+    end
+end
+
+function Window:syncLocateTargetFromDB()
+    local curAcct = DB.getActiveAccount and DB.getActiveAccount() or nil
+    if not curAcct or curAcct == self._loadedLocateAcct then
+        return
+    end
+    self._loadedLocateAcct = curAcct
+    local raw = DB.get("arch_locate_target", "")
+    local spec = nil
+    if type(raw) == "string" and raw ~= "" then
+        local kind, key, autoFlag = string.match(raw, "^([^|]+)|([^|]+)|([01])$")
+        if not kind then
+            kind, key = string.match(raw, "^([^|]+)|(.+)$")
+            autoFlag = "0"
+        end
+        if kind == "artefact" and key and key ~= "" then
+            local art = Artefacts.findRestoredByName(key) or Artefacts.findByName(key)
+            if art then
+                spec = Locations.getArtefactFocusSpec({ artefact = art })
+            end
+        elseif kind == "material" and key and key ~= "" then
+            local mat = Materials.get(key)
+            if mat and mat.isArchMaterial ~= false then
+                spec = Locations.getMaterialFocusSpec({ material = mat, name = mat.name }, self.prioritiseCaches)
+            end
+        end
+        if spec and spec.key then
+            spec.autoClearOnComplete = (autoFlag == "1")
+        else
+            spec = nil
+        end
+    end
+
+    if spec then
+        self._activeLocateKey  = spec.key
+        self._activeLocateSpec = spec
+        if self.overlay and self.overlay.setFocusTarget then
+            self.overlay:setFocusTarget(spec)
+        end
+    else
+        self._activeLocateKey  = nil
+        self._activeLocateSpec = nil
+        if self.overlay and self.overlay.setFocusTarget then
+            self.overlay:setFocusTarget(nil)
+        end
+    end
+end
+
+function Window:updateLocateWindow()
+    if not self.locateWindow then return end
+    local spec = self._activeLocateSpec
+    if not spec then
+        self.locateWindow:closeProgrammatic()
+        return
+    end
+    local step, chebDist, closeRadius = nil, nil, 5
+    if self.overlay and self.overlay.getGuidanceSnapshot then
+        step, chebDist, closeRadius = self.overlay:getGuidanceSnapshot()
+    end
+    self.locateWindow:updateState(spec, step, chebDist, closeRadius)
+end
+
+function Window:clearLocateTarget()
+    if not self._activeLocateKey and not self._activeLocateSpec then
+        return false
+    end
+    self._activeLocateKey  = nil
+    self._activeLocateSpec = nil
+    self:saveLocateTargetToDB()
+    if self.overlay and self.overlay.setFocusTarget then
+        self.overlay:setFocusTarget(nil)
+    end
+    if self.locateWindow then
+        self.locateWindow:closeProgrammatic()
+    end
+    return true
+end
+
+function Window:toggleLocateTarget(kind, item)
+    if not item then return end
+    local spec
+    if kind == "artefact" then
+        spec = Locations.getArtefactFocusSpec(item)
+    else
+        local mat = item.material
+        if mat and mat.isArchMaterial == false then
+            return
+        end
+        spec = Locations.getMaterialFocusSpec(item, self.prioritiseCaches)
+    end
+    if not spec or not spec.key then return end
+
+    if self._activeLocateKey == spec.key then
+        self:clearLocateTarget()
+    else
+        local curNeeded = self:getLocateNeededQty(spec, self.tracker and self.tracker.lastResult)
+        spec.autoClearOnComplete = (curNeeded > 0)
+        self._activeLocateKey  = spec.key
+        self._activeLocateSpec = spec
+        self:saveLocateTargetToDB()
+        if self.overlay and self.overlay.setFocusTarget then
+            self.overlay:setFocusTarget(spec)
+        end
+    end
+    self:refresh()
+end
+
+function Window:togglePrioritiseCaches()
+    self.prioritiseCaches = not self.prioritiseCaches
+    DB.setBool("arch_prioritise_caches", self.prioritiseCaches)
+    local cur = self._activeLocateSpec
+    if cur and cur.kind == "material" and cur.key then
+        local mat = Materials.get(cur.key)
+        if mat and mat.isArchMaterial ~= false then
+            local newSpec = Locations.getMaterialFocusSpec({ material = mat, name = mat.name }, self.prioritiseCaches)
+            if newSpec and newSpec.key then
+                newSpec.autoClearOnComplete = cur.autoClearOnComplete
+                self._activeLocateSpec = newSpec
+                if self.overlay and self.overlay.setFocusTarget then
+                    self.overlay:setFocusTarget(newSpec)
+                end
+                self:updateLocateWindow()
+            end
+        end
+    end
+end
+
+function Window:checkAutoClearLocate(res)
+    local spec = self._activeLocateSpec
+    if not spec then return end
+    local needed = self:getLocateNeededQty(spec, res)
+    if needed > 0 then
+        if not spec.autoClearOnComplete then
+            spec.autoClearOnComplete = true
+            self:saveLocateTargetToDB()
+        end
+    elseif spec.autoClearOnComplete then
+        self:clearLocateTarget()
+    end
+end
+
 function Window:buildArtefactsTable(container, _bindRowHover, forwardScrollWheel)
     local artLayer = ui.Layer.new(container)
     artLayer.clickthrough = false
@@ -1194,6 +1456,13 @@ function Window:buildArtefactsTable(container, _bindRowHover, forwardScrollWheel
         local rowIdx = math.floor((y - 24) / Theme.ROW_HEIGHT) + 1
         if rowIdx < 1 or rowIdx > (self.visibleArtRowCount or 0) then return end
         local w = (comp and comp.width and comp.width > 0) and comp.width or ((self:getAvailableContentWidth() or 480) + 16)
+        local locX = self._artLocX or 202
+        if self._artLocVisible ~= false and x >= (locX - 1) and x <= (locX + 23) then
+            self:commitArtefactQtyInput(true)
+            local item = self.currentArtefacts and self.currentArtefacts[rowIdx]
+            if item then self:toggleLocateTarget("artefact", item) end
+            return
+        end
         local qtyOffset = self._artQtyOffset or 264
         local delta = nil
         if x >= (w - qtyOffset - 2) and x <= (w - qtyOffset + 18) then
@@ -1263,7 +1532,15 @@ function Window:buildMaterialsTable(container, _bindRowHover, forwardScrollWheel
     tableLayer:SetSize(0, 26, 1.0, 0)
     tableLayer.hidden = true
     self.tableLayer = tableLayer
-    self:bindTableInteractions(tableLayer, "materials", nil)
+    self:bindTableInteractions(tableLayer, "materials", function(_comp, x, y)
+        if type(x) ~= "number" or type(y) ~= "number" or y < 24 then return end
+        local rowIdx = math.floor((y - 24) / Theme.ROW_HEIGHT) + 1
+        if rowIdx < 1 or rowIdx > (self.visibleRowCount or 0) then return end
+        if x >= 208 and x <= 232 then
+            local item = self.currentMaterials and self.currentMaterials[rowIdx]
+            if item then self:toggleLocateTarget("material", item) end
+        end
+    end)
 
     local tableHeaderBg = ui.Rectangle.new(tableLayer)
     tableHeaderBg.colour = Theme.COL_BG_HEADER
@@ -1309,6 +1586,7 @@ function Window:showRowTooltip(titleText, subText, detailText, titleCol, objId)
 end
 
 function Window:hideRowTooltip()
+    self:clearHoveredLocateBtn()
     self._hoveredTableTab = nil
     self._hoveredTableRow = nil
     if self.tooltip then
@@ -2032,9 +2310,10 @@ function Window:reflowDynamicContent(availW, forceReflow)
         local lvlX = 36 + nameW + 2
         local locX = lvlX + lvlW + 4
         local availableLocW = (wAvail - ownedOffset - 6) - locX
-        local locVisible = availableLocW >= 24
+        local locVisible = availableLocW >= 36
         locW = locVisible and math.floor(availableLocW) or 40
         self._artLocVisible = locVisible
+        self._artLocX = locX
 
         if forceReflow or self._lastArtAvailW ~= wAvail then
             self._lastArtAvailW = wAvail
@@ -2086,8 +2365,12 @@ function Window:reflowDynamicContent(availW, forceReflow)
                         row.ownedTxt:SetPos(-ownedOffset, rY + 2, 1.0, 0)
                         row.ownedTxt:SetSize(ownedW, Theme.ROW_HEIGHT - 2, 0, 0)
 
-                        row.locTxt:SetPos(locX, rY + 2, 0, 0)
-                        row.locTxt:SetSize(locW, Theme.ROW_HEIGHT - 2, 0, 0)
+                        if row.locateIcon then
+                            row.locateIcon.setPos(locX, rY + 2)
+                            row.locateIcon.setHidden((not locVisible) or (not row._hasItem))
+                        end
+                        row.locTxt:SetPos(locX + 26, rY + 2, 0, 0)
+                        row.locTxt:SetSize(math.max(16, locW - 26), Theme.ROW_HEIGHT - 2, 0, 0)
                         if not locVisible then
                             row.locTxt.hidden = true
                         elseif row._hasItem then
@@ -2400,8 +2683,8 @@ function Window:populateRibbonHub(parent)
     self.hubBtnLevelFilter.setActive(isLvlMet)
     curY = curY + 38
 
-    -- 4. Section: 3D WORLD OVERLAYS
-    Widgets.createText(targetContent, Theme.COL_GOLD, 12, curY, 240, 18, "3D WORLD OVERLAYS")
+    -- 4. Section: 3D WORLD OVERLAYS & LOCATE
+    Widgets.createText(targetContent, Theme.COL_GOLD, 12, curY, 240, 18, "3D WORLD OVERLAYS & LOCATE")
     curY = curY + 22
 
     local spotsOn = self.overlay and self.overlay.enabled
@@ -2413,6 +2696,23 @@ function Window:populateRibbonHub(parent)
     end, forwardHubWheel)
     self.hubBtnSpots.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
     self.hubBtnSpots.setActive(spotsOn)
+    curY = curY + 30
+
+    local cachesOnly = (self.prioritiseCaches ~= false)
+    self.hubBtnPrioritiseCaches = Widgets.createToolbarButton(
+        targetContent,
+        cachesOnly and "Locate Mats: Caches Only (100%)" or "Locate Mats: Caches + Hotspots",
+        "When ON, locating a material guides only to Material Caches (100% gather chance). When OFF, also includes excavation hotspots.",
+        false,
+        function()
+            self:togglePrioritiseCaches()
+            self:refresh()
+            self:refreshHub()
+        end,
+        forwardHubWheel
+    )
+    self.hubBtnPrioritiseCaches.setBounds(12, curY, -24, 26, 0, 0, 1.0, 0)
+    self.hubBtnPrioritiseCaches.setActive(cachesOnly)
     curY = curY + 38
 
     -- 5. Section: CACHE & RESET
@@ -2478,6 +2778,11 @@ function Window:refreshHub()
         local on = self.overlay.enabled
         self.hubBtnSpots.setLabel(on and "3D Excavation Spots: ON" or "3D Excavation Spots: OFF")
         self.hubBtnSpots.setActive(on)
+    end
+    if self.hubBtnPrioritiseCaches then
+        local cOnly = (self.prioritiseCaches ~= false)
+        self.hubBtnPrioritiseCaches.setLabel(cOnly and "Locate Mats: Caches Only (100%)" or "Locate Mats: Caches + Hotspots")
+        self.hubBtnPrioritiseCaches.setActive(cOnly)
     end
     if self.hubScrollView and self.hubScrollView.Refresh then
         self.hubScrollView:Refresh()
@@ -2796,6 +3101,11 @@ function Window:populateArtefactRows(artList)
             rowUI.nameTxt.hidden = false
             rowUI.lvlTxt.hidden = false
             rowUI.locTxt.hidden = (self._artLocVisible == false)
+            if rowUI.locateIcon then
+                rowUI.locateIcon.setHidden(self._artLocVisible == false)
+                rowUI.locateIcon.setActive(self._activeLocateKey ~= nil and self._activeLocateKey == (item.artefact and item.artefact.name))
+                rowUI.locateIcon.setHovered(self._hoveredOnLocateBtn == true and self._hoveredTableTab == "artefacts" and self._hoveredTableRow == dataIdx)
+            end
             rowUI.ownedTxt.hidden = false
             rowUI.minusBg.hidden = false
             if rowUI.minusTxt then rowUI.minusTxt.hidden = false end
@@ -2906,6 +3216,7 @@ function Window:populateArtefactRows(artList)
             rowUI.nameTxt.hidden = true
             rowUI.lvlTxt.hidden = true
             rowUI.locTxt.hidden = true
+            if rowUI.locateIcon then rowUI.locateIcon.setHidden(true) end
             rowUI.ownedTxt.hidden = true
             rowUI.minusBg.hidden = true
             if rowUI.minusTxt then rowUI.minusTxt.hidden = true end
@@ -2954,6 +3265,12 @@ function Window:populateMaterialRows(matList)
             rowUI.nameTxt.hidden = false
             rowUI.lvlTxt.hidden = false
             rowUI.locTxt.hidden = false
+            if rowUI.locateIcon then
+                local canLoc = not (mat and mat.isArchMaterial == false)
+                rowUI.locateIcon.setHidden(not canLoc)
+                rowUI.locateIcon.setActive(canLoc and self._activeLocateKey ~= nil and self._activeLocateKey == item.name)
+                rowUI.locateIcon.setHovered(canLoc and self._hoveredOnLocateBtn == true and self._hoveredTableTab == "materials" and self._hoveredTableRow == dataIdx)
+            end
             rowUI.progTxt.hidden = false
             rowUI.statusTxt.hidden = false
 
@@ -2984,6 +3301,7 @@ function Window:populateMaterialRows(matList)
             rowUI.nameTxt.hidden = true
             rowUI.lvlTxt.hidden = true
             rowUI.locTxt.hidden = true
+            if rowUI.locateIcon then rowUI.locateIcon.setHidden(true) end
             rowUI.progTxt.hidden = true
             rowUI.statusTxt.hidden = true
         end
@@ -2999,6 +3317,9 @@ function Window:refresh()
 
     local t = self.tracker
     local res = t.lastResult or t:recalculate()
+    self:syncLocateTargetFromDB()
+    self:checkAutoClearLocate(res)
+    self:updateLocateWindow()
     local mode = t:getSourceMode()
 
     local artList = res.artefacts or {}
@@ -3271,6 +3592,10 @@ function Window:shutdown()
     if self.tooltip then
         pcall(function() self.tooltip:destroy() end)
         self.tooltip = nil
+    end
+    if self.locateWindow and self.locateWindow.destroy then
+        pcall(function() self.locateWindow:destroy() end)
+        self.locateWindow = nil
     end
     if self.overlay and self.overlay.destroy then
         pcall(function() self.overlay:destroy() end)

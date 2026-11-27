@@ -3,11 +3,14 @@
 -- Highlights active Material Caches and Excavation Hotspots providing needed items,
 -- displaying live deficit quantities directly above the spots in-game.
 
-local Hotspots  = require("data/hotspots")
-local Artefacts = require("data/artefacts")
-local Utils     = require("core/utils")
-local DB        = require("core/db")
-local Theme     = require("ui/theme")
+local Hotspots      = require("data/hotspots")
+local Artefacts     = require("data/artefacts")
+local Locations     = require("data/locations")
+local Utils         = require("core/utils")
+local DB            = require("core/db")
+local NavMemory     = require("core/nav_memory")
+local Theme         = require("ui/theme")
+local ItemHighlight = require("ui/item_highlight")
 
 local Overlay = {}
 Overlay.__index = Overlay
@@ -30,8 +33,6 @@ local rawNameSpotCacheSize = 0
 local locSigCache          = {}
 local locSigCacheSize      = 0
 local bestTierBySpotKey    = {}
-local seenConfigsBySpotKey = {}
-local loggedSpotConfigPair = {}
 local cachedLocQueryMode   = nil
 
 local NEGATIVE_LOC_NAME_TOKENS = {
@@ -95,12 +96,10 @@ local function getLocConfigSignature(loc)
         end
     end
 
-    local cfgName, pCfgName, pName, fastPicking, width = nil, nil, nil, nil, nil
+    local cfgName, pCfgName, pName = nil, nil, nil
     pcall(function()
         if cfg then
-            cfgName     = cfg.configName
-            fastPicking = cfg.fastPicking
-            width       = cfg.width
+            cfgName = cfg.configName
         end
     end)
     pcall(function()
@@ -154,17 +153,15 @@ local function getLocConfigSignature(loc)
     end
 
     local sig = {
-        allow       = (tier >= 0),
-        tier        = tier,
-        sigKey      = cacheKey,
-        cfgId       = cfgId,
-        cfgName     = cfgName,
-        pCfgId      = pCfgId,
-        pCfgName    = pCfgName,
-        pName       = pName,
-        op1         = op1Name or "nil",
-        fastPicking = fastPicking,
-        width       = width,
+        allow    = (tier >= 0),
+        tier     = tier,
+        sigKey   = cacheKey,
+        cfgId    = cfgId,
+        cfgName  = cfgName,
+        pCfgId   = pCfgId,
+        pCfgName = pCfgName,
+        pName    = pName,
+        op1      = op1Name or "nil",
     }
 
     if cacheKey then
@@ -181,49 +178,6 @@ end
 local function isExcavatableLoc(loc)
     local sig = getLocConfigSignature(loc)
     return sig.allow, sig.tier, sig
-end
-
-local function recordSpotConfigSample(spotKey, loc, sig)
-    if not spotKey or not sig or sig.sigKey == nil then return end
-    local bucket = seenConfigsBySpotKey[spotKey]
-    if not bucket then
-        bucket = { count = 0, items = {} }
-        seenConfigsBySpotKey[spotKey] = bucket
-    end
-    local sk = tostring(sig.sigKey)
-    if not bucket.items[sk] then
-        local shapeVal = nil
-        pcall(function() shapeVal = loc and loc.shapeType end)
-        bucket.items[sk] = {
-            cfgId       = sig.cfgId,
-            cfgName     = sig.cfgName,
-            pCfgId      = sig.pCfgId,
-            pCfgName    = sig.pCfgName,
-            op1         = sig.op1,
-            shapeType   = shapeVal,
-            fastPicking = sig.fastPicking,
-            width       = sig.width,
-            tier        = sig.tier,
-        }
-        bucket.count = bucket.count + 1
-    end
-    if bucket.count >= 2 then
-        for k, info in pairs(bucket.items) do
-            local logKey = spotKey .. "|" .. k
-            if not loggedSpotConfigPair[logKey] then
-                loggedSpotConfigPair[logKey] = true
-                print(string.format(
-                    "[Archaeology Assistant] Multi-config loc [%s]: cfg=%s(%s) parent=%s(%s) op1=%s shape=%s fast=%s w=%s tier=%d",
-                    tostring(spotKey),
-                    tostring(info.cfgId), tostring(info.cfgName),
-                    tostring(info.pCfgId), tostring(info.pCfgName),
-                    tostring(info.op1), tostring(info.shapeType),
-                    tostring(info.fastPicking), tostring(info.width),
-                    info.tier or 0
-                ))
-            end
-        end
-    end
 end
 
 local function getEntityCoordGrid(entity)
@@ -584,11 +538,13 @@ end
 
 function Overlay.new(tracker)
     local self = setmetatable({}, Overlay)
-    self.tracker      = tracker
-    self.mounted      = false
-    self.activeSpots  = {}
-    self.widgets      = {}
-    self.scanCooldown = SCAN_INTERVAL_TICKS
+    self.tracker       = tracker
+    self.mounted       = false
+    self.activeSpots   = {}
+    self.widgets       = {}
+    self.scanCooldown  = SCAN_INTERVAL_TICKS
+    self.itemHighlight = ItemHighlight.new()
+    self.focusTarget   = nil
 
     local savedEnabled = DB.get("arch_spots_enabled", 1)
     self.enabled = (savedEnabled ~= 0 and savedEnabled ~= false)
@@ -645,8 +601,345 @@ local function computeDistSq(coordA, coordB)
     return 999999
 end
 
+local CLOSE_OVERHEAD_RADIUS = 5
+local MAX_LINE_RADIUS       = 30
+local LINE_SEGMENTS         = 24
+local ARROW_PIXELS          = 17
+local COL_ROUTE_LINE        = Theme.makeColour(0.0, 1.0, 0.95, 0.95)
+local COL_ROUTE_EDGE        = Theme.makeColour(0.0, 0.0, 0.0, 0.85)
+local COL_WHITE             = Theme.makeColour(0.95, 0.97, 1.0, 1.0)
+
+local function isSpotMatchingFocus(spotKey, spotClass, focusTarget)
+    if not focusTarget then return false end
+    if focusTarget.cacheOnly and spotClass and not spotClass.isCache then
+        return false
+    end
+    if spotKey and focusTarget.focusKeys and focusTarget.focusKeys[spotKey] then
+        return true
+    end
+    if spotClass then
+        if spotClass.isCache and focusTarget.materialName then
+            return spotClass.cacheMatLower == string.lower(focusTarget.materialName)
+        elseif not spotClass.isCache and not focusTarget.cacheOnly then
+            local disp = spotClass.matchedName or spotClass.clean or ""
+            if focusTarget.hotspotName and disp ~= "" then
+                local tn = Hotspots.normalizeKey(focusTarget.hotspotName)
+                local sn = Hotspots.normalizeKey(disp)
+                if tn ~= "" and (sn == tn or string.find(sn, tn, 1, true)) then
+                    return true
+                end
+            end
+            if focusTarget.materialName and spotClass.hotspotDef and spotClass.hotspotDef.materials then
+                local ml = string.lower(focusTarget.materialName)
+                for _, m in ipairs(spotClass.hotspotDef.materials) do
+                    if string.lower(m) == ml then return true end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local SITE_DIALOG_ALIASES = {
+    ["Stormguard Citadel"] = { "stormguard citadel", "stormguard" },
+    ["Infernal Source"]    = { "infernal source", "infernal" },
+    ["Kharid-et"]          = { "kharid-et", "kharidet" },
+    ["Archaeology Campus"] = { "archaeology campus", "archaeology guild", "varrock dig site", "campus" },
+    ["Senntisten"]         = { "senntisten", "senntisten temple" },
+}
+
+local function buildDialogTerms(focusTarget, step)
+    local terms = {}
+    local seen = {}
+    local function add(s)
+        if not s or s == "" then return end
+        local low = string.lower(s)
+        if not seen[low] then
+            seen[low] = true
+            terms[#terms + 1] = low
+        end
+    end
+
+    -- Intra-dig-site transitions use ONLY the transition's explicit ordered option terms,
+    -- avoiding false matches against site-name headers or sibling sub-zones.
+    if step and step.stage == "transition" then
+        for _, dt in ipairs(step.dialogTerms or {}) do
+            add(dt)
+        end
+        return terms
+    end
+
+    local function addSiteWithAliases(siteName)
+        if not siteName or siteName == "" then return end
+        add(siteName)
+        local aliases = SITE_DIALOG_ALIASES[siteName]
+        if aliases then
+            for _, a in ipairs(aliases) do add(a) end
+        end
+    end
+
+    addSiteWithAliases(focusTarget.siteKey)
+    addSiteWithAliases(focusTarget.siteLabel)
+    if focusTarget.allSites then
+        for sk in pairs(focusTarget.allSites) do
+            addSiteWithAliases(sk)
+        end
+    end
+
+    -- Lower-priority fallbacks for two-step outfit menus ("Dig sites" -> site) or Campus relay teleports
+    if step and step.stage == "offsite" and focusTarget.siteKey ~= "Archaeology Campus" then
+        add("dig sites")
+        add("digsites")
+        add("archaeology campus")
+        add("varrock dig site")
+    end
+    return terms
+end
+
+local function scanFocusScene(self, pCoord)
+    self._liveFocusSpot        = nil
+    self._nearbyFocusSpots     = nil
+    self._liveTransitionEntity = nil
+    if not self.focusTarget or not pCoord or not pCoord.x or not pCoord.z then return end
+
+    local learned = NavMemory.getSpotsForKeys(self.focusTarget.focusKeys)
+    local preStep = Locations.resolveGuidanceStep(self.focusTarget, pCoord, learned)
+    local wantCfg = preStep and preStep.cfgPattern and string.lower(preStep.cfgPattern) or nil
+    local wantObjMap = nil
+    if preStep and preStep.objIds then
+        wantObjMap = {}
+        for _, oid in ipairs(preStep.objIds) do
+            wantObjMap[oid] = true
+        end
+    end
+
+    local locs = queryNearbyLocations(pCoord)
+    if not locs then return end
+
+    local px, pz, pl = pCoord.x, pCoord.z, pCoord.level or 0
+    local bestSpotDist  = 999999999
+    local bestTransScore = 999999999
+    local nearbyFocus   = {}
+
+    iterateEntities(locs, function(loc)
+        if not isEntityAlive(loc) then return end
+        local okC, cg = pcall(getEntityCoordGrid, loc)
+        if not okC or not cg or not cg.x or not cg.z then return end
+        if (cg.level or 0) ~= pl then return end
+        local cheb = math.max(math.abs(cg.x - px), math.abs(cg.z - pz))
+        if cheb > 32 then return end
+        local d2 = computeDistSq(cg, pCoord)
+
+        if (wantObjMap or wantCfg) and preStep.targetCoord then
+            local targetDistSq = computeDistSq(cg, preStep.targetCoord)
+            if targetDistSq <= 144 then
+                local sig = getLocConfigSignature(loc)
+                local idMatch = wantObjMap and sig and (
+                    (sig.cfgId and wantObjMap[sig.cfgId]) or (sig.pCfgId and wantObjMap[sig.pCfgId])
+                )
+                local cfgMatch = false
+                if not idMatch and wantCfg and targetDistSq <= 36 and sig then
+                    local okDN, dispN = pcall(getEntityDisplayName, loc)
+                    local combined = string.lower(
+                        tostring(sig.cfgName or "") .. " " .. tostring(sig.pCfgName or "")
+                        .. " " .. tostring(sig.pName or "") .. " " .. tostring((okDN and dispN) or "")
+                    )
+                    cfgMatch = (combined ~= "" and string.find(combined, wantCfg, 1, true) ~= nil)
+                end
+                if idMatch or cfgMatch then
+                    local score = (idMatch and 0 or 1000) + targetDistSq
+                    if score < bestTransScore then
+                        bestTransScore = score
+                        self._liveTransitionEntity = { entity = loc, coordGrid = cg, distSq = d2 }
+                    end
+                end
+            end
+        end
+
+        local canExcavate, locTier, locSig = isExcavatableLoc(loc)
+        if not canExcavate then return end
+
+        local okN, rawName = pcall(getEntityDisplayName, loc)
+        local spotClass = (okN and rawName and rawName ~= "") and classifyRawSpotName(rawName) or false
+        if not spotClass then
+            spotClass = classifyFromConfigSig(locSig)
+            if not spotClass then return end
+        end
+
+        local spotKey, dispName
+        if spotClass.isCache then
+            dispName = spotClass.cacheMatLower
+            spotKey  = "cache:" .. dispName
+        else
+            dispName = spotClass.matchedName or spotClass.clean or ""
+            spotKey  = "spot:" .. Hotspots.normalizeKey(dispName)
+        end
+
+        NavMemory.rememberSpot(spotKey, cg.x, cg.z, cg.level or 0)
+
+        if isSpotMatchingFocus(spotKey, spotClass, self.focusTarget) then
+            if d2 < bestSpotDist then
+                bestSpotDist = d2
+                self._liveFocusSpot = {
+                    entity      = loc,
+                    coordGrid   = cg,
+                    distSq      = d2,
+                    displayName = dispName,
+                    spotKey     = spotKey,
+                    tier        = locTier,
+                    isCache     = spotClass.isCache,
+                    hotspotDef  = spotClass.hotspotDef,
+                }
+            end
+            if cheb <= 32 then
+                nearbyFocus[#nearbyFocus + 1] = {
+                    entity      = loc,
+                    coordGrid   = cg,
+                    distSq      = d2,
+                    displayName = dispName,
+                    spotKey     = spotKey,
+                    tier        = locTier,
+                    isCache     = spotClass.isCache,
+                    hotspotDef  = spotClass.hotspotDef,
+                }
+            end
+        end
+    end)
+
+    self._nearbyFocusSpots = (#nearbyFocus > 0) and nearbyFocus or nil
+end
+
+function Overlay:updateFocusLogic(forceScan)
+    if not self.focusTarget then
+        if self._hadFocusHighlight then
+            self.itemHighlight:hideAll()
+            self._hadFocusHighlight = false
+        end
+        return
+    end
+
+    local pCoord = getPlayerCoordGrid()
+    if not pCoord then return end
+
+    self._focusScanTick = (self._focusScanTick or 0) + 1
+    local movedFar = (not self._lastFocusCoord)
+        or (pCoord.level ~= self._lastFocusCoord.level)
+        or computeDistSq(pCoord, self._lastFocusCoord) >= 36
+
+    if forceScan or movedFar or self._focusScanTick >= SCAN_INTERVAL_TICKS then
+        self._focusScanTick = 0
+        self._lastFocusCoord = { x = pCoord.x, z = pCoord.z, level = pCoord.level }
+        scanFocusScene(self, pCoord)
+        if NavMemory.isDirty() then
+            NavMemory.flush()
+        end
+    end
+
+    local learned = NavMemory.getSpotsForKeys(self.focusTarget.focusKeys)
+    local step = nil
+    if self._liveFocusSpot and isEntityAlive(self._liveFocusSpot.entity)
+        and self._liveFocusSpot.coordGrid
+        and (self._liveFocusSpot.coordGrid.level or 0) == (pCoord.level or 0) then
+        step = {
+            stage        = "onsite",
+            targetCoord  = self._liveFocusSpot.coordGrid,
+            targetEntity = self._liveFocusSpot.entity,
+            label        = self.focusTarget.label,
+        }
+    else
+        step = Locations.resolveGuidanceStep(self.focusTarget, pCoord, learned)
+        if step and (step.cfgPattern or step.objIds) and self._liveTransitionEntity and isEntityAlive(self._liveTransitionEntity.entity) then
+            step.targetCoord  = self._liveTransitionEntity.coordGrid
+            step.targetEntity = self._liveTransitionEntity.entity
+        end
+    end
+    self._currentGuidanceStep = step
+
+    local stage = step and step.stage or "offsite"
+    local stageChanged = (self._lastHlStage ~= stage)
+    local invChanged = (self._forceInvHlScan == true)
+    if invChanged then self._forceInvHlScan = false end
+    self._hlTick = (self._hlTick or 0) + 1
+    self._invHlTick = (self._invHlTick or 0) + 1
+    local hlDue = forceScan or stageChanged or (self._hlTick >= 8)
+    local runInvScan = forceScan or stageChanged or invChanged or (self._invHlTick >= 25)
+    if hlDue or runInvScan then
+        if hlDue then self._hlTick = 0 end
+        if runInvScan then self._invHlTick = 0 end
+        self._lastHlStage = stage
+        local itemPats = nil
+        local dlgTerms = nil
+        if stage == "offsite" then
+            itemPats = self.focusTarget.travelItems
+            dlgTerms = buildDialogTerms(self.focusTarget, step)
+        elseif stage == "campus" then
+            itemPats = {}
+            for _, p in ipairs(self.focusTarget.travelItems or {}) do
+                if p ~= "archaeology journal" then
+                    itemPats[#itemPats + 1] = p
+                end
+            end
+            dlgTerms = buildDialogTerms(self.focusTarget, step)
+        elseif stage == "transition" then
+            dlgTerms = buildDialogTerms(self.focusTarget, step)
+        end
+        self.itemHighlight:update(itemPats, dlgTerms, self.focusTarget.mapDynIds, runInvScan)
+        self._hadFocusHighlight = true
+    end
+end
+
+function Overlay:onInventoryChanged()
+    if self.focusTarget then
+        self._forceInvHlScan = true
+    end
+end
+
+function Overlay:setFocusTarget(spec)
+    self.focusTarget           = spec
+    self._liveFocusSpot        = nil
+    self._nearbyFocusSpots     = nil
+    self._liveTransitionEntity = nil
+    self._currentGuidanceStep  = nil
+    self._lastFocusCoord       = nil
+    self._lastScanCoord        = nil
+    self._hlTick               = 0
+    self._invHlTick            = 0
+    self._lastHlStage          = nil
+    self._forceFocusUpdate     = true
+    if not spec then
+        self:hideFocusWidgets()
+    end
+end
+
 function Overlay:onLogic()
-    if not self.enabled then
+    local forcedFocus = (self._forceFocusUpdate == true)
+    if forcedFocus then
+        self._forceFocusUpdate = false
+        if self.focusTarget then
+            self:ensureFocusWidgetsBuilt()
+            self:updateFocusLogic(true)
+            self.scanCooldown = SCAN_INTERVAL_TICKS - 1
+            return
+        else
+            if self.itemHighlight then self.itemHighlight:hideAll() end
+            self._hadFocusHighlight = false
+            self:hideFocusWidgets()
+            if self.enabled then
+                self:triggerScan()
+            else
+                self.activeSpots = {}
+            end
+            return
+        end
+    end
+
+    if self.focusTarget or self._hadFocusHighlight then
+        if self.focusTarget then
+            self:ensureFocusWidgetsBuilt()
+        end
+        self:updateFocusLogic(false)
+    end
+    if not self.enabled and not self.focusTarget then
         if #self.activeSpots > 0 then
             self.activeSpots = {}
         end
@@ -678,7 +971,7 @@ function Overlay:triggerScan()
 end
 
 --- Fast in-place updater for an existing active spot's display items and counts.
-local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
+local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker, focusTarget)
     if not isEntityAlive(spot.entity) then
         return false
     end
@@ -701,7 +994,21 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
     if spot.isCache then
         local def = deficits[string.lower(spot.displayName)]
         if def and def.short > 0 then
-            spot.materials = { def }
+            spot.materials    = { def }
+            spot.hasArtefacts = false
+            spot.isFocusOnly  = false
+            return true
+        end
+        if focusTarget and spot.isFocusOnly and spot.spotKey and focusTarget.focusKeys and focusTarget.focusKeys[spot.spotKey] then
+            local isArt = (focusTarget.kind == "artefact")
+            spot.hasArtefacts = isArt
+            spot.materials = { {
+                isFocusOnly = true,
+                isArtefact  = isArt,
+                name        = focusTarget.itemName or focusTarget.label or "Target",
+                id          = focusTarget.itemId,
+                short       = 1,
+            } }
             return true
         end
         return false
@@ -739,6 +1046,18 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
     end
 
     if #neededMats == 0 and #neededArts == 0 then
+        if focusTarget and spot.isFocusOnly and spot.spotKey and focusTarget.focusKeys and focusTarget.focusKeys[spot.spotKey] then
+            local isArt = (focusTarget.kind == "artefact")
+            spot.hasArtefacts = isArt
+            spot.materials = { {
+                isFocusOnly = true,
+                isArtefact  = isArt,
+                name        = focusTarget.itemName or focusTarget.label or "Target",
+                id          = focusTarget.itemId,
+                short       = 1,
+            } }
+            return true
+        end
         return false
     end
 
@@ -748,6 +1067,7 @@ local function updateSpotDisplayItems(spot, deficits, spotArtsMap, tracker)
 
     spot.materials    = displayItems
     spot.hasArtefacts = (#neededArts > 0)
+    spot.isFocusOnly  = false
     return true
 end
 
@@ -863,8 +1183,57 @@ function Overlay:scanWorldSpots(force)
     local neededArtCount = self._cachedNeededArtCount
     local anyArts        = self._cachedAnyArts
 
-    if not anyShort and not anyArts then
-        self.activeSpots    = {}
+    local function appendFocusOnlySpots(list, pCoord)
+        if not self.focusTarget or not self._nearbyFocusSpots or not pCoord then return end
+        local seen = {}
+        for _, s in ipairs(list) do
+            if s.coordGrid and s.coordGrid.x and s.coordGrid.z then
+                seen[s.coordGrid.x * 65536 + s.coordGrid.z] = true
+            end
+        end
+        local isArt = (self.focusTarget.kind == "artefact")
+        local fName = self.focusTarget.itemName or self.focusTarget.label or "Target"
+        local fId   = self.focusTarget.itemId
+        for _, fs in ipairs(self._nearbyFocusSpots) do
+            if isEntityAlive(fs.entity) and fs.coordGrid and fs.coordGrid.x and fs.coordGrid.z then
+                local ck = fs.coordGrid.x * 65536 + fs.coordGrid.z
+                if not seen[ck] then
+                    seen[ck] = true
+                    table.insert(list, {
+                        entity        = fs.entity,
+                        coordGrid     = fs.coordGrid,
+                        distSq        = computeDistSq(fs.coordGrid, pCoord),
+                        displayName   = fs.displayName,
+                        spotKey       = fs.spotKey,
+                        tier          = fs.tier or 0,
+                        isCache       = fs.isCache,
+                        hotspotDef    = fs.hotspotDef,
+                        hasArtefacts  = isArt,
+                        isFocusOnly   = true,
+                        totalPossible = 1,
+                        materials     = { {
+                            isFocusOnly = true,
+                            isArtefact  = isArt,
+                            name        = fName,
+                            id          = fId,
+                            short       = 1,
+                        } },
+                    })
+                end
+            end
+        end
+    end
+
+    if (not self.enabled) or (not anyShort and not anyArts) then
+        if self.focusTarget and self._nearbyFocusSpots then
+            local pCoordF = getPlayerCoordGrid()
+            local focusList = {}
+            appendFocusOnlySpots(focusList, pCoordF)
+            updateExcavateStateAndSort(self, focusList)
+            self.activeSpots = focusList
+        else
+            self.activeSpots = {}
+        end
         self._lastScanCoord = nil
         return
     end
@@ -874,7 +1243,7 @@ function Overlay:scanWorldSpots(force)
         if #self.activeSpots > 0 then
             local kept = {}
             for _, spot in ipairs(self.activeSpots) do
-                if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+                if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker, self.focusTarget) then
                     table.insert(kept, spot)
                 end
             end
@@ -899,13 +1268,14 @@ function Overlay:scanWorldSpots(force)
         if #self.activeSpots > 0 then
             local kept = {}
             for _, spot in ipairs(self.activeSpots) do
-                if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker) then
+                if updateSpotDisplayItems(spot, deficits, spotArtsMap, self.tracker, self.focusTarget) then
                     spot.distSq = computeDistSq(spot.coordGrid, pCoord)
                     table.insert(kept, spot)
                 else
                     spotDespawned = true
                 end
             end
+            appendFocusOnlySpots(kept, pCoord)
             updateExcavateStateAndSort(self, kept)
             self.activeSpots = kept
         end
@@ -959,7 +1329,6 @@ function Overlay:scanWorldSpots(force)
             if def then
                 seenCoords[coordKey] = true
                 local spotKey = "cache:" .. def.name
-                recordSpotConfigSample(spotKey, loc, locSig)
                 if bestTierBySpotKey[spotKey] == nil or locTier > bestTierBySpotKey[spotKey] then
                     bestTierBySpotKey[spotKey] = locTier
                 end
@@ -1016,7 +1385,6 @@ function Overlay:scanWorldSpots(force)
 
             local spotDisplayName = matchedName or clean
             local spotKey = "spot:" .. Hotspots.normalizeKey(spotDisplayName)
-            recordSpotConfigSample(spotKey, loc, locSig)
             if bestTierBySpotKey[spotKey] == nil or locTier > bestTierBySpotKey[spotKey] then
                 bestTierBySpotKey[spotKey] = locTier
             end
@@ -1048,12 +1416,376 @@ function Overlay:scanWorldSpots(force)
         matched = filtered
     end
 
+    appendFocusOnlySpots(matched, pCoord)
     updateExcavateStateAndSort(self, matched)
     self.activeSpots = matched
 end
 
+local function makeCoordGridUserdata(c)
+    if not c or type(c) ~= "table" then return c end
+    if CoordGrid and CoordGrid.new and c.x and c.z then
+        local ok, cg = pcall(CoordGrid.new, c.level or 0, math.floor(c.x / 64), math.floor(c.z / 64), c.x % 64, c.z % 64)
+        if ok and cg then return cg end
+    end
+    return nil
+end
+
+local function projectVerifiedWorldPoint(entity, coordTableOrUd, height)
+    local cg = (type(coordTableOrUd) == "table") and makeCoordGridUserdata(coordTableOrUd) or coordTableOrUd
+    local pt = projectToScreen(entity, cg, height or 0)
+    if not pt or not pt.x or not pt.y then return nil end
+    if pt.x ~= pt.x or pt.y ~= pt.y then return nil end
+    -- Front-of-camera check: raising world height must move screen Y upward (smaller Y)
+    if cg and ScreenConvert and ScreenConvert.CoordGridToScreen then
+        local okUp, up = pcall(ScreenConvert.CoordGridToScreen, cg, (height or 0) + 512)
+        if okUp and up and up.y and up.y >= pt.y then
+            return nil
+        end
+    end
+    return pt
+end
+
+local function computeScreenDirection(pCoord, targetCoord)
+    local dxW = targetCoord.x - pCoord.x
+    local dzW = targetCoord.z - pCoord.z
+    local lenW = math.sqrt(dxW * dxW + dzW * dzW)
+    if lenW < 0.01 then return nil, nil end
+    local ux, uz = dxW / lenW, dzW / lenW
+
+    -- 1. Nearby tile tangent (4 tiles ahead, strictly inside loaded 32-tile scene)
+    local p0 = projectVerifiedWorldPoint(nil, pCoord, 0)
+    if p0 then
+        local nx = math.floor(pCoord.x + ux * 4 + 0.5)
+        local nz = math.floor(pCoord.z + uz * 4 + 0.5)
+        if nx ~= pCoord.x or nz ~= pCoord.z then
+            local p1 = projectVerifiedWorldPoint(nil, { level = pCoord.level or 0, x = nx, z = nz }, 0)
+            if p1 then
+                local sx, sy = p1.x - p0.x, p1.y - p0.y
+                local sl = math.sqrt(sx * sx + sy * sy)
+                if sl > 0.5 then return sx / sl, sy / sl end
+            end
+        end
+    end
+
+    -- 2. Camera basis vector fallback (Quest Helper farTargetEdge math)
+    if Camera and Camera.GetPosition and Camera.GetFocusPosition then
+        local okCam, sx, sy = pcall(function()
+            local cam = Camera.GetPosition()
+            local foc = Camera.GetFocusPosition()
+            if not cam or not foc then return nil, nil end
+            local fx, fz = foc.x - cam.x, foc.z - cam.z
+            local horiz = math.sqrt(fx * fx + fz * fz)
+            if horiz < 1e-6 then return nil, nil end
+            fx, fz = fx / horiz, fz / horiz
+            local rx, rz = fz, -fx
+            local right = dxW * rx + dzW * rz
+            local fwd   = dxW * fx + dzW * fz
+            local drop  = math.abs((cam.y or 0) - (foc.y or 0))
+            local sinPitch = math.max(0.25, drop / math.sqrt(drop * drop + horiz * horiz))
+            return right, -fwd * sinPitch
+        end)
+        if okCam and sx and sy then
+            local sl = math.sqrt(sx * sx + sy * sy)
+            if sl > 1e-4 then return sx / sl, sy / sl end
+        end
+    end
+
+    return nil, nil
+end
+
+local function ensureFocusLine(self)
+    if self.focusLine then return self.focusLine end
+    local segs = {}
+    for i = 1, LINE_SEGMENTS do
+        local edge = ui.Rectangle.new(self.overlayRoot)
+        edge.colour = COL_ROUTE_EDGE
+        edge.fill = true
+        edge.clickthrough = true
+        edge:SetSize(7, 7)
+        edge.hidden = true
+
+        local core = ui.Rectangle.new(self.overlayRoot)
+        core.colour = COL_ROUTE_LINE
+        core.fill = true
+        core.clickthrough = true
+        core:SetSize(5, 5)
+        core.hidden = true
+
+        segs[i] = { edge = edge, core = core }
+    end
+
+    local tDark = ui.Rectangle.new(self.overlayRoot)
+    tDark.colour = COL_ROUTE_EDGE
+    tDark.fill = true
+    tDark.clickthrough = true
+    tDark:SetSize(13, 13)
+    tDark.hidden = true
+
+    local tOut = ui.Rectangle.new(self.overlayRoot)
+    tOut.colour = COL_ROUTE_LINE
+    tOut.fill = true
+    tOut.clickthrough = true
+    tOut:SetSize(9, 9)
+    tOut.hidden = true
+
+    local tIn = ui.Rectangle.new(self.overlayRoot)
+    tIn.colour = COL_BG_PILL
+    tIn.fill = true
+    tIn.clickthrough = true
+    tIn:SetSize(5, 5)
+    tIn.hidden = true
+
+    self.focusLine = { segs = segs, tDark = tDark, tOut = tOut, tIn = tIn }
+    return self.focusLine
+end
+
+local function hideFocusLine(self)
+    local fl = self.focusLine
+    if not fl then return end
+    for _, s in ipairs(fl.segs) do
+        if not s.edge.hidden then s.edge.hidden = true end
+        if not s.core.hidden then s.core.hidden = true end
+    end
+    if not fl.tDark.hidden then fl.tDark.hidden = true end
+    if not fl.tOut.hidden then fl.tOut.hidden = true end
+    if not fl.tIn.hidden then fl.tIn.hidden = true end
+end
+
+local function ensureFocusArrow(self)
+    if self.focusArrow then return self.focusArrow end
+    local pts = {}
+    for i = 1, ARROW_PIXELS do
+        local edge = ui.Rectangle.new(self.overlayRoot)
+        edge.colour = COL_ROUTE_EDGE
+        edge.fill = true
+        edge.clickthrough = true
+        edge:SetSize(7, 7)
+        edge.hidden = true
+        pts[i] = { edge = edge }
+    end
+    for i = 1, ARROW_PIXELS do
+        local core = ui.Rectangle.new(self.overlayRoot)
+        core.colour = COL_ROUTE_LINE
+        core.fill = true
+        core.clickthrough = true
+        core:SetSize(5, 5)
+        core.hidden = true
+        pts[i].core = core
+    end
+
+    local lblBg = ui.Rectangle.new(self.overlayRoot)
+    lblBg.colour = COL_BG_PILL
+    lblBg.fill = true
+    lblBg.clickthrough = true
+    lblBg:SetSize(74, 20)
+    lblBg.hidden = true
+
+    local lbl = ui.Text.new(self.overlayRoot)
+    lbl.font = self.fontQ
+    lbl.colour = COL_CYAN
+    lbl.maxLines = 1
+    lbl.clickthrough = true
+    lbl:SetSize(84, 18)
+    lbl.hidden = true
+
+    self.focusArrow = { pts = pts, lblBg = lblBg, lbl = lbl, lastDistStr = nil }
+    return self.focusArrow
+end
+
+local function hideFocusArrow(self)
+    local fa = self.focusArrow
+    if not fa then return end
+    for _, p in ipairs(fa.pts) do
+        if p.edge and not p.edge.hidden then p.edge.hidden = true end
+        if p.core and not p.core.hidden then p.core.hidden = true end
+    end
+    if fa.lblBg and not fa.lblBg.hidden then fa.lblBg.hidden = true end
+    if fa.lbl and not fa.lbl.hidden then fa.lbl.hidden = true end
+end
+
+function Overlay:ensureFocusWidgetsBuilt()
+    if not self.mounted and not self:tryMount() then return false end
+    ensureFocusLine(self)
+    ensureFocusArrow(self)
+    return true
+end
+
+function Overlay:hideFocusWidgets()
+    hideFocusLine(self)
+    hideFocusArrow(self)
+end
+
+function Overlay:getGuidanceSnapshot()
+    if not self.focusTarget then
+        return nil, nil, CLOSE_OVERHEAD_RADIUS
+    end
+    local pCoord = getPlayerCoordGrid()
+    local step = self._currentGuidanceStep
+    if not step and pCoord and pCoord.x and pCoord.z then
+        local learned = NavMemory.getSpotsForKeys(self.focusTarget.focusKeys)
+        step = Locations.resolveGuidanceStep(self.focusTarget, pCoord, learned)
+        self._currentGuidanceStep = step
+    end
+    local chebDist = nil
+    local tc = step and step.targetCoord
+    if pCoord and pCoord.x and pCoord.z and tc and tc.x and tc.z then
+        chebDist = math.max(math.abs(tc.x - pCoord.x), math.abs(tc.z - pCoord.z))
+    end
+    return step, chebDist, CLOSE_OVERHEAD_RADIUS
+end
+
+local COS_WING = 0.819152 -- cos(35 deg)
+local SIN_WING = 0.573576 -- sin(35 deg)
+
+local function drawFocusGuidance(self, parentW, parentH)
+    if not self.focusTarget or not self.overlayRoot or not self.focusLine or not self.focusArrow then
+        self:hideFocusWidgets()
+        return
+    end
+
+    local pCoord = getPlayerCoordGrid()
+    if not pCoord or not pCoord.x or not pCoord.z then
+        self:hideFocusWidgets()
+        return
+    end
+
+    local step = self._currentGuidanceStep
+    if not step then
+        local learned = NavMemory.getSpotsForKeys(self.focusTarget.focusKeys)
+        step = Locations.resolveGuidanceStep(self.focusTarget, pCoord, learned)
+        self._currentGuidanceStep = step
+    end
+    if not step then
+        self:hideFocusWidgets()
+        return
+    end
+
+    local stage       = step.stage
+    local targetCoord = step.targetCoord
+    local targetEnt   = step.targetEntity
+    local chebDist    = nil
+    if targetCoord and targetCoord.x and targetCoord.z then
+        chebDist = math.max(math.abs(targetCoord.x - pCoord.x), math.abs(targetCoord.z - pCoord.z))
+    end
+
+    -- Tier 1: Right next to the final spot (<= 5 tiles) -> Overheads ONLY (no 3D line/arrow)!
+    if stage == "onsite" and chebDist and chebDist <= CLOSE_OVERHEAD_RADIUS then
+        self:hideFocusWidgets()
+        return
+    end
+
+    -- Off-site stage: LocateWindow + item/UI highlights only (no cross-world arrow/line)
+    if stage == "offsite" or not targetCoord or not chebDist or chebDist <= 1 then
+        hideFocusLine(self)
+        hideFocusArrow(self)
+        return
+    end
+
+    local pPos = projectVerifiedWorldPoint(nil, pCoord, 0)
+    local px = (pPos and pPos.x) or (parentW * 0.5)
+    local py = (pPos and pPos.y) or (parentH * 0.5)
+
+    -- Tier 2: Direct World Line when within loaded range (<= 42 tiles) and target projects cleanly on-screen
+    if chebDist <= MAX_LINE_RADIUS and pPos then
+        local tPos = projectVerifiedWorldPoint(targetEnt, targetCoord, 40)
+        if tPos and tPos.x >= 24 and tPos.x <= (parentW - 24) and tPos.y >= 24 and tPos.y <= (parentH - 24) then
+            local dx, dy = tPos.x - px, tPos.y - py
+            local sLen = math.sqrt(dx * dx + dy * dy)
+            if sLen >= 14 then
+                hideFocusArrow(self)
+                local fl = ensureFocusLine(self)
+                local nSeg = math.max(5, math.min(LINE_SEGMENTS, math.floor(sLen / 11)))
+                for i = 1, LINE_SEGMENTS do
+                    local seg = fl.segs[i]
+                    if i <= nSeg then
+                        local t = (i / (nSeg + 1))
+                        local sx = math.floor(px + dx * t + 0.5)
+                        local sy = math.floor(py + dy * t + 0.5)
+                        seg.edge:SetPos(sx - 3, sy - 3)
+                        seg.core:SetPos(sx - 2, sy - 2)
+                        seg.edge.hidden = false
+                        seg.core.hidden = false
+                    else
+                        if not seg.edge.hidden then seg.edge.hidden = true end
+                        if not seg.core.hidden then seg.core.hidden = true end
+                    end
+                end
+                local tx, ty = math.floor(tPos.x + 0.5), math.floor(tPos.y + 0.5)
+                fl.tDark:SetPos(tx - 6, ty - 6)
+                fl.tOut:SetPos(tx - 4, ty - 4)
+                fl.tIn:SetPos(tx - 2, ty - 2)
+                fl.tDark.hidden = false
+                fl.tOut.hidden  = false
+                fl.tIn.hidden   = false
+                return
+            end
+        end
+    end
+
+    -- Tier 3: QuestHelper-inspired Directional Arrow when too far (> 42 tiles) or off-screen
+    hideFocusLine(self)
+    local dirX, dirY = computeScreenDirection(pCoord, targetCoord)
+    if not dirX or not dirY then
+        hideFocusArrow(self)
+        return
+    end
+
+    local fa = ensureFocusArrow(self)
+    local orbitR = 92
+    local ax = math.max(70, math.min(parentW - 70, px + dirX * orbitR))
+    local ay = math.max(82, math.min(parentH - 70, py + dirY * orbitR))
+    local tipX = ax + dirX * 12
+    local tipY = ay + dirY * 12
+
+    local function placeArrowPt(idx, x, y)
+        local pt = fa.pts[idx]
+        if not pt then return end
+        local ix, iy = math.floor(x + 0.5), math.floor(y + 0.5)
+        pt.edge:SetPos(ix - 3, iy - 3)
+        pt.core:SetPos(ix - 2, iy - 2)
+        pt.edge.hidden = false
+        pt.core.hidden = false
+    end
+
+    -- 1..5: tip + shaft
+    for s = 0, 4 do
+        placeArrowPt(s + 1, tipX - dirX * (s * 4.5), tipY - dirY * (s * 4.5))
+    end
+    -- 6..11: left chevron wing; 12..17: right chevron wing
+    local lwx = -dirX * COS_WING + dirY * SIN_WING
+    local lwy = -dirY * COS_WING - dirX * SIN_WING
+    local rwx = -dirX * COS_WING - dirY * SIN_WING
+    local rwy = -dirY * COS_WING + dirX * SIN_WING
+    for w = 1, 6 do
+        local dist = w * 2.7
+        placeArrowPt(5 + w, tipX + lwx * dist, tipY + lwy * dist)
+        placeArrowPt(11 + w, tipX + rwx * dist, tipY + rwy * dist)
+    end
+
+    local distStr = string.format("%d tiles", chebDist)
+    if fa.lastDistStr ~= distStr then
+        fa.lastDistStr = distStr
+        fa.lbl.content = distStr
+        local tw = measureTextWidth(distStr, fa.lbl.font, 7.6)
+        fa.lblW = math.max(54, tw + 12)
+        fa.lblBg:SetSize(fa.lblW, 20)
+        fa.lbl:SetSize(fa.lblW, 18)
+    end
+    local lw = fa.lblW or 68
+    local lx = math.floor(ax - lw * 0.5)
+    local ly = (dirY > 0.25) and math.floor(tipY + 12) or math.floor(ay + 20)
+    lx = math.max(8, math.min(parentW - lw - 8, lx))
+    ly = math.max(8, math.min(parentH - 26, ly))
+    fa.lblBg:SetPos(lx, ly)
+    fa.lbl:SetPos(lx + 6, ly + 2)
+    fa.lblBg.hidden = false
+    fa.lbl.hidden   = false
+end
+
 function Overlay:onDraw()
-    if not self.enabled or #self.activeSpots == 0 then
+    local hasFocus = (self.focusTarget ~= nil)
+    local showSpots = (self.enabled or hasFocus) and (#self.activeSpots > 0)
+    if not showSpots and not hasFocus then
         if self.mounted then self:hideAllWidgets() end
         return
     end
@@ -1065,6 +1797,14 @@ function Overlay:onDraw()
 
     local parentW = (self.parent and self.parent.width and self.parent.width > 0) and self.parent.width or 3840
     local parentH = (self.parent and self.parent.height and self.parent.height > 0) and self.parent.height or 2160
+
+    if not showSpots then
+        for _, w in ipairs(self.widgets) do
+            if w.root and not w.root.hidden then w.root.hidden = true end
+        end
+        drawFocusGuidance(self, parentW, parentH)
+        return
+    end
 
     local drawCount = math.min(MAX_INDICATORS, #self.activeSpots)
     for i = drawCount + 1, #self.widgets do
@@ -1092,10 +1832,12 @@ function Overlay:onDraw()
 
                     -- Build lightweight key so slot text/layout only updates when spot data changes
                     local firstItem = spot.materials[1]
-                    local renderKey = string.format("%s|%d|%d|%s|%s",
+                    local renderKey = string.format("%s|%d|%d|%d|%s|%s|%s",
                         tostring(spot.coordGrid.x or 0) .. "_" .. tostring(spot.coordGrid.z or 0),
                         numItems,
                         firstItem and (firstItem.short or 0) or 0,
+                        firstItem and (firstItem.id or 0) or 0,
+                        tostring(firstItem and firstItem.isFocusOnly == true),
                         tostring(hasArts),
                         tostring(totalPossible)
                     )
@@ -1118,7 +1860,10 @@ function Overlay:onDraw()
 
                             if item then
                                 local str
-                                if item.isArtefact then
+                                if item.isFocusOnly then
+                                    str = tostring(item.name)
+                                    slot.text.colour = item.isArtefact and COL_CYAN or COL_GOLD
+                                elseif item.isArtefact then
                                     str = string.format("x%d %s", item.short, item.name)
                                     slot.text.colour = COL_CYAN
                                 else
@@ -1200,6 +1945,8 @@ function Overlay:onDraw()
             widget.root.hidden = true
         end
     end
+
+    drawFocusGuidance(self, parentW, parentH)
 end
 
 function Overlay:hideAllWidgets()
@@ -1208,14 +1955,20 @@ function Overlay:hideAllWidgets()
             w.root.hidden = true
         end
     end
+    self:hideFocusWidgets()
 end
 
 function Overlay:toggleEnabled()
     self.enabled = not self.enabled
     DB.set("arch_spots_enabled", self.enabled and 1 or 0)
     if not self.enabled then
-        self:hideAllWidgets()
+        for _, w in ipairs(self.widgets) do
+            if w.root and not w.root.hidden then w.root.hidden = true end
+        end
         self.activeSpots = {}
+        if self.focusTarget then
+            self:scanWorldSpots(true)
+        end
     else
         self:triggerScan()
     end
@@ -1229,6 +1982,13 @@ function Overlay:destroy()
     if Event and Event.Logic and Event.Logic.Unsubscribe then
         pcall(function() Event.Logic.Unsubscribe("arch_spot_logic") end)
     end
+    if self.itemHighlight then
+        pcall(function() self.itemHighlight:destroy() end)
+        self.itemHighlight = nil
+    end
+    self.focusBanner = nil
+    self.focusLine   = nil
+    self.focusArrow  = nil
     if self.overlayRoot then
         pcall(function()
             self.overlayRoot.hidden = true

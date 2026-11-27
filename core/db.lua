@@ -9,8 +9,13 @@ local GLOBAL_KEYS = {
     arch_win_w = true,
     arch_win_h = true,
     arch_win_visible = true,
+    arch_loc_win_x = true,
+    arch_loc_win_y = true,
+    arch_loc_win_w = true,
+    arch_loc_win_h = true,
     arch_active_tab = true,
     arch_spots_enabled = true,
+    arch_prioritise_caches = true,
     arch_last_error = true,
     arch_legacy_migrated = true,
 }
