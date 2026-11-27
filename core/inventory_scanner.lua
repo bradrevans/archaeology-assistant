@@ -225,71 +225,6 @@ local function applyWorkbenchSnapshot(tracker, damagedCounts, invId)
     return increases, decreases
 end
 
---- Dumps all currently loaded inventories in the client to find the workbench container.
-function InventoryScanner.dumpLoadedInventories(tracker)
-    print("[Archaeology Assistant] === Scanning Loaded Client Inventories (1..1100) ===")
-    local okBag, bagRef   = pcall(function() return config.Inv.INV end)
-    local okWorn, wornRef = pcall(function() return config.Inv.WORN end)
-    local okBank, bankRef = pcall(function() return config.Inv.BANK end)
-    local okBench, benchRef0 = pcall(function() return config.Inv.ARCH_RESTORATION_WORKBENCH_STORAGE end)
-    local okMat, matStorRef  = pcall(function() return config.Inv.ARCH_MATERIAL_STORAGE end)
-
-    local function safeId(ref)
-        if not ref then return nil end
-        local ok, rid = pcall(function() return ref.id end)
-        return (ok and type(rid) == "number") and rid or nil
-    end
-
-    local bagId        = safeId(okBag and bagRef)
-    local wornId       = safeId(okWorn and wornRef)
-    local bankId       = safeId(okBank and bankRef)
-    local benchInvId   = safeId(okBench and benchRef0)
-    local matStorInvId = safeId(okMat and matStorRef)
-    local found = 0
-
-    for invId = 1, 1100 do
-        local inv = InventoryScanner.findInventory(invId)
-        if inv then
-            local slots = InventoryScanner.getInventorySlots(inv)
-            local occupied = 0
-            local sample = {}
-            local hasDamaged = false
-            for _, slot in ipairs(slots) do
-                local _, count, name = InventoryScanner.getSlotItemInfo(slot)
-                if name and count > 0 then
-                    occupied = occupied + 1
-                    local art, isDamaged = Artefacts.findByName(name)
-                    if art and isDamaged ~= false then
-                        hasDamaged = true
-                    end
-                    if #sample < 6 then
-                        table.insert(sample, string.format("%dx '%s' (isDmg=%s)", count, name, tostring(isDamaged)))
-                    end
-                end
-            end
-            if occupied > 0 or (slots and #slots > 0 and invId ~= bagId and invId ~= wornId) or (benchInvId and invId == benchInvId) or (matStorInvId and invId == matStorInvId) then
-                found = found + 1
-                local isBag = (bagId and invId == bagId) and " [Backpack]" or ""
-                local isBank = (bankId and invId == bankId) and " [Bank]" or ""
-                local isWorn = (wornId and invId == wornId) and " [Worn]" or ""
-                local isBench = (benchInvId and invId == benchInvId) and " [ARCH_RESTORATION_WORKBENCH_STORAGE]" or ""
-                local isMat = (matStorInvId and invId == matStorInvId) and " [ARCH_MATERIAL_STORAGE]" or ""
-                local dmgFlag = hasDamaged and " *** CONTAINS DAMAGED ARTEFACTS ***" or ""
-                print(string.format("[Archaeology Assistant] Inv[%d]%s%s%s%s%s: %d/%d slots. Samples: %s%s",
-                    invId, isBag, isBank, isWorn, isBench, isMat, occupied, #slots, table.concat(sample, ", "), dmgFlag))
-                if (hasDamaged or (benchInvId and invId == benchInvId)) and invId ~= bagId and invId ~= bankId then
-                    if tracker then
-                        local counts = InventoryScanner.extractDamagedArtefactsFromInv(inv)
-                        applyWorkbenchSnapshot(tracker, counts, invId)
-                        print(string.format("[Archaeology Assistant] Successfully synced Workbench storage from Inv[%d] (%d items)!", invId, occupied))
-                    end
-                end
-            end
-        end
-    end
-    print(string.format("[Archaeology Assistant] === Finished Scan: %d Inventories Located ===", found))
-end
-
 local function isInterfaceOpen(ifId)
     if not ifId or not ui or not ui.Interfaces then return false end
     local okIf, iface = pcall(function() return ui.Interfaces:GetInterface(ifId) end)
@@ -511,7 +446,6 @@ local function scanWorkbenchStorage(tracker, triggerInvType, bagInv, bagArts)
                 if inv then
                     local counts, dmgSlots, matSlots, otherSlots = InventoryScanner.extractDamagedArtefactsFromInv(inv)
                     if dmgSlots >= 1 and matSlots == 0 and otherSlots == 0 then
-                        print(string.format("[Archaeology Assistant] Workbench artefact storage found via probe at inventory %d (%d types).", invId, dmgSlots))
                         local inc, dec = applyWorkbenchSnapshot(tracker, counts, invId)
                         tracker.pendingWorkbenchScan = false
                         return inc, dec, false
@@ -599,8 +533,6 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
                         tracker.workbenchHasCache = InventoryScanner.countMapEntries(tracker.workbenchArtefacts) > 0
                         artsRestored[damagedName] = (artsRestored[damagedName] or 0) + deductBench
                         unattributed = unattributed - deductBench
-                        print(string.format("[Archaeology Assistant] Restored %d '%s' from Workbench storage (remaining in bench: %d)",
-                            deductBench, artRestoredName, tracker.workbenchArtefacts[damagedName] or 0))
                     end
                 end
 
@@ -616,8 +548,6 @@ local function reconcileBackpackMaterialAndArtefactDeltas(tracker, bagMats, bagA
                         DB.set("arch_bank_artefacts", DB.serializeCountMap(tracker.bankArtefacts))
                         artsRestored[damagedName] = (artsRestored[damagedName] or 0) + deductBank
                         unattributed = unattributed - deductBank
-                        print(string.format("[Archaeology Assistant] Restored %d '%s' from Bank (remaining in bank: %d)",
-                            deductBank, artRestoredName, tracker.bankArtefacts[damagedName] or 0))
                     end
                 end
             end
