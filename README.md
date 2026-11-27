@@ -3,7 +3,7 @@
 **Author:** Brad Evans  
 **Required Dependency:** `PrettyUI` (`6398181`)
 
-An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your inventory for damaged and restored Archaeology artefacts, calculates the restoration materials required, tracks your owned materials and artefacts across your **Backpack**, **Workbench Storage**, **Material Storage**, **Bank**, and **Waterfiend BoB**, and shows your live `Owned / Required` (`x/x`) progress, exact material deficits, and 3D world excavation spot indicators.
+An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your inventory for damaged and restored Archaeology artefacts, calculates the restoration materials required, tracks your owned materials and artefacts across your **Backpack**, **Workbench Storage**, **Material Storage**, **Bank**, and **Waterfiend BoB**, and provides live `Owned / Required` (`x/x`) progress, exact material deficits, 3D world excavation spot indicators, and step-by-step **Locate** navigation across every dig site and material cache.
 
 ---
 
@@ -30,30 +30,33 @@ An official **RuneScape 3 Client API** plugin (Lua 5.4.8) that scans your invent
       - Excavating duplicate damaged artefacts for a tracked collection does not inflate your target repair count beyond what the collection needs.
       - Displays tracked collection tags on artefacts in the Artefacts tab.
     - **Clean Tooltip Inspection**: Hovering any collection shows the collector's exact hand-in location across Gielinor, account benefits, recurring rewards, chronotes, and a concise checklist of every required artefact with its live status (`Handed in to collector`, `Restored (in Bag/Bank)`, `Damaged (in Bag/Bank)`, `Missing`).
-    - **Filter & Management**: Toolbar controls include `Col` filter (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`), `Lvl` level filter (applied across Collections, Artefacts, and Materials), `Clear Tracked`, and `Collectors: X/13`, plus independent source toggles (`Backpack`, `Material Storage`, `Bank`, `Workbench Storage`, `Waterfiend BoB`) in the Plugin Hub settings, and click-to-edit Target quantities.
-    - **Targeted Collections Total Chronotes Bounty**: Displays the combined total Chronote payout across all currently targeted collections directly on the Collections tab header (`Collections (X | +Y)`).
+    - **Dropdown Toolbar & Bulk Target Controls**: Toolbar dropdown menus with per-option hover tooltips, including collection view filtering (`Show: All`, `Incomplete`, `Targeted`, `Powers/Relics`, `Tetra Pieces`), a **`Targets` dropdown** (`Target Max`, `Target Min`, and `Reset` across all tracked collections), `Clear`, and `Collectors: X/13`, plus Ribbon Bar Plugin Hub toggles (`Level Req: Level Met / Show All`, `3D Excavation Spots`, `Locate Mats: Caches Only (100%) / Caches + Hotspots`, and independent `Backpack`, `Material Storage`, `Bank`, `Workbench Storage`, and `Beast of Burden` source toggles).
+    - **Targeted Collections Total Chronotes Bounty**: Displays the combined total Chronote payout across all currently targeted collections in the summary tiles.
   - **Artefacts Tab (Second)**:
     - Scans damaged and restored artefacts across your **Backpack**, **Workbench Storage**, **Bank**, and **Waterfiend BoB**, including uncollected artefacts targeted by collections.
-    - **`Dmg / Rst` Column & Location Tags**: Displays `Damaged / Restored` counts with `(Bag)`, `(Bench)`, `(Bank)`, or `(Multi)` tags (prioritising `(Bag)` when restored copies are in your backpack), with full Bag / Bench / Bank breakdowns in the hover tooltip.
+    - **`Dmg / Rst` Column & Location Tags**: Displays `Damaged / Restored` counts with `(Bag)`, `(BoB)`, `(Bench)`, `(Bank)`, or `(Multi)` tags (prioritising `(Bag)` when restored copies are in your backpack), with full breakdowns in the hover tooltip.
     - **Artefact Ownership & Readiness Status (`X/Y Ready`)**: Displays exact repair readiness (`X/Y Ready`) with colour-coded status text (**Green** when ready, **Orange** when only materials are short, and **Red** when damaged artefacts are short or both artefacts and materials are short), with full material deficits in the hover tooltip.
     - **Uncollected Artefact Display & Recipe Deficits**: When collections are tracked, uncollected artefacts are displayed alongside owned artefacts, and their complete restoration materials are added to the Materials tab deficit calculations.
-    - **Proportional Artefact & Location Columns**: Displays the excavation hotspot and dig site for every artefact (e.g. `Venator remains (Kharid-et)`), with **Artefact** and **Location** sharing resize width proportionally.
-    - **Artefact Source Filtering**: Dedicated toolbar filter button (`Show: All`, `Show: Tracked`, `Show: Owned`) to instantly isolate artefacts needed for your tracked collections.
+    - **Proportional Artefact & Location Columns + Locate Button**: Displays a clickable **Locate** button alongside the excavation hotspot and dig site for every artefact (e.g. `Venator remains (Kharid-et)`), with **Artefact** and **Location** sharing resize width proportionally.
+    - **Source, Status & Duplicate Dropdown Filters**: Dedicated toolbar dropdowns with hover tooltips for source (`Show: All`, `Tracked`, `Owned`), repair readiness **Status** (`Status: All`, `Ready`, `Missing Mats`, `Missing Artefact`, `Excluded`), and duplicate handling (`Dupes: All`, `Dupes: 1x`, `Include: 0`).
     - Displays in-game item icons alongside artefact names.
     - Hovering any row displays a rich floating tooltip with an enlarged (32x32) in-game item sprite, location, restoration XP, Chronotes, targeted collection sources, and the complete materials recipe with live `owned / required` quantities scaled to your target count.
     - Direct **Include** quantity controls (**`+` / `-`** steppers and click-to-edit numeric input, with `0` cleanly excluding an artefact from material calculations).
-    - **Flexible Inclusion Modes (`Dupes` button)**: Cycle between **Dupes: All**, **Dupes: 1x**, and **Include: 0** (sets all includes to 0 across the board for selective single-artefact repairs). Switching back to `All` or `1x` cleanly re-includes previously excluded artefacts.
-    - Summary banner showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
-    - **Pin / Lock** button (`Pin` / `Unpin`) to lock your chosen artefact targets so you can bank them and farm materials without losing your plan.
+    - Summary tiles showing total included artefacts, immediately restorable count, total potential Archaeology XP, and Chronotes.
   - **Materials Tab (Third)**:
     - Calculates exact restoration materials required based on tracked artefacts and targeted collections.
     - Displays in-game item icons alongside material names.
-    - Hovering any row displays a rich floating tooltip with an enlarged (32x32) in-game item sprite, exact container breakdown (`Bag`, `Storage`, `Bank`), total deficit, and all known excavation cache / dig site locations.
-    - Displays required excavation `Lvl`, material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
-    - **Show Filter** toggle (`Show: All` vs. `Short Only`) to focus exclusively on missing items.
-    - **Excavation Spot Highlighter** toggle (`Spots: On` vs. `Spots: Off`) to highlight world spots in 3D space.
+    - Hovering any row displays a rich floating tooltip with an enlarged (32x32) in-game item sprite, exact container breakdown (`Bag`, `BoB`, `Storage`, `Bank`), total deficit, and all known excavation cache / dig site locations.
+    - Displays required excavation `Lvl`, clickable **Locate** button + material cache / dig site `Location`, `Owned / Req` progress, and `Short` deficit.
+    - **Show Filter Dropdown** (`Show: All` vs. `Show: Short Only`) to focus exclusively on missing items.
+- **Step-by-Step Locate & Multi-Stage Navigation (Artefacts & Materials)**:
+  - **Per-Row Locate Toggle**: Click the **Locate** button next to any artefact or Archaeology material location to start guided navigation.
+  - **Companion `Locating` Window (`ui/locate_window.lua`)**: Opens in its own movable, resizable, scrollable `PrettyUI` window displaying the item icon, colour-coded item title (**Cyan** for artefacts, **Gold** for materials), light-yellow location/source subtitle, and live step instructions with tile distance. Your active target persists across sessions in `PersistentDB`, auto-clears once your needed count reaches `0`, and stops when you close the `Locating` window or click **Locate** again.
+  - **Teleport, Dig Sites Map & Dialog Highlighting (`ui/item_highlight.lua`)**: Highlights travel items (such as the Archaeology journal, Master archaeologist's outfit, Archaeology teleports, Ring of kinship, and Slayer cape) in both your **Backpack** and **Worn Equipment**, highlights your target dig site on the **Dig Sites map** (`667:11`), and highlights the matching destination/portal option in choice dialogs.
+  - **Multi-Stage Sub-Zone Routing & 3D World Guidance (`data/locations.lua`, `core/nav_memory.lua`)**: Routes through multi-room and multi-floor dig site transitions (doors, lifts, stairs, portals, gravitational cores, and Orthen teleportation devices) across all dig sites and overworld caches using a directional chevron arrow + tile distance at long range (`> 30` tiles or off-screen), a 3D world line within `6–30` tiles, and colour-coded overhead indicators right at the spot (`<= 5` tiles), while remembering live spot coordinates via `NavMemory`.
+  - **Material Cache Priority Setting**: Toggle **Locate Mats: Caches Only (100%)** vs. **Locate Mats: Caches + Hotspots** in the Ribbon Bar Plugin Hub to choose whether locating materials guides exclusively to 100% gather-chance Material Caches or includes excavation hotspots.
 - **In-Game Excavation Spot Highlighting & Overhead Deficit Indicators (Artefacts & Materials)**:
-  - Scans nearby active world objects (`LocList`) for **Material Caches** (`Material cache (...)`) and all 102 **Excavation Hotspots** yielding materials or artefacts you currently need.
+  - Scans nearby active world objects (`LocList`) for **Material Caches** (`Material cache (...)`) and **Excavation Hotspots** (including **covered** excavation spots via `parentConfig` fallback) yielding materials or artefacts you currently need.
   - **Shows Needed Artefacts Overhead by Name**: If an excavation hotspot yields an artefact required for your tracked collections or inclusion plan, and you do not already have enough damaged or repaired copies, the artefact appears directly on the overhead badge with its in-game item icon and cyan label displaying the artefact name (e.g. `x1 Venator dagger`).
   - **Visually Unique Styling**: Hotspots yielding needed artefacts feature a distinct, vibrant **Cyan** border and downward pointer chevron so you can identify needed artefact spots across the dig site at a glance.
   - Overhead indicators display each obtainable needed material with its in-game item sprite, live deficit quantity, and percentage likelihood based on the spot's material pool (e.g. `100%` for material caches, `25%` for 4-material hotspots).
@@ -84,22 +87,27 @@ The codebase follows **SOLID** and **DRY** principles with small, single-respons
   - [`core/inventory_scanner.lua`](core/inventory_scanner.lua) — Backpack, Workbench Storage, Bank, Material Storage, and Waterfiend BoB scanner with Area Loot and recipe preview isolation
   - [`core/noticeboard_scanner.lua`](core/noticeboard_scanner.lua) — `VarPlayer.COLLECTION_*` and `config.Achievement` collector sync engine (gated on Archaeology Journal or Guild noticeboard proximity)
   - [`core/chat_parser.lua`](core/chat_parser.lua) — Sign of the Porter, Grace of the Elves, Imp-Souled, Boon of Crondis, Straight Flush, collector hand-in, and excavation discovery chat parser
-- **`data/` — Slimmed Runtime Shells & Wiki Extras**:
+  - [`core/nav_memory.lua`](core/nav_memory.lua) — Account-scoped runtime coordinate cache persisting discovered hotspot and material cache locations in `PersistentDB`
+- **`data/` — Slimmed Runtime Shells, Navigation Graph & Wiki Extras**:
   - [`data/materials.lua`](data/materials.lua) — Runtime shell populated by `DBExtractor.syncAll()`
   - [`data/artefacts.lua`](data/artefacts.lua) — Runtime shell + `Artefacts.CHRONOTES` lookup (45 entries not exposed on `DBRow`s)
   - [`data/hotspots.lua`](data/hotspots.lua) — Runtime shell populated by `DBExtractor.syncAll()`
   - [`data/collections.lua`](data/collections.lua) — Runtime shell + `Collections.EXTRAS` metadata (79 entries for rewards/repeatability)
+  - [`data/locations.lua`](data/locations.lua) — Dig site arrival zones, sub-zone transition graph, verified hotspot/cache coordinates, and multi-stage guidance resolver
 - **`ui/` — Modular PrettyUI Components**:
   - [`ui/theme.lua`](ui/theme.lua) — Shared colour palette, layout constants, font resolution, and text wrapping height measurement
   - [`ui/tooltip.lua`](ui/tooltip.lua) — Floating tooltip component and tooltip content builders for collections, artefacts, materials, and sync badges
-  - [`ui/widgets.lua`](ui/widgets.lua) — Reusable UI component factories (toolbar buttons, sync badges, collector sync pill, table rows, resize handles)
-  - [`ui/window.lua`](ui/window.lua) — Main `PrettyUI` movable, resizable, scrollable 3-tab window and Ribbon Bar hub
-  - [`ui/overlay.lua`](ui/overlay.lua) — In-game 3D world spot highlighter and overhead deficit indicator badges
+  - [`ui/widgets.lua`](ui/widgets.lua) — Reusable UI component factories (toolbar buttons, locate buttons, sync badges, collector sync pill, table rows, resize handles)
+  - [`ui/window.lua`](ui/window.lua) — Main `PrettyUI` movable, resizable, scrollable 3-tab window, dropdown menus, and Ribbon Bar hub
+  - [`ui/locate_window.lua`](ui/locate_window.lua) — Movable, resizable, scrollable `PrettyUI` companion window for active Locate navigation
+  - [`ui/item_highlight.lua`](ui/item_highlight.lua) — Two-phase Backpack, Worn Equipment, Dig Sites map (`667:11`), and choice-dialog highlighter
+  - [`ui/overlay.lua`](ui/overlay.lua) — In-game 3D world spot highlighter, overhead deficit/focus indicators, and 3D route line / directional arrow renderer
 
 ### Cross-Platform Python Toolchain (Excluded from Plugin Bundle)
 All build, Wiki data scraping, validation, deployment, and Mod.io packaging tasks are written in standard-library **Python 3.10+** (`manage.py` and `scripts/*.py`) so they run identically on **Windows, macOS, and Linux** without external pip dependencies:
 - [`manage.py`](manage.py) — Unified cross-platform CLI entrypoint (`update-data`, `build`, `deploy`, `package`, `launch-beta`)
 - [`scripts/update_wiki_data.py`](scripts/update_wiki_data.py) — Scrapes supplemental Wiki metadata not exposed on game `DBRow`s (artefact chronotes and collection rewards/benefits) from `https://runescape.wiki` and regenerates the slim `data/*.lua` files
+- [`scripts/generate_locations.py`](scripts/generate_locations.py) — Extracts and validates dig site sub-zone bounding boxes, multi-stage transition coordinates/dialog options, and hotspot/cache world coordinates into `data/locations.lua`
 - [`scripts/build_plugin.py`](scripts/build_plugin.py) — Validates `plugin.json`, Lua syntax/brace balance, local `require(...)` graph, and data integrity, then stages the runtime bundle in `dist/archaeology-assistant/` (and optionally deploys to the local RS3 plugin directory)
 - [`scripts/package_submission.py`](scripts/package_submission.py) — Runs the full build validation and packages `dist/archaeology-assistant-v<version>.zip` with root-level `main.lua` and `plugin.json` for Mod.io
 - [`scripts/launch_beta.py`](scripts/launch_beta.py) — Builds, deploys, and opens the `rs-launch://` URI via the OS URL handler
